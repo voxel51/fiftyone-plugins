@@ -3,7 +3,7 @@ import './FiftyOneMap.css';
 import React from 'react';
 import mapboxgl from 'mapbox-gl';
 
-
+const MAPBOX_ACCESS_TOKEN; // Add access token here;
 const circleColor = "#FF0000"
 
 const styles = [{
@@ -84,7 +84,7 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps> {
         const { data, onClick, onGroup, tooltip } = props
         super(props);
 
-        mapboxgl.accessToken = 'pk.eyJ1IjoiajA1M3l2b3hlbCIsImEiOiJjbDRtd3VldnowMG01M2NubmNjZmtvN3NxIn0.JyRqvrIGqQz9kx7w26UIXQ';
+        mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN
 
         this.data = data;
         this.points = {
@@ -265,13 +265,13 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps> {
     }
 }
 
-function Choices({parent, styles}) {
+function Choices({ parent, styles }) {
     return styles.map((style, idx) => {
         return <Choice parent={parent} style={style} idx={idx} />
     })
 }
 
-function Choice({idx, style, parent}) {
+function Choice({ idx, style, parent }) {
     return (
         <span key={idx} >
             <input id={style.id} type="radio" name="rtoggle" checked onClick={() => parent.setStyle(style.id)} />

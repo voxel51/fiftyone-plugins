@@ -12,6 +12,7 @@
     "leaflet-lasso": "^2.2.8",
     "leaflet.markercluster": "^1.5.3",
     "mapbox-gl": "^2.9.0",
+    "plotly.js-dist": "^2.12.1",
     "react": "^18.1.0",
     "react-dom": "^18.0.0",
     "web-vitals": "^2.1.4"
