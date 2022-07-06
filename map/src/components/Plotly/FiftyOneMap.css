@@ -1,15 +1,3 @@
-@import url("https://unpkg.com/leaflet@1.8.0/dist/leaflet.css");
-@import url("https://unpkg.com/leaflet.markercluster@1.3.0/dist/MarkerCluster.css");
-@import url("https://unpkg.com/leaflet.markercluster@1.3.0/dist/MarkerCluster.Default.css");
-@import url("https: //cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/fontawesome.css");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/brands.css");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/solid.css");
-
 #fiftyone-map-plotly-container {
     height: 400px;
-}
-
-#fiftyone-map-plotly-container-dummy {
-    height: 0;
 }

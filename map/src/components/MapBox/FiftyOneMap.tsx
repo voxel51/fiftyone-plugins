@@ -3,7 +3,7 @@ import './FiftyOneMap.css';
 import React from 'react';
 import mapboxgl from 'mapbox-gl';
 
-const MAPBOX_ACCESS_TOKEN; // Add access token here;
+const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 const circleColor = "#FF0000"
 
 const styles = [{

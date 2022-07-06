@@ -1,11 +1,10 @@
-
 import './FiftyOneMap.css';
 
-import React from 'react';
-import Plotly from 'plotly.js-dist';
 import mapboxgl from 'mapbox-gl';
+import Plotly from 'plotly.js-dist';
+import React from 'react';
 
-const MAPBOX_ACCESS_TOKEN; // Add access token here;
+const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 const PLOTLY_CONTAINER_ID = "fiftyone-map-plotly-container";
 const MAP_STYLES = {
     streets: "Streets",
@@ -43,23 +42,21 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
     }
 
     componentDidMount() {
-        let that = this;
+        let bounds = this.latLngs.reduce(
+            (bounds, latLng) => bounds.extend([latLng[1], latLng[0]]),
+            new mapboxgl.LngLatBounds()
+        );
+        let center = bounds.getCenter();
 
         let data = [{
             type: "scattermapbox",
             lat: this.latLngs.map(latLng => latLng[0]),
             lon: this.latLngs.map(latLng => latLng[1]),
             marker: {
-                color: that.markerColor,
-                size: that.markerSize
+                color: this.markerColor,
+                size: this.markerSize
             }
         }];
-
-        let bounds = that.latLngs.reduce(
-            (bounds, latLng) => bounds.extend([latLng[1], latLng[0]]),
-            new mapboxgl.LngLatBounds()
-        );
-        let center = bounds.getCenter();
 
         let layout = {
             mapbox: {
@@ -73,38 +70,42 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
             margin: { r: 0, t: 0, b: 0, l: 0 }
         };
 
-
-        Plotly.newPlot(PLOTLY_CONTAINER_ID, data, layout, {
+        var config = {
             mapboxAccessToken: MAPBOX_ACCESS_TOKEN
-        }).then(plot => {
-            let map = plot._fullLayout.mapbox._subplot.map;
+        };
 
-            map.once('zoomend', () => {
-                let zoom = map.getZoom();
-                plot._fullLayout.mapbox._subplot.viewInitial.zoom = zoom;
-                Plotly.relayout(PLOTLY_CONTAINER_ID, { "mapbox.zoom": zoom });
+        var that = this;
+        Plotly
+            .newPlot(PLOTLY_CONTAINER_ID, data, layout, config)
+            .then(plot => {
+                let map = plot._fullLayout.mapbox._subplot.map;
+
+                map.once('zoomend', () => {
+                    let zoom = map.getZoom();
+                    plot._fullLayout.mapbox._subplot.viewInitial.zoom = zoom;
+                    Plotly.relayout(PLOTLY_CONTAINER_ID, { "mapbox.zoom": zoom });
+                });
+
+                map.fitBounds([
+                    bounds.getSouthWest(),
+                    bounds.getNorthEast()
+                ], { padding: 15 });
+
+                /// TODO: Bubble event for clicking a single point
+                plot.on('plotly_click', event => {
+                    let sampleID = that.sampleIDs[event.points[0].pointIndex];
+                    console.log(`Clicked sample: ${sampleID}`);
+                });
+
+                /// TODO: Bubble event for lassoing points
+                plot.on('plotly_selected', event => {
+                    let sampleIDs = event.points.map(point => that.sampleIDs[point.pointIndex]);
+                    console.log(`Selected ${sampleIDs.length} samples: ${sampleIDs}`);
+                });
             });
-
-            map.fitBounds([
-                bounds.getSouthWest(),
-                bounds.getNorthEast()
-            ], { padding: 15 });
-
-            /// TODO: Bubble event for clicking a single point
-            plot.on('plotly_click', data => {
-                let sampleID = that.sampleIDs[data.points[0].pointIndex];
-                console.log(`Clicked sample: ${sampleID}`);
-            });
-
-            /// TODO: Bubble event for lassoing points
-            plot.on('plotly_selected', data => {
-                let sampleIDs = data.points.map(pt => that.sampleIDs[pt.pointIndex]);
-                console.log(`Selected ${sampleIDs.length} samples: ${sampleIDs}`);
-            });
-        });
     }
 
-    mapStyleChange(style) {
+    mapStyleChange(style: string) {
         Plotly.relayout(PLOTLY_CONTAINER_ID, { "mapbox.style": style });
         this.setState({
             selectedMapStyle: style
