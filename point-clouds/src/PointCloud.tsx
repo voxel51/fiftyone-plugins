@@ -46,6 +46,21 @@ function Cuboid({dimensions, alpha, rotation_y, location, selected, onClick}) {
   )
 }
 
+function CameraSetup() {
+  const camera = useThree(state => state.camera)
+  React.useEffect(() => {
+    console.log('set camera pos')
+    camera.position.set(0, 0, 20)
+    camera.rotation.set(0, 0, 0)
+    camera.updateProjectionMatrix()
+
+    return () => {
+      console.log('CameraSetup unmounted')
+    }
+  }, [])
+  return <OrbitControls makeDefault autoRotateSpeed={2.5} zoomSpeed={0.1} />
+}
+
 export function PointCloud({api = {}, filePrefix = '/plugins/point-clouds/example_data/'} = {}) {
   const {
     getSampleSrc,
@@ -66,15 +81,6 @@ export function PointCloud({api = {}, filePrefix = '/plugins/point-clouds/exampl
   // ground_truth.detections[0].dimensions
   // ground_truth.detections[0].rotation_y
 
-  function CameraSetup() {
-    const camera = useThree(state => state.camera)
-    React.useLayoutEffect(() => {
-      camera.position.set(0, 0, 20)
-      camera.rotation.set(0, 0, 0)
-      camera.updateProjectionMatrix()
-    }, [camera])
-    return <OrbitControls makeDefault autoRotateSpeed={2.5} zoomSpeed={0.1} />
-  }
 
   // rotation={[deg2rad(-90), 0, deg2rad(90)]}
 
