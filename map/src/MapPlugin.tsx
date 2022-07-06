@@ -7,6 +7,13 @@ registerComponent({
   label: 'Map',
   component: Map,
   type: PluginComponentType.Plot,
-  // TODO custom activator
-  activator: () => true
+  activator: hasGeoField
 })
+
+function hasGeoField({dataset}) {
+  const field = dataset
+    .sampleFields
+    .find(f => f.embeddedDocType === "fiftyone.core.labels.GeoLocation")
+  
+  return field !== undefined
+}

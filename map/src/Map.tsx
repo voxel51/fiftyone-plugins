@@ -7,73 +7,45 @@ import FiftyOneLeaflet from './components/Leaflet/FiftyOneMap';
 import FiftyOneMapBox from './components/MapBox/FiftyOneMap';
 
 import * as ReactDOMServer from 'react-dom/server';
+import * as fop from '@fiftyone/plugins'
 
-
-function useGeoLocations() {
-  const [loading, setLoading] = React.useState(true)
-  const [data, setData] = React.useState(null)
-
-  const jsonBody = {
-    "filters": null,
-    "dataset": "quickstart-geo",
-    "sample_ids": null,
-    "aggregations": [{
-        "_cls": "fiftyone.core.aggregations.Values",
-        "kwargs": [
-            ["field_or_expr", "id"],
-            ["expr", null],
-            ["missing_value", null],
-            ["unwind", false],
-            ["_allow_missing", false],
-            ["_big_result", true],
-            ["_raw", false]
-        ]
-    },
-    {
-        "_cls": "fiftyone.core.aggregations.Values",
-        "kwargs": [
-            ["field_or_expr", "location.point.coordinates"],
-            ["expr", null],
-            ["missing_value", null],
-            ["unwind", false],
-            ["_allow_missing", false],
-            ["_big_result", true],
-            ["_raw", false]
-        ]
-    }]
-  }
+function useGeoLocations(dataset) {
+  const [aggregate, points, loading] = fop.useAggregation()
 
   React.useEffect(() => {
-    fetch('http://localhost:5151/aggregate', {
-      method: 'POST',
-      body: JSON.stringify(jsonBody)
-    })
-    .then(resp => resp.json())
-    .then(json => {
-      console.log(json)
-      const {aggregate} = json
-      const [ids, locations] = aggregate
-      const data = []
-      for (let i = 0; i < ids.length; i++) {
-        const location = locations[i]
-        data.push({
-          id: ids[0],
-          location: {
-            lat: location[0],
-            lng: location[1]
-          }
-        })
-      }
-      setLoading(false)
-      setData(data)
-    })
+    aggregate([
+      new fop.aggregations.Values({
+        fieldOrExpr: 'id',
+        // @ts-ignore
+        _big_result: true
+      }),
+      new fop.aggregations.Values({
+        fieldOrExpr: 'location.point.coordinates'
+      }),
+    ], dataset.name)
   }, [])
+
+  const data = []
+  if (points && points.length) {
+    const [ids, locations] = points
+    for (let i = 0; i < ids.length; i++) {
+      const location = locations[i]
+      console.log(location)
+      data.push({
+        id: ids[i],
+        location: {
+          lat: location[0],
+          lng: location[1]
+        }
+      })
+    }
+  }
 
   return {loading, data}
 }
 
-function Map() {
-  const {loading, data} = useGeoLocations()
+function Map({dataset}) {
+  const {loading, data} = useGeoLocations(dataset)
 
   if (loading) return <h3>Loading....</h3>
 
