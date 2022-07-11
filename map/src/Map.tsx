@@ -8,19 +8,17 @@ import FiftyOneMapBox from './components/MapBox/FiftyOneMap';
 
 import * as ReactDOMServer from 'react-dom/server';
 import * as fop from '@fiftyone/plugins'
+import * as foa from '@fiftyone/aggregations'
 
 function useGeoLocations({dataset, filters, view}) {
-  console.log({dataset, filters, view})
-  const [aggregate, points, loading] = fop.useAggregation({dataset, filters, view})
+  const [aggregate, points, loading] = foa.useAggregation({dataset, filters, view})
 
   React.useEffect(() => {
     aggregate([
-      new fop.aggregations.Values({
-        fieldOrExpr: 'id',
-        // @ts-ignore
-        _big_result: true
+      new foa.aggregations.Values({
+        fieldOrExpr: 'id'
       }),
-      new fop.aggregations.Values({
+      new foa.aggregations.Values({
         fieldOrExpr: 'location.point.coordinates'
       }),
     ], dataset.name)
@@ -28,15 +26,14 @@ function useGeoLocations({dataset, filters, view}) {
 
   const data = []
   if (points && points.length) {
-    console.log({points})
     const [ids, locations] = points
     for (let i = 0; i < ids.length; i++) {
       const location = locations[i]
       data.push({
         id: ids[i],
         location: {
-          lat: location[0],
-          lng: location[1]
+          lat: location[1],
+          lng: location[0]
         }
       })
     }
