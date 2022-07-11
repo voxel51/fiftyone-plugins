@@ -4,7 +4,6 @@ import {
   PluginComponentType
 } from '@fiftyone/plugins'
 
-
 registerComponent({
   name: 'PointCloud',
   component: PointCloud,
