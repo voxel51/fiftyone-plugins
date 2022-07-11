@@ -21,7 +21,8 @@ export default defineConfig({
       entry: path.resolve(__dirname, 'src/PointCloudPlugin.tsx'),
       name: 'PointCloudPlugin',
       fileName: (format) => `index.${format}.js`
-    }
+    },
+    minify: false
   },
   define: {
     "process.env.NODE_ENV": '"development"',
