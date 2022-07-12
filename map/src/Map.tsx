@@ -1,27 +1,19 @@
 import React from 'react'
 
-import "@fortawesome/fontawesome-free/css/all.css";
-import "@fortawesome/fontawesome-free/js/all.js";
-
-// import FiftyOneLeaflet from './components/Leaflet/FiftyOneMap';
-// import FiftyOneMapBox from './components/MapBox/FiftyOneMap';
 import FiftyOnePlotly from './components/Plotly/FiftyOneMap';
 
-import * as ReactDOMServer from 'react-dom/server';
-import * as fop from '@fiftyone/plugins'
+import * as foa from '@fiftyone/aggregations'
 
 function useGeoLocations({ dataset, filters, view }) {
   console.log({ dataset, filters, view })
-  const [aggregate, points, loading] = fop.useAggregation({ dataset, filters, view })
+  const [aggregate, points, loading] = foa.useAggregation({ dataset, filters, view })
 
   React.useEffect(() => {
     aggregate([
-      new fop.aggregations.Values({
-        fieldOrExpr: 'id',
-        // @ts-ignore
-        _big_result: true
+      new foa.aggregations.Values({
+        fieldOrExpr: 'id'
       }),
-      new fop.aggregations.Values({
+      new foa.aggregations.Values({
         fieldOrExpr: 'location.point.coordinates'
       }),
     ], dataset.name)

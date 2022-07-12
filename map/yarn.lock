@@ -234,6 +234,10 @@
     "@babel/helper-validator-identifier" "^7.16.7"
     "to-fast-properties" "^2.0.0"
 
+"@fiftyone/aggregations@file:../../fiftyone/app/packages/aggregations":
+  "resolved" "file:../../fiftyone/app/packages/aggregations"
+  "version" "0.0.0"
+
 "@fiftyone/plugins@../../fiftyone/app/packages/plugins":
   "resolved" "file:../../fiftyone/app/packages/plugins"
   "version" "0.0.0"
