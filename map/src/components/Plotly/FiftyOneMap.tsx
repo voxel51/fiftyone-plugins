@@ -5,7 +5,7 @@ import Plotly from 'plotly.js-dist';
 import React from 'react';
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-const PLOTLY_CONTAINER_ID = "fiftyone-map-plotly-container";
+const PLOTLY_CONTAINER_ID = "fiftyone-plotly-map";
 const MAP_STYLES = {
     streets: "Streets",
     light: "Light",
@@ -41,7 +41,8 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
         };
     }
 
-    componentDidMount() {
+
+    draw() {
         let bounds = this.latLngs.reduce(
             (bounds, latLng) => bounds.extend([latLng[1], latLng[0]]),
             new mapboxgl.LngLatBounds()
@@ -87,9 +88,9 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
                 });
 
                 map.fitBounds([
-                    bounds.getSouthWest(),
-                    bounds.getNorthEast()
-                ], { padding: 15 });
+                    bounds.getNorthEast(),
+                    bounds.getSouthWest()
+                ], { padding: 20 });
 
                 /// TODO: Bubble event for clicking a single point
                 plot.on('plotly_click', event => {
@@ -105,6 +106,10 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
             });
     }
 
+    componentDidMount() {
+        this.draw()
+    }
+
     mapStyleChange(style: string) {
         Plotly.relayout(PLOTLY_CONTAINER_ID, { "mapbox.style": style });
         this.setState({
@@ -114,9 +119,8 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
 
     render() {
         return (
-            <div>
-                <div id="fiftyone-map-plotly-container"></div>
-                <div>
+            <div id="fiftyone-plotly-container">
+                <div id="fiftyone-plotly-styles">
                     {Object.keys(MAP_STYLES).map(key =>
                         <span key={key}>
                             <input
@@ -128,6 +132,7 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
                         </span>
                     )}
                 </div>
+                <div id="fiftyone-plotly-map"></div>
             </div>
         )
     }
