@@ -1,0 +1,6 @@
+{
+  "point-clouds": {
+    "enabled": true,
+    "defaultCameraPosition": {"x": 0, "y": 0, "z": 20}
+  }
+}

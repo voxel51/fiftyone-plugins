@@ -4,10 +4,9 @@ import {
   PluginComponentType
 } from '@fiftyone/plugins'
 
-
 registerComponent({
   name: 'PointCloud',
   component: PointCloud,
-  type: PluginComponentType.SampleModalContent,
+  type: PluginComponentType.Visualizer,
   activator: ({sample}) => typeof sample.pcd_filepath === 'string'
 })
