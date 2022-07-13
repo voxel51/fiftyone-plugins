@@ -15,7 +15,8 @@ const MAP_STYLES = {
 };
 
 type FiftyOneMapProps = {
-    sampleIDs: any, latLngs: any
+    sampleIDs: any,
+    latLngs: any
 };
 
 type FiftyOneMapState = {
@@ -28,11 +29,11 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
     private markerColor: string;
     private markerSize: number;
 
-    constructor({ sampleIDs, latLngs }) {
-        super({ sampleIDs, latLngs });
+    constructor(props) {
+        super(props);
 
-        this.sampleIDs = sampleIDs;
-        this.latLngs = latLngs;
+        this.sampleIDs = props.sampleIDs;
+        this.latLngs = props.latLngs;
         this.markerColor = 'red';
         this.markerSize = 10;
 
@@ -65,8 +66,7 @@ class FiftyOneMap extends React.Component<FiftyOneMapProps, FiftyOneMapState> {
                 center: {
                     lat: center.lat,
                     lon: center.lng
-                },
-                zoom: 2
+                }
             },
             margin: { r: 0, t: 0, b: 0, l: 0 }
         };
