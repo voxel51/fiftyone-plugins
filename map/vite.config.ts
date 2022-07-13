@@ -16,10 +16,12 @@ export default defineConfig({
     }) : undefined
   ],
   build: {
+    minify: true,
     lib: {
       entry: path.resolve(__dirname, 'src/MapPlugin.tsx'),
       name: 'MapPlugin',
-      fileName: (format) => `index.${format}.js`
+      fileName: (format) => `index.${format}.js`,
+      formats: ['umd']
     }
   },
   define: {
