@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "noImplicitAny": false,
+    "sourceMap": true,
+    "outDir": "dist",
+    "moduleResolution": "node"
+  },
+  "include": ["src"]
+}
