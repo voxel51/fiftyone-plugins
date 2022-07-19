@@ -8,5 +8,5 @@ registerComponent({
   name: 'PointCloud',
   component: PointCloud,
   type: PluginComponentType.Visualizer,
-  activator: ({sample}) => typeof sample.pcd_filepath === 'string'
+  activator: ({sample, pinned}) => typeof sample.pcd_filepath === 'string' && pinned
 })

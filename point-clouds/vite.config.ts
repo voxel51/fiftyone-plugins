@@ -13,14 +13,16 @@ export default defineConfig({
     react(),
     isPluginBuild ? viteExternalsPlugin({
       react: 'React',
-      'react-dom': 'ReactDOM'
+      'react-dom': 'ReactDOM',
+      'recoil': 'recoil'
     }) : undefined
   ],
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/PointCloudPlugin.tsx'),
       name: 'PointCloudPlugin',
-      fileName: (format) => `index.${format}.js`
+      fileName: (format) => `index.${format}.js`,
+      formats: ['umd']
     },
     minify: false
   },

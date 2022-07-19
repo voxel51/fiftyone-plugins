@@ -4,99 +4,73 @@ import { Canvas, ThreeEvent, useFrame, useLoader, useThree } from '@react-three/
 import {PCDLoader} from 'three/examples/jsm/loaders/PCDLoader'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
+import styled from "styled-components"
+import ColorLensIcon from '@mui/icons-material/ColorLens';
+import * as pcState from './state'
+import * as recoil from 'recoil'
+// import * as fos from '@fiftyone/state'
+import {ShadeByIntensity, ShadeByZ} from './shaders'
 
 THREE.Object3D.DefaultUp = new THREE.Vector3(0,0,1)
 
 
 
-function generateTexture(gradients: [number, string][]) {
-	var size = 512;
-
-
-	// create canvas
-	const canvas = document.createElement( 'canvas' );
-	canvas.width = size;
-	canvas.height = size;
-
-	// get context
-	const context = canvas.getContext( '2d' );
-
-	// draw gradient
-	context.rect( 0, 0, size, size );
-	const gradient = context.createLinearGradient( 0, 0, 0, size );
-  for (const g of gradients) {
-    gradient.addColorStop(...g);
-  }
-	context.fillStyle = gradient;
-	context.fill();
-
-	return canvas;
-}
 
 const deg2rad = degrees => degrees * (Math.PI / 180);
 
-function PointCloudMesh({points}) {
-  const gradientMap = React.useMemo(() => new THREE.CanvasTexture(generateTexture([
+function PointCloudMesh({colorBy, points}) {
+  const geo = points.geometry;
+  geo.computeBoundingBox();
+  const gradients = [
     [0, '#38fffc'],
     [0.5, '#ff7a38'],
     [1, '#ffffff']
-  ])), [])
+  ]
 
-  var heatVertex = `
-    uniform float maxZ;
-    uniform float minZ;
-    varying vec2 vUv;
-    varying float hValue;
+  React.useEffect(() => {
 
-    float remap ( float minval, float maxval, float curval ) {
-      return ( curval - minval ) / ( maxval - minval );
-    }
+  })
 
-    void main() {
-      vUv = uv;
-      vec3 pos = position;
-      hValue = remap(minZ, maxZ, pos.z);
+  let material
+  switch (colorBy) {
+    case 'none':
+      material = <pointsMaterial color={'white'} size={0.0001} />
+      break
+    case 'height':
+      material = <ShadeByZ gradients={gradients} minZ={geo.boundingBox.min.z} maxZ={geo.boundingBox.max.z} />
+      break
+    case 'intensity':
+      material = <ShadeByIntensity gradients={gradients} />
+      break
+  }
 
-      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-
-      gl_PointSize = 10. * (1. / - mvPosition.z);
-      gl_Position = projectionMatrix * mvPosition;
-    }
-  `;
-  var heatFragment = `
-    uniform sampler2D gradientMap;
-    varying float hValue;
-
-    void main() {
-      float v = clamp(hValue, 0., 1.);
-      vec3 col = texture2D(gradientMap, vec2(0, v)).rgb;
-      gl_FragColor = vec4(col, 1.);
-    }
-  `;
-
-  const geo = points.geometry;
-  geo.computeBoundingBox();
-  const groundOffset = -2.1;
+  console.log({colorBy})
 
   return (
-    <primitive scale={1} object={points} rotation={[0, 0, deg2rad(90)]}>
-      {/* <pointsMaterial color={'white'} size={0.0001} /> */}
-      <shaderMaterial
-        {...{
-          uniforms: {
-            minZ: {value: groundOffset}, // geo.boundingBox.min.z
-            maxZ: {value: geo.boundingBox.max.z},
-            gradientMap: {value: gradientMap}
-          },
-          vertexShader: heatVertex,
-          fragmentShader: heatFragment
-        }}
-      />
+    <primitive key={colorBy} scale={1} object={points} rotation={[0, 0, deg2rad(90)]}>
+      {material}
     </primitive>
   )
 }
 
-function Cuboid({dimensions, opacity, rotation_y, location, selected, onClick}) {
+// function Polygon({opacity, filled, closed, points3d, color, selected, onClick}) {
+//   const points = points3d.map(p => new THREE.Vector2(p[0], p[1]))
+//   const shape = React.useMemo(() => new THREE.Shape(points), [])
+//   const geo = React.useMemo(() => new THREE.ShapeGeometry(shape), [])
+//   const mat = React.useMemo(() => {
+//     const m = new THREE.MeshBasicMaterial()
+//     m.side = THREE.DoubleSide
+//     return m
+//   }, [])
+//   return (
+//     <mesh>
+//       <primitive object={geo} attach="geometry" />
+//       <primitive object={mat} attach="material" color="green" />
+//     </mesh>
+//   )
+// }
+
+function Cuboid({dimensions, opacity, rotation_y, location, selected, onClick, color}) {
   const [x, y, z] = location
   const x2 = x
   const y2 = y - (0.5 * dimensions[1])
@@ -118,23 +92,31 @@ function Cuboid({dimensions, opacity, rotation_y, location, selected, onClick}) 
       </mesh>
       <mesh onClick={onClick} position={loc} rotation={[0, rotation_y + Math.PI / 2, 0]}>
         <boxGeometry args={dimensions} />
-        <meshBasicMaterial transparent={true} opacity={opacity * 0.5} color={selected ? 'orange' : 'green'} />
+        <meshBasicMaterial transparent={true} opacity={opacity * 0.5} color={selected ? 'orange' : color} />
       </mesh>
     </Fragment>
   )
 }
 
-function Polyline({opacity, points3d, selected, onClick}) {
-  const geo = React.useMemo(() => new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 10, 0)
-  ]), [])
+function Line({points, color, opacity, onClick}) {
+  const geo = React.useMemo(() => new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(...p))), [])
 
   return (
-    <line>
+    <line onClick={onClick}>
       <primitive object={geo} attach="geometry" />
-      <lineBasicMaterial attach="material" color="#ff0000" />
+      <lineBasicMaterial attach="material" color={color} />
     </line>
+  )
+}
+
+function Polyline({opacity, filled, closed, points3d, color, selected, onClick}) {
+  if (filled) {
+    // filled not yet supported
+    return null
+  }
+
+  return (
+    points3d.map(points => <Line points={points} opacity={opacity} color={selected ? 'orange' : color} onClick={onClick} />)
   )
 }
 
@@ -150,7 +132,7 @@ function CameraSetup() {
         settings.defaultCameraPosition.z
       )
     } else {
-      camera.position.set(0, 0, 1)
+      camera.position.set(0, 0, 20)
     }
     camera.rotation.set(0, 0, 0)
     camera.updateProjectionMatrix()
@@ -177,33 +159,116 @@ export function PointCloud({api = {}, filePrefix = '/plugins/point-clouds/exampl
   const labelAlpha = useState(state.alpha(modal))
 
   const overlays = load3dOverlays(sample, selectedLabels)
-    // hardcoding the field name is wrong
-    .filter(l => pathFilter('ground_truth', l))
+    .filter(l => {
+      return pathFilter(l.path.join('.'), l)
+    })
+    .map(l => {
+      // const color = 
+      const color = 'green'
+      return {...l, color}
+    })
 
   const handleSelect = (label) => {
     console.log({label})
-    onSelectLabel({detail: {id: label._id, field: 'detections'}})
+    onSelectLabel({detail: {id: label._id, field: label.path[label.path.length - 1]}})
   }
-  
-  console.log(sample.polylines)
+
+  const colorBy = recoil.useRecoilValue(pcState.colorBy)
+  const [currentAction, setAction] = recoil.useRecoilState(pcState.currentAction)
 
   return (
-    <Canvas>
-      <CameraSetup />
-      <mesh rotation={[deg2rad(90), deg2rad(180), deg2rad(180)]}>
-        {overlays.filter(o => o._cls === 'Detection').map(label => <Cuboid opacity={labelAlpha} {...label} onClick={() => handleSelect(label)} />)}
-      </mesh>
-      {overlays.filter(o => o._cls === 'Polyline' && o.points3d).map(label => <Polyline opacity={labelAlpha} {...label} onClick={() => handleSelect(label)} />)}
-      <PointCloudMesh points={points} />
-      <axesHelper />
-    </Canvas>
+    <Container onClick={() => setAction(null)}>
+      <Canvas>
+        <CameraSetup />
+        <mesh rotation={[deg2rad(90), deg2rad(180), deg2rad(180)]}>
+          {overlays.filter(o => o._cls === 'Detection').map((label, key) => <Cuboid key={key} opacity={labelAlpha} {...label} onClick={() => handleSelect(label)} />)}
+        </mesh>
+        {overlays.filter(o => o._cls === 'Polyline' && o.points3d).map((label, key) => <Polyline key={key} opacity={labelAlpha} {...label} onClick={() => handleSelect(label)} />)}
+        <PointCloudMesh colorBy={colorBy} points={points} />
+        <axesHelper />
+      </Canvas>
+      <ActionBar />
+    </Container>
   )
 }
 
-function load3dOverlays(sample, selectedLabels) {
+const Container = styled.div`
+  height: 100%;
+  width: 100%;
+  position: relative;
+`
+
+const ACTION_BAR_HEIGHT = '3.5em'
+const ActionBarContainer = styled.div`
+  width: 100%;
+  height: ${ACTION_BAR_HEIGHT};
+  position: absolute;
+  bottom: 0;
+  background-color: hsl(210, 11%, 11%);
+  border: 1px solid #191c1f;
+  box-shadow: 0 8px 15px 0 rgb(0 0 0 / 43%);
+`
+
+
+const ActionPopOver = styled.div`
+  width: 100%;
+  position: absolute;
+  bottom: ${ACTION_BAR_HEIGHT};
+  background-color: hsl(210, 11%, 11%);
+`
+
+
+function ActionBar() {
+  return (
+    <ActionBarContainer>
+      <ChooseColorSpace />
+    </ActionBarContainer>
+  )
+}
+
+function ChooseColorSpace() {
+  const [open, setOpen] = useState(false)
+  const [currentAction, setAction] = recoil.useRecoilState(pcState.currentAction)
+
+  return (
+    <Fragment>
+      <ColorLensIcon onClick={(e) => {
+        setAction('colorBy')
+        e.stopPropagation()
+        e.preventDefault()
+        return false
+      }} />
+      {currentAction === 'colorBy' && <ColorSpaceChoices />}
+    </Fragment>
+  )
+}
+
+function ColorSpaceChoices() {
+  return (
+    <ActionPopOver>
+      <h4>Color by:</h4>
+      {pcState.COLOR_BY_CHOICES.map(p => <Choice {...p} />)}
+    </ActionPopOver>
+  )
+}
+function Choice({label, value}) {
+  const [current, setCurrent] = recoil.useRecoilState(pcState.colorBy)
+  const selected = value === current
+  return (
+    <div onClick={() => setCurrent(value)}>
+      <input type='radio' checked={selected} />
+      {label}
+    </div>
+  )
+}
+
+function load3dOverlays(sample, selectedLabels, currentPath = []) {
   let overlays = [];
   const labels = Array.isArray(sample) ? sample : Object.values(sample)
-  for (const label of labels) {
+  const labelKeys = Array.isArray(sample) ? null : Object.keys(sample)
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i]
+    const labelKey = labelKeys ? labelKeys[i] : ''
     if (!label) {
       continue;
     }
@@ -211,14 +276,15 @@ function load3dOverlays(sample, selectedLabels) {
     // Note: this logic is not quite right
     // this is hardcoded to match the kitti dataset
     // it should change to be dataset agnostic!
-
     if (RENDERABLE.includes(label._cls)) {
       overlays.push({
         ...label,
-        selected: label._id in selectedLabels
+        path: [...currentPath, labelKey].filter(k => !!k),
+        selected: label._id in selectedLabels,
+        color: 'green'
       })
     } else if (RENDERABLE_LIST.includes(label._cls)) {
-      overlays = [...overlays, ...load3dOverlays(label[label._cls.toLowerCase()], selectedLabels)]
+      overlays = [...overlays, ...load3dOverlays(label[label._cls.toLowerCase()], selectedLabels, labelKey ? [...currentPath, labelKey] : [...currentPath])]
     } 
   }
 
@@ -227,3 +293,16 @@ function load3dOverlays(sample, selectedLabels) {
 
 const RENDERABLE = ['Detection', 'Polyline']
 const RENDERABLE_LIST = ['Detections', 'Polylines']
+
+function toFlatVectorArray(listOfLists) {
+  let vectors = []
+  for (const list of listOfLists) {
+    const isVector = typeof list[0] === 'number'
+    if (isVector) {
+      vectors.push(list)
+    } else if (Array.isArray(list)) {
+      vectors = [...vectors, ...toFlatVectorArray(list)]
+    }
+  }
+  return vectors
+}

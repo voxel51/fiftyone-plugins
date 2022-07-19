@@ -7,13 +7,19 @@
     "preview": "vite preview",
     "watch": "nodemon --watch ./src --ext js,jsx,ts,tsx --exec 'yarn build'"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "dependencies": {
+    "@emotion/styled": "^11.9.3",
     "@fiftyone/plugins": "../../fiftyone/app/packages/plugins",
+    "@mui/icons-material": "^5.8.4",
     "@react-three/drei": "^9.13.0",
     "@react-three/fiber": "^8.0.23",
     "react": "^18.1.0",
     "react-dom": "^18.0.0",
+    "recoil": "^0.7.4",
+    "styled-components": "^5.3.5",
     "three": "^0.141.0"
   },
   "devDependencies": {
