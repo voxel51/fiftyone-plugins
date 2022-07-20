@@ -7,6 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
 node_modules
 dist
 dist-ssr
@@ -22,5 +28,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-dist
