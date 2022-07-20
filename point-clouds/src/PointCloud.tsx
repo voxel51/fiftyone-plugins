@@ -22,14 +22,17 @@ function PointCloudMesh({colorBy, points}) {
   const geo = points.geometry;
   geo.computeBoundingBox();
   const gradients = [
-    [0, '#38fffc'],
-    [0.5, '#ff7a38'],
-    [1, '#ffffff']
+    [0.000, "rgb(165,0,38)"],
+    [0.111, "rgb(215,48,39)"],
+    [0.222, "rgb(244,109,67)"],
+    [0.333, "rgb(253,174,97)"],
+    [0.444, "rgb(254,224,144)"],
+    [0.555, "rgb(224,243,248)"],
+    [0.666, "rgb(171,217,233)"],
+    [0.777, "rgb(116,173,209)"],
+    [0.888, "rgb(69,117,180)"],
+    [1.000, "rgb(49,54,149)"],
   ]
-
-  React.useEffect(() => {
-
-  })
 
   let material
   switch (colorBy) {
@@ -43,8 +46,6 @@ function PointCloudMesh({colorBy, points}) {
       material = <ShadeByIntensity gradients={gradients} />
       break
   }
-
-  console.log({colorBy})
 
   return (
     <primitive key={colorBy} scale={1} object={points} rotation={[0, 0, deg2rad(90)]}>
@@ -87,7 +88,7 @@ function Cuboid({dimensions, opacity, rotation_y, location, selected, onClick, c
       <mesh position={loc} rotation={[0, rotation_y + Math.PI / 2, 0]}>
         <lineSegments>
           <edgesGeometry args={[geo]} attach="geometry" />
-          <lineBasicMaterial attach="material" lineWidth={8} color={selected ? 'orange' : 'green'} />
+          <lineBasicMaterial attach="material" lineWidth={8} color={selected ? 'orange' : color} />
         </lineSegments>
       </mesh>
       <mesh onClick={onClick} position={loc} rotation={[0, rotation_y + Math.PI / 2, 0]}>
@@ -159,13 +160,12 @@ export function PointCloud({api = {}, filePrefix = '/plugins/point-clouds/exampl
   const labelAlpha = useState(state.alpha(modal))
 
   const overlays = load3dOverlays(sample, selectedLabels)
+    .map(l => {
+      const color = recoil.useRecoilValue(state.pathColor({path: l.path.join('.'), modal: true }));
+      return {...l, color}
+    })
     .filter(l => {
       return pathFilter(l.path.join('.'), l)
-    })
-    .map(l => {
-      // const color = 
-      const color = 'green'
-      return {...l, color}
     })
 
   const handleSelect = (label) => {
@@ -280,8 +280,7 @@ function load3dOverlays(sample, selectedLabels, currentPath = []) {
       overlays.push({
         ...label,
         path: [...currentPath, labelKey].filter(k => !!k),
-        selected: label._id in selectedLabels,
-        color: 'green'
+        selected: label._id in selectedLabels
       })
     } else if (RENDERABLE_LIST.includes(label._cls)) {
       overlays = [...overlays, ...load3dOverlays(label[label._cls.toLowerCase()], selectedLabels, labelKey ? [...currentPath, labelKey] : [...currentPath])]
