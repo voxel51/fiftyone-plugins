@@ -12,7 +12,9 @@ export default defineConfig({
     react(),
     isPluginBuild ? viteExternalsPlugin({
       react: 'React',
-      'react-dom': 'ReactDOM'
+      'react-dom': 'ReactDOM',
+      'recoil': 'recoil',
+      '@fiftyone/state': '__fos__'
     }) : undefined
   ],
   build: {
