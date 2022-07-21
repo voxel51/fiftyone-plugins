@@ -8,8 +8,9 @@ import styled from "styled-components"
 import ColorLensIcon from '@mui/icons-material/ColorLens';
 import * as pcState from './state'
 import * as recoil from 'recoil'
-// import * as fos from '@fiftyone/state'
+import * as fos from '@fiftyone/state'
 import {ShadeByIntensity, ShadeByZ} from './shaders'
+import _ from 'lodash'
 
 THREE.Object3D.DefaultUp = new THREE.Vector3(0,0,1)
 
@@ -18,7 +19,7 @@ THREE.Object3D.DefaultUp = new THREE.Vector3(0,0,1)
 
 const deg2rad = degrees => degrees * (Math.PI / 180);
 
-function PointCloudMesh({colorBy, points}) {
+function PointCloudMesh({minZ, colorBy, points, rotation}) {
   const geo = points.geometry;
   geo.computeBoundingBox();
   const gradients = [
@@ -34,13 +35,17 @@ function PointCloudMesh({colorBy, points}) {
     [1.000, "rgb(49,54,149)"],
   ]
 
+  if (minZ === undefined) {
+    minZ = geo.boundingBox.min.z
+  }
+
   let material
   switch (colorBy) {
     case 'none':
       material = <pointsMaterial color={'white'} size={0.0001} />
       break
     case 'height':
-      material = <ShadeByZ gradients={gradients} minZ={geo.boundingBox.min.z} maxZ={geo.boundingBox.max.z} />
+      material = <ShadeByZ gradients={gradients} minZ={minZ} maxZ={geo.boundingBox.max.z} />
       break
     case 'intensity':
       material = <ShadeByIntensity gradients={gradients} />
@@ -48,7 +53,7 @@ function PointCloudMesh({colorBy, points}) {
   }
 
   return (
-    <primitive key={colorBy} scale={1} object={points} rotation={[0, 0, deg2rad(90)]}>
+    <primitive key={colorBy} scale={1} object={points} rotation={rotation}>
       {material}
     </primitive>
   )
@@ -71,7 +76,7 @@ function PointCloudMesh({colorBy, points}) {
 //   )
 // }
 
-function Cuboid({dimensions, opacity, rotation_y, location, selected, onClick, color}) {
+function Cuboid({itemRotation, dimensions, opacity, rotation_y = 0, rotation_z = 0, location, selected, onClick, color}) {
   const [x, y, z] = location
   const x2 = x
   const y2 = y - (0.5 * dimensions[1])
@@ -81,17 +86,21 @@ function Cuboid({dimensions, opacity, rotation_y, location, selected, onClick, c
     y2,
     z2
   ]
-
+  const itemRotationVec = new THREE.Vector3(...itemRotation)
+  const rotation = new THREE.Vector3(...[0, rotation_y, rotation_z])
+  const actualRotation = rotation.add(itemRotationVec).toArray()
+  console.log({actualRotation, rotation_y})
+  // [0, rotation_y + Math.PI / 2, rotation_z]
   const geo = React.useMemo(() => new THREE.BoxGeometry(...dimensions), [])
   return (
     <Fragment>
-      <mesh position={loc} rotation={[0, rotation_y + Math.PI / 2, 0]}>
+      <mesh position={loc} rotation={actualRotation}>
         <lineSegments>
           <edgesGeometry args={[geo]} attach="geometry" />
           <lineBasicMaterial attach="material" lineWidth={8} color={selected ? 'orange' : color} />
         </lineSegments>
       </mesh>
-      <mesh onClick={onClick} position={loc} rotation={[0, rotation_y + Math.PI / 2, 0]}>
+      <mesh onClick={onClick} position={loc} rotation={actualRotation}>
         <boxGeometry args={dimensions} />
         <meshBasicMaterial transparent={true} opacity={opacity * 0.5} color={selected ? 'orange' : color} />
       </mesh>
@@ -121,7 +130,7 @@ function Polyline({opacity, filled, closed, points3d, color, selected, onClick})
   )
 }
 
-function CameraSetup() {
+function CameraSetup({cameraRef}) {
   const camera = useThree(state => state.camera)
   const settings = fop.usePluginSettings('point-clouds')
 
@@ -137,31 +146,41 @@ function CameraSetup() {
     }
     camera.rotation.set(0, 0, 0)
     camera.updateProjectionMatrix()
+    cameraRef.current = camera
   }, [camera])
   return <OrbitControls makeDefault autoRotateSpeed={2.5} zoomSpeed={0.5} />
 }
 
-export function PointCloud({api = {}, filePrefix = '/plugins/point-clouds/example_data/'} = {}) {
-  const {
-    getSampleSrc,
-    sample,
-    onSelectLabel,
-    state,
-    useState,
-  } = api as any
+export function getFilepathField(sample, fields) {
+  fields = fields || ['filepath']
+  for (const fieldName of fields) {
+    const filepath = sample[fieldName]
+    if (typeof filepath === 'string' && filepath.endsWith('.pcd')) {
+      return fieldName
+    }
+  }
+  return null
+}
 
+export function PointCloud() {
   // NOTE: "pcd_filepath" should come from a plugin setting
   // instead of being hardcoded
+  const settings = fop.usePluginSettings('point-clouds')
+  const {sample} = recoil.useRecoilValue(fos.modal)
   const modal = true
-  const src = getSampleSrc(sample.pcd_filepath)
+  const filepathFieldName = getFilepathField(sample, settings.filepathFields)
+  // @ts-ignore
+  const src = fos.getSampleSrc(sample[filepathFieldName])
   const points = useLoader(PCDLoader, src)
-  const selectedLabels = useState(state.selectedLabels)
-  const pathFilter = useState(state.pathFilter(modal))
-  const labelAlpha = useState(state.alpha(modal))
+  const selectedLabels = recoil.useRecoilValue(fos.selectedLabels)
+  const pathFilter = recoil.useRecoilValue(fos.pathFilter(modal))
+  const labelAlpha = recoil.useRecoilValue(fos.alpha(modal))
+  const onSelectLabel = fos.useOnSelectLabel()
+  const cameraRef = React.useRef()
 
   const overlays = load3dOverlays(sample, selectedLabels)
     .map(l => {
-      const color = recoil.useRecoilValue(state.pathColor({path: l.path.join('.'), modal: true }));
+      const color = recoil.useRecoilValue(fos.pathColor({path: l.path.join('.'), modal: true }));
       return {...l, color}
     })
     .filter(l => {
@@ -176,20 +195,59 @@ export function PointCloud({api = {}, filePrefix = '/plugins/point-clouds/exampl
   const colorBy = recoil.useRecoilValue(pcState.colorBy)
   const [currentAction, setAction] = recoil.useRecoilState(pcState.currentAction)
 
+  function onChangeView(view) {
+    const camera = cameraRef.current as any
+    if (camera) {
+      switch (view) {
+        case 'top':
+          if (settings.defaultCameraPosition) {
+            camera.position.set(
+              settings.defaultCameraPosition.x,
+              settings.defaultCameraPosition.y,
+              settings.defaultCameraPosition.z
+            )
+          } else {
+            camera.position.set(0, 0, 20)
+          }
+          break
+        case 'pov':
+          camera.position.set(0, -10, 1)
+          // camera.rotation.set(0, 0, 0)
+          break
+      }
+      camera.updateProjectionMatrix()
+    }
+  }
+
+  const pcRotationSetting = _.get(settings, 'pointCloud.rotation', [0, 0, 0])
+  const pcRotation = toEulerFromDegreesArray(pcRotationSetting)
+  const minZ = _.get(settings, 'pointCloud.minZ', null)
+  const overlayRotation = toEulerFromDegreesArray(_.get(settings, 'overlay.rotation', [0, 0, 0]))
+  const itemRotation = toEulerFromDegreesArray(_.get(settings, 'overlay.itemRotation', [0, 0, 0]))
   return (
     <Container onClick={() => setAction(null)}>
       <Canvas>
-        <CameraSetup />
-        <mesh rotation={[deg2rad(90), deg2rad(180), deg2rad(180)]}>
-          {overlays.filter(o => o._cls === 'Detection').map((label, key) => <Cuboid key={key} opacity={labelAlpha} {...label} onClick={() => handleSelect(label)} />)}
+        <CameraSetup cameraRef={cameraRef} />
+        <mesh rotation={overlayRotation}>
+          {overlays.filter(o => o._cls === 'Detection').map((label, key) => <Cuboid itemRotation={itemRotation} key={key} opacity={labelAlpha} {...label} onClick={() => handleSelect(label)} />)}
         </mesh>
         {overlays.filter(o => o._cls === 'Polyline' && o.points3d).map((label, key) => <Polyline key={key} opacity={labelAlpha} {...label} onClick={() => handleSelect(label)} />)}
-        <PointCloudMesh colorBy={colorBy} points={points} />
+        <PointCloudMesh minZ={minZ} colorBy={colorBy} points={points} rotation={pcRotation} />
         <axesHelper />
       </Canvas>
-      <ActionBar />
+      <ActionBarContainer>
+        <ActionsBar>
+          <ChooseColorSpace />
+          <SetViewButton onChangeView={onChangeView} view={'top'} label={'T'} hint='Top View' />
+          <SetViewButton onChangeView={onChangeView} view={'pov'} label={'P'} hint='POV'  />
+        </ActionsBar>
+    </ActionBarContainer>
     </Container>
   )
+}
+
+function toEulerFromDegreesArray(arr) {
+  return arr.map(deg2rad)
 }
 
 const Container = styled.div`
@@ -209,6 +267,15 @@ const ActionBarContainer = styled.div`
   box-shadow: 0 8px 15px 0 rgb(0 0 0 / 43%);
 `
 
+const ActionsBar = styled.div`
+  position: relative;
+  display: flex;
+  justify-content: ltr;
+  row-gap: 0.5rem;
+  column-gap: 0.5rem;
+  align-items: center;
+`
+
 
 const ActionPopOver = styled.div`
   width: 100%;
@@ -217,12 +284,42 @@ const ActionPopOver = styled.div`
   background-color: hsl(210, 11%, 11%);
 `
 
+const ActionItem = styled.div`
+  padding-rigth: 1rem;
+  display: flex;
+  align-content: center;
+  text-align: center;
+  width: 2rem;
+  height: 3.5rem;
+`
 
-function ActionBar() {
+const ViewButton = styled.div`
+  line-height: 1.5rem;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  background-color: ${({ theme }) => theme.button};
+  border-radius: 1rem;
+  border: none;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  opacity: 1;
+
+  & > span {
+    text-align: center;
+    margin: 0 0.25rem;
+  }
+  & > svg {
+    display: inline-block;
+    height: 100%;
+  }
+`
+
+function SetViewButton({onChangeView, view, label, hint}) {
   return (
-    <ActionBarContainer>
-      <ChooseColorSpace />
-    </ActionBarContainer>
+    <ActionItem onClick={() => onChangeView(view)}>
+      <ViewButton>{label}</ViewButton>
+    </ActionItem>
   )
 }
 
@@ -232,12 +329,14 @@ function ChooseColorSpace() {
 
   return (
     <Fragment>
-      <ColorLensIcon onClick={(e) => {
-        setAction('colorBy')
-        e.stopPropagation()
-        e.preventDefault()
-        return false
-      }} />
+      <ActionItem>
+        <ColorLensIcon onClick={(e) => {
+          setAction('colorBy')
+          e.stopPropagation()
+          e.preventDefault()
+          return false
+        }} />
+      </ActionItem>
       {currentAction === 'colorBy' && <ColorSpaceChoices />}
     </Fragment>
   )

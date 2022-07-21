@@ -38,14 +38,13 @@ var zFragment = `
 `;
 
 export function ShadeByZ({gradients, minZ, maxZ}) {
-  const groundOffset = -2.1;
   const gradientMap = useGradientMap(gradients)
 
   return (
     <shaderMaterial
       {...{
         uniforms: {
-          minZ: {value: groundOffset}, // geo.boundingBox.min.z
+          minZ: {value: minZ}, // geo.boundingBox.min.z
           maxZ: {value: maxZ},
           gradientMap: {value: gradientMap}
         },

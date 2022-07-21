@@ -1,12 +1,18 @@
-import {PointCloud} from './PointCloud'
+import {PointCloud, getFilepathField} from './PointCloud'
 import {
   registerComponent,
-  PluginComponentType
+  PluginComponentType,
+  usePluginSettings
 } from '@fiftyone/plugins'
 
 registerComponent({
   name: 'PointCloud',
   component: PointCloud,
   type: PluginComponentType.Visualizer,
-  activator: ({sample, pinned}) => typeof sample.pcd_filepath === 'string' && pinned
+  activator: ({sample, pinned}) => { 
+    const settings = usePluginSettings('point-clouds')
+    const field = getFilepathField(sample, settings.filepathFields)
+
+    return field !== null && pinned
+  }
 })
