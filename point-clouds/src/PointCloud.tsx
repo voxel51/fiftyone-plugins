@@ -89,7 +89,7 @@ function Cuboid({itemRotation, dimensions, opacity, rotation_y = 0, rotation_z =
   const itemRotationVec = new THREE.Vector3(...itemRotation)
   const rotation = new THREE.Vector3(...[0, rotation_y, rotation_z])
   const actualRotation = rotation.add(itemRotationVec).toArray()
-  console.log({actualRotation, rotation_y})
+
   // [0, rotation_y + Math.PI / 2, rotation_z]
   const geo = React.useMemo(() => new THREE.BoxGeometry(...dimensions), [])
   return (
