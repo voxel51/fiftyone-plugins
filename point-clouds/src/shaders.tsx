@@ -22,7 +22,7 @@ const zVertex = `
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 
-    gl_PointSize = 10. * (1. / - mvPosition.z);
+    gl_PointSize = 80. * (1. / - mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -100,7 +100,7 @@ const intensityVertex = `
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 
-    gl_PointSize = 10. * (1. / - mvPosition.z);
+    gl_PointSize = 80. * (1. / - mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;

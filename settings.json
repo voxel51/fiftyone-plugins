@@ -1,7 +1,7 @@
 {
   "point-clouds": {
     "enabled": true,
-    "defaultCameraPosition": {"x": 0, "y": 0, "z": 20},
+    "defaultCameraPosition": {"x": 0, "y": 0, "z": 100},
     "filepathFields": ["filepath", "pcd_filepath"],
     "pointCloud": {
       "rotation": [0, 0, 90],

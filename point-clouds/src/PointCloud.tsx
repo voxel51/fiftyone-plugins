@@ -76,7 +76,7 @@ function PointCloudMesh({minZ, colorBy, points, rotation}) {
 //   )
 // }
 
-function Cuboid({itemRotation, dimensions, opacity, rotation_y = 0, rotation_z = 0, location, selected, onClick, color}) {
+function Cuboid({itemRotation, dimensions, opacity, rotation, rotation_y = 0, rotation_z = 0, location, selected, onClick, color}) {
   const [x, y, z] = location
   const x2 = x
   const y2 = y - (0.5 * dimensions[1])
@@ -87,8 +87,9 @@ function Cuboid({itemRotation, dimensions, opacity, rotation_y = 0, rotation_z =
     z2
   ]
   const itemRotationVec = new THREE.Vector3(...itemRotation)
-  const rotation = new THREE.Vector3(...[0, rotation_y, rotation_z])
-  const actualRotation = rotation.add(itemRotationVec).toArray()
+  const rawLegacyRotation = [0, rotation_y, rotation_z]
+  const resolvedRotation = new THREE.Vector3(...(rotation || rawLegacyRotation))
+  const actualRotation = resolvedRotation.add(itemRotationVec).toArray()
 
   // [0, rotation_y + Math.PI / 2, rotation_z]
   const geo = React.useMemo(() => new THREE.BoxGeometry(...dimensions), [])
