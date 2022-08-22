@@ -1,1 +1,0 @@
-# Map Fiftyone Plugin Example

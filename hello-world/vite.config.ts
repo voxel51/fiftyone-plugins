@@ -20,8 +20,8 @@ export default defineConfig({
   build: {
     minify: true,
     lib: {
-      entry: path.resolve(__dirname, 'src/MapPlugin.tsx'),
-      name: 'MapPlugin',
+      entry: path.resolve(__dirname, 'src/HelloWorldPlugin.tsx'),
+      name: 'HelloWorldPlugin',
       fileName: (format) => `index.${format}.js`,
       formats: ['umd']
     }

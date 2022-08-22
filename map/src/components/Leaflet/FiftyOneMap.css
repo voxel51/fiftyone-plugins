@@ -1,7 +1,0 @@
-@import url("https://unpkg.com/leaflet@1.8.0/dist/leaflet.css");
-@import url("https://unpkg.com/leaflet.markercluster@1.3.0/dist/MarkerCluster.css");
-@import url("https://unpkg.com/leaflet.markercluster@1.3.0/dist/MarkerCluster.Default.css");
-
-#fiftyone-map-container-leaflet {
-    height: 400px;
-}
