@@ -1,6 +1,16 @@
 import fiftyone.operators as foo
+import fiftyone.operators.types as types
 import fiftyone as fo
 import fiftyone.brain as fob
+import requests
+from requests.auth import HTTPBasicAuth
+import os
+import fiftyone.zoo as foz
+
+AIRFLOW_USERNAME = os.environ.get('AIRFLOW_USERNAME')
+AIRFLOW_PASSWORD = os.environ.get('AIRFLOW_PASSWORD')
+
+airflow_auth = HTTPBasicAuth(AIRFLOW_USERNAME, AIRFLOW_PASSWORD)
 
 class HelloWorldOperator(foo.Operator):
     def execute(self, ctx):
@@ -8,46 +18,101 @@ class HelloWorldOperator(foo.Operator):
             "message": ctx.params.get("message") + " World!"
         }
 
-class CountOperator(foo.Operator):
+
+class KitchenSinkOperator(foo.Operator):
     def execute(self, ctx):
-        # view = ctx.view - this is not working due to odd migration error
-        view = fo.load_dataset('mnist')
+        return ctx.params
+
+class MyAirflowTriggerOperator(foo.Operator):
+    def execute(self, ctx):
+        # NOTE: the folowing params are available, but are just passed along to the airflow api
+        # dataset_name = ctx.params.get('fiftyone_dataset_name')
+        # embeddings_field = ctx.params.get('fiftyone_embeddings_field')
+        # vis_brain_key = ctx.params.get('fiftyone_vis_brain_key')
+        # sim_model = ctx.params.get('fiftyone_sim_model')
+        # emb_model = ctx.params.get('fiftyone_emb_model')
+        view_param = {'fiftyone_view_stages': ctx.view._serialize(), 'fiftyone_dataset_name': ctx.dataset_name}
+        airflow_params = {**view_param, **ctx.params}
+
+        # trigger the "my-example-dag: defined in airflow.py
+        r = requests.post('http://localhost:8080/api/v1/dags/my-fiftyone-compute-embeddings/dagRuns',
+            json={
+                "conf": airflow_params
+            },
+            auth=airflow_auth)
+
+        result = r.json()
+        print(result)
         return {
-            "count": view.count()
+          'dag_run_id': result['dag_run_id'],
         }
 
-class ComputeSimilarityOperator(foo.Operator):
+# An operator that prints the status of an airflow workflow
+class MyAirflowStatusOperator(foo.Operator):
     def execute(self, ctx):
-        # view = ctx.view - this is not working due to odd migration error
-        view = ctx.view
-        brain_key = ctx.params.get("brain_key")
-        model_name = ctx.params.get("model_name", None)
-        result = fob.compute_similarity(view, brain_key=brain_key, model=model_name)
+        dag_run_id = ctx.params.get('dag_run_id')
+        r = requests.get(f'http://localhost:8080/api/v1/dags/my-fiftyone-compute-embeddings/dagRuns/{dag_run_id}',
+            auth=airflow_auth)
+        result = r.json()
         return {
-            "config": result.config
+          'dag_run_id': result['dag_run_id'],
+          'state': result['state'],
         }
-
-operator = None
 
 def register():
     operator = HelloWorldOperator(
         "hello-world",
         "Hello World Operator",
     )
-    operator.definition.add_input_property("message", "string")
-    operator.definition.add_output_property("message", "string")
+    operator.definition.add_input_property("message", types.String())
+    operator.definition.add_output_property("message", types.String())
     foo.register_operator(operator)
 
-    sim_operator = ComputeSimilarityOperator('compute-similarity', 'Compute Similarity')
-    sim_operator.definition.add_input_property('brain_key', 'string')
-    sim_operator.definition.add_input_property('model_name', 'string')
-    sim_operator.definition.add_output_property('config', 'object')
-    foo.register_operator(sim_operator)
+    kso = KitchenSinkOperator(
+        "kitchen-sink",
+        "Kitchen Sink Operator",
+    )
+    kso.definition.add_input_property("string", types.String())
+    kso.definition.add_input_property("number", types.Number())
+    kso.definition.add_input_property("boolean", types.Boolean())
+    kso.definition.add_input_property("enum", types.Enum(["a", "b", "c"]))
+    kso.definition.add_input_property("list", types.List(types.String()))
+
+    kso.definition.add_output_property("string", types.String())
+    kso.definition.add_output_property("number", types.Number())
+    kso.definition.add_output_property("boolean", types.Boolean())
+    kso.definition.add_output_property("enum", types.Enum(["a", "b", "c"]))
+    kso.definition.add_output_property("list", types.List(types.String()))
 
 
-    count_operator = CountOperator('count', 'Count Items in the Current View')
-    count_operator.definition.add_output_property('count', 'string')
-    foo.register_operator(count_operator)
+    foo.register_operator(kso)
+
+    trigger = MyAirflowTriggerOperator(
+        "trigger-compute-embeddings",
+        "Trigger Compute Embeddings Airflow DAG",
+    )
+
+    model_names = foz.list_zoo_models()
+
+    # trigger.definition.add_input_property('fiftyone_dataset_name', types.Dataset())
+    # trigger.definition.add_input_property('fiftyone_embeddings_field', types.String())
+    # trigger.definition.add_input_property('fiftyone_emb_model', types.Enum(model_names))
+    vis_key = trigger.definition.add_input_property('fiftyone_vis_brain_key', types.String())
+    trigger.definition.add_input_property('fiftyone_sim_brain_key', types.String())
+    trigger.definition.add_input_property('fiftyone_sim_model', types.Enum(model_names))
+    
+    trigger.definition.add_output_property('dag_run_id', types.String())
+
+    status = MyAirflowStatusOperator(
+        "my-airflow-status-operator",
+        "My Airflow Status Operator",
+    )
+
+    status.definition.add_input_property('dag_run_id', types.String())
+    status.definition.add_output_property('state', types.Enum(["queued", "running", "success", "failed"]))
+
+    foo.register_operator(trigger)
+    foo.register_operator(status)
 
 def unregister():
     foo.unregister_operator(operator)
