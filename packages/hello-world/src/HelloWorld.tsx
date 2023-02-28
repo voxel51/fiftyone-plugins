@@ -1,26 +1,23 @@
 import * as fop from '@fiftyone/plugins'
 import * as fos from '@fiftyone/state'
-import {useRecoilValue as useVal} from 'recoil'
+import {useRecoilValue} from 'recoil'
 import * as foa  from '@fiftyone/aggregations'
 import { useEffect } from 'react'
 import {Button} from '@fiftyone/components'
 import {useOperatorExecutor} from '@fiftyone/operators'
 
-export function HelloWorld() {
-  const helloWorldOperator = useOperatorExecutor('hello-world')
-  const dataset = useVal(fos.dataset)
+import foo from '@fiftyone/operators'
 
-  const {fieldToCount} = fop.usePluginSettings('hello-world', {fieldToCount: 'filepath'})
-  
-  console.log(helloWorldOperator)
+export function HelloWorld() {
+  const executor = foo.useOperatorExecutor('count')
+
+  if (executor.isLoading) return <h4>Loading...</h4>
+  if (executor.result) return <h4>Result: {executor.result.count}</h4>
 
   return (
-    <h1>
-      You are viewing the <strong>{dataset.name}</strong> dataset.
-      It has <Count field={fieldToCount} /> samples.
-      <Button onClick={() => helloWorldOperator.execute({message: 'hello'})}>Execute the Hello World Operator</Button>
-      <p>Result: {JSON.stringify(helloWorldOperator.result)}</p>
-    </h1>
+    <div>
+      <Button onClick={() => executor.execute()}>Execute</Button>
+    </div>
   )
 }
 

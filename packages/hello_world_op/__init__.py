@@ -18,7 +18,6 @@ class HelloWorldOperator(foo.Operator):
             "message": ctx.params.get("message") + " World!"
         }
 
-
 class KitchenSinkOperator(foo.Operator):
     def execute(self, ctx):
         return ctx.params
@@ -59,6 +58,22 @@ class MyAirflowStatusOperator(foo.Operator):
           'state': result['state'],
         }
 
+class CreateSampleFromFileOperator(foo.Operator):
+    def execute(self, ctx):
+        dataset = ctx.dataset
+        filepath = ctx.params.get("filepath", None)
+        sample = fo.Sample(filepath=filepath)
+        # add a sample to the dataset
+        dataset.add_sample(sample)
+
+        return {
+          # return the sample ids
+          # this will be passed as the input to the select samples operator
+          "samples": {
+            "sample_ids": [sample.id]
+          }
+        }
+
 def register():
     operator = HelloWorldOperator(
         "hello-world",
@@ -68,51 +83,59 @@ def register():
     operator.definition.add_output_property("message", types.String())
     foo.register_operator(operator)
 
-    kso = KitchenSinkOperator(
-        "kitchen-sink",
-        "Kitchen Sink Operator",
-    )
-    kso.definition.add_input_property("string", types.String())
-    kso.definition.add_input_property("number", types.Number())
-    kso.definition.add_input_property("boolean", types.Boolean())
-    kso.definition.add_input_property("enum", types.Enum(["a", "b", "c"]))
-    kso.definition.add_input_property("list", types.List(types.String()))
+    # kso = KitchenSinkOperator(
+    #     "kitchen-sink",
+    #     "Kitchen Sink Operator",
+    # )
+    # kso.definition.add_input_property("string", types.String())
+    # kso.definition.add_input_property("number", types.Number())
+    # kso.definition.add_input_property("boolean", types.Boolean())
+    # kso.definition.add_input_property("enum", types.Enum(["a", "b", "c"]))
+    # kso.definition.add_input_property("list", types.List(types.String()))
 
-    kso.definition.add_output_property("string", types.String())
-    kso.definition.add_output_property("number", types.Number())
-    kso.definition.add_output_property("boolean", types.Boolean())
-    kso.definition.add_output_property("enum", types.Enum(["a", "b", "c"]))
-    kso.definition.add_output_property("list", types.List(types.String()))
+    # kso.definition.add_output_property("string", types.String())
+    # kso.definition.add_output_property("number", types.Number())
+    # kso.definition.add_output_property("boolean", types.Boolean())
+    # kso.definition.add_output_property("enum", types.Enum(["a", "b", "c"]))
+    # kso.definition.add_output_property("list", types.List(types.String()))
 
 
-    foo.register_operator(kso)
+    # foo.register_operator(kso)
 
-    trigger = MyAirflowTriggerOperator(
-        "trigger-compute-embeddings",
-        "Trigger Compute Embeddings Airflow DAG",
-    )
+    # trigger = MyAirflowTriggerOperator(
+    #     "trigger-compute-embeddings",
+    #     "Trigger Compute Embeddings Airflow DAG",
+    # )
 
-    model_names = foz.list_zoo_models()
+    # model_names = foz.list_zoo_models()
 
-    # trigger.definition.add_input_property('fiftyone_dataset_name', types.Dataset())
-    # trigger.definition.add_input_property('fiftyone_embeddings_field', types.String())
-    # trigger.definition.add_input_property('fiftyone_emb_model', types.Enum(model_names))
-    vis_key = trigger.definition.add_input_property('fiftyone_vis_brain_key', types.String())
-    trigger.definition.add_input_property('fiftyone_sim_brain_key', types.String())
-    trigger.definition.add_input_property('fiftyone_sim_model', types.Enum(model_names))
+    # # trigger.definition.add_input_property('fiftyone_dataset_name', types.Dataset())
+    # # trigger.definition.add_input_property('fiftyone_embeddings_field', types.String())
+    # # trigger.definition.add_input_property('fiftyone_emb_model', types.Enum(model_names))
+    # vis_key = trigger.definition.add_input_property('fiftyone_vis_brain_key', types.String())
+    # trigger.definition.add_input_property('fiftyone_sim_brain_key', types.String())
+    # trigger.definition.add_input_property('fiftyone_sim_model', types.Enum(model_names))
     
-    trigger.definition.add_output_property('dag_run_id', types.String())
+    # trigger.definition.add_output_property('dag_run_id', types.String())
 
-    status = MyAirflowStatusOperator(
-        "my-airflow-status-operator",
-        "My Airflow Status Operator",
-    )
+    # status = MyAirflowStatusOperator(
+    #     "my-airflow-status-operator",
+    #     "My Airflow Status Operator",
+    # )
 
-    status.definition.add_input_property('dag_run_id', types.String())
-    status.definition.add_output_property('state', types.Enum(["queued", "running", "success", "failed"]))
+    # status.definition.add_input_property('dag_run_id', types.String())
+    # status.definition.add_output_property('state', types.Enum(["queued", "running", "success", "failed"]))
 
-    foo.register_operator(trigger)
-    foo.register_operator(status)
+    # foo.register_operator(trigger)
+    # foo.register_operator(status)
+
+    fileOp = CreateSampleFromFileOperator('create_sample_from_file', 'Create Sample From File')
+    # add a parameter to the operator which will be displayed in the UI
+    fileOp.definition.add_input_property('filepath', types.String())
+    #fileOp.allowed_roles =[fo.roles.Admin]
+    # add an output property to the operator which tells the UI to execute this operator with the output value
+    foo.register_operator(fileOp)
 
 def unregister():
-    foo.unregister_operator(operator)
+    pass
+    # foo.unregister_operator(operator)
