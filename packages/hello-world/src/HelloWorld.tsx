@@ -9,16 +9,16 @@ import {useOperatorExecutor} from '@fiftyone/operators'
 import foo from '@fiftyone/operators'
 
 export function HelloWorld() {
-  const executor = foo.useOperatorExecutor('count')
+  const executor = useOperatorExecutor('count')
 
-  if (executor.isLoading) return <h4>Loading...</h4>
-  if (executor.result) return <h4>Result: {executor.result.count}</h4>
+  if (executor.isLoading) return <h3>loading...</h3>
 
-  return (
-    <div>
-      <Button onClick={() => executor.execute()}>Execute</Button>
-    </div>
-  )
+  if (executor.result) return <h3>Count: {executor.result.count}</h3>
+
+  return <>
+      <h1>Hello</h1>
+      <Button onClick={() => executor.execute()}>Count</Button>
+    </>
 }
 
 function Count({field}) {
