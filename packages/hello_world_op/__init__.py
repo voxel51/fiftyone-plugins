@@ -87,7 +87,7 @@ def register():
         "Hello World Operator",
     )
     operator.inputs.define_property("message", types.String())
-    operator.definition.add_output_property("message", types.String())
+    operator.outputs.define_property("message", types.String())
     foo.register_operator(operator)
 
     # kso = KitchenSinkOperator(
@@ -100,11 +100,11 @@ def register():
     # kso.inputs.define_property("enum", types.Enum(["a", "b", "c"]))
     # kso.inputs.define_property("list", types.List(types.String()))
 
-    # kso.definition.add_output_property("string", types.String())
-    # kso.definition.add_output_property("number", types.Number())
-    # kso.definition.add_output_property("boolean", types.Boolean())
-    # kso.definition.add_output_property("enum", types.Enum(["a", "b", "c"]))
-    # kso.definition.add_output_property("list", types.List(types.String()))
+    # kso.outputs.define_property("string", types.String())
+    # kso.outputs.define_property("number", types.Number())
+    # kso.outputs.define_property("boolean", types.Boolean())
+    # kso.outputs.define_property("enum", types.Enum(["a", "b", "c"]))
+    # kso.outputs.define_property("list", types.List(types.String()))
 
 
     # foo.register_operator(kso)
@@ -123,7 +123,7 @@ def register():
     # trigger.inputs.define_property('fiftyone_sim_brain_key', types.String())
     # trigger.inputs.define_property('fiftyone_sim_model', types.Enum(model_names))
     
-    # trigger.definition.add_output_property('dag_run_id', types.String())
+    # trigger.outputs.define_property('dag_run_id', types.String())
 
     # status = MyAirflowStatusOperator(
     #     "my-airflow-status-operator",
@@ -131,7 +131,7 @@ def register():
     # )
 
     # status.inputs.define_property('dag_run_id', types.String())
-    # status.definition.add_output_property('state', types.Enum(["queued", "running", "success", "failed"]))
+    # status.outputs.define_property('state', types.Enum(["queued", "running", "success", "failed"]))
 
     # foo.register_operator(trigger)
     # foo.register_operator(status)

@@ -59,7 +59,7 @@ op = None
 
 def register():
     op = WatchImporter("watch_importer", "Import watches dataset")
-    op.definition.add_output_property("number_of_samples_imported", types.Number())
+    op.outputs.define_property("number_of_samples_imported", types.Number())
     foo.register_operator(op)
 def unregister():
     foo.unregister_operator(op)

@@ -13,8 +13,8 @@ op = None
 
 def register():
     op = CountOperator("count", "Show number of samples in current dataset")
-    op.definition.add_output_property("count", types.Number())
-    op.definition.add_output_property("viewCount", types.Number())
+    op.outputs.define_property("count", types.Number())
+    op.outputs.define_property("viewCount", types.Number())
     foo.register_operator(op)
 
 def unregister():
