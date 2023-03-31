@@ -19,7 +19,7 @@ def register():
         "Load Zoo Dataset",
     )
     zoo_datasets = foz.list_zoo_datasets()
-    operator.inputs.define_property("fiftyone_dataset_name", types.Enum(zoo_datasets))
+    operator.define_input_property("fiftyone_dataset_name", types.Enum(zoo_datasets))
     foo.register_operator(operator)
 
 def unregister():

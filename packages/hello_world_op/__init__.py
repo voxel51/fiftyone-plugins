@@ -86,25 +86,25 @@ def register():
         "hello-world",
         "Hello World Operator",
     )
-    operator.inputs.define_property("message", types.String())
-    operator.outputs.define_property("message", types.String())
+    operator.define_input_property("message", types.String())
+    operator.define_output_property("message", types.String())
     foo.register_operator(operator)
 
     # kso = KitchenSinkOperator(
     #     "kitchen-sink",
     #     "Kitchen Sink Operator",
     # )
-    # kso.inputs.define_property("string", types.String())
-    # kso.inputs.define_property("number", types.Number())
-    # kso.inputs.define_property("boolean", types.Boolean())
-    # kso.inputs.define_property("enum", types.Enum(["a", "b", "c"]))
-    # kso.inputs.define_property("list", types.List(types.String()))
+    # kso.define_input_property("string", types.String())
+    # kso.define_input_property("number", types.Number())
+    # kso.define_input_property("boolean", types.Boolean())
+    # kso.define_input_property("enum", types.Enum(["a", "b", "c"]))
+    # kso.define_input_property("list", types.List(types.String()))
 
-    # kso.outputs.define_property("string", types.String())
-    # kso.outputs.define_property("number", types.Number())
-    # kso.outputs.define_property("boolean", types.Boolean())
-    # kso.outputs.define_property("enum", types.Enum(["a", "b", "c"]))
-    # kso.outputs.define_property("list", types.List(types.String()))
+    # kso.define_output_property("string", types.String())
+    # kso.define_output_property("number", types.Number())
+    # kso.define_output_property("boolean", types.Boolean())
+    # kso.define_output_property("enum", types.Enum(["a", "b", "c"]))
+    # kso.define_output_property("list", types.List(types.String()))
 
 
     # foo.register_operator(kso)
@@ -116,29 +116,29 @@ def register():
 
     # model_names = foz.list_zoo_models()
 
-    # # trigger.inputs.define_property('fiftyone_dataset_name', types.Dataset())
-    # # trigger.inputs.define_property('fiftyone_embeddings_field', types.String())
-    # # trigger.inputs.define_property('fiftyone_emb_model', types.Enum(model_names))
-    # vis_key = trigger.inputs.define_property('fiftyone_vis_brain_key', types.String())
-    # trigger.inputs.define_property('fiftyone_sim_brain_key', types.String())
-    # trigger.inputs.define_property('fiftyone_sim_model', types.Enum(model_names))
+    # # trigger.define_input_property('fiftyone_dataset_name', types.Dataset())
+    # # trigger.define_input_property('fiftyone_embeddings_field', types.String())
+    # # trigger.define_input_property('fiftyone_emb_model', types.Enum(model_names))
+    # vis_key = trigger.define_input_property('fiftyone_vis_brain_key', types.String())
+    # trigger.define_input_property('fiftyone_sim_brain_key', types.String())
+    # trigger.define_input_property('fiftyone_sim_model', types.Enum(model_names))
     
-    # trigger.outputs.define_property('dag_run_id', types.String())
+    # trigger.define_output_property('dag_run_id', types.String())
 
     # status = MyAirflowStatusOperator(
     #     "my-airflow-status-operator",
     #     "My Airflow Status Operator",
     # )
 
-    # status.inputs.define_property('dag_run_id', types.String())
-    # status.outputs.define_property('state', types.Enum(["queued", "running", "success", "failed"]))
+    # status.define_input_property('dag_run_id', types.String())
+    # status.define_output_property('state', types.Enum(["queued", "running", "success", "failed"]))
 
     # foo.register_operator(trigger)
     # foo.register_operator(status)
 
     fileOp = CreateSampleFromFileOperator('create_sample_from_file', 'Create Sample From File')
     # add a parameter to the operator which will be displayed in the UI
-    fileOp.inputs.define_property('filepath', types.String())
+    fileOp.define_input_property('filepath', types.String())
     #fileOp.allowed_roles =[fo.roles.Admin]
     # add an output property to the operator which tells the UI to execute this operator with the output value
     foo.register_operator(fileOp)

@@ -21,7 +21,7 @@ def create_anno_schema(ctx):
   inputs.define_property(
     "media_field",
     types.SampleField(ctx.dataset),
-    label="Media Field"
+    label="Media Field",
     default="filepath",
     required=True,
     description="The sample field containing the path to the source media to upload",
@@ -192,7 +192,7 @@ def create_anno_schema(ctx):
       label="Allow Spatial Edits",
       description="Whether to allow edits to the spatial properties (bounding boxes, vertices, keypoints, masks, etc) of labels. Only applicable when editing existing spatial label fields"
     )
-    
+
   if (ctx.params.get("backend", None) == "cvat"):
     inputs.define_property(
       "cvat_header",

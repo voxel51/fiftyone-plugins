@@ -2,7 +2,7 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone as fo
 
-class CustomFormOperator(foo.Operator):
+class CustomFormOperator(foo.DynamicOperator):
     def resolve_input(self, ctx):
         inputs = types.Object()
         # an example message
@@ -18,7 +18,7 @@ class CustomFormOperator(foo.Operator):
             types.String(),
             view=types.Notice(
                 label="Note",
-                description="This is a custom Notice!"
+                description="This is a custom Notice!",
                 caption="this is a caption"
             )
         )
@@ -43,7 +43,7 @@ class CustomFormOperator(foo.Operator):
                 types.String(),
                 view=types.Notice(
                     label="Note",
-                    description="This is a custom Notice!"
+                    description="This is a custom Notice!",
                     caption="this is a caption"
                 )
             )
@@ -58,7 +58,7 @@ class CustomFormOperator(foo.Operator):
         return {}
 
 
-class QueryBuilder(foo.Operator):
+class QueryBuilder(foo.DynamicOperator):
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.add_property(
@@ -92,13 +92,11 @@ def register():
         "dynamic_python_form",
         "Dynamic Python Form",
     )
-    op.definition._inputs.dynamic()
     foo.register_operator(op)
     qb = QueryBuilder(
         "query_builder",
         "Search for Samples",
     )
-    qb.definition._inputs.dynamic()
     foo.register_operator(qb)
 
 def unregister():

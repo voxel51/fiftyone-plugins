@@ -61,18 +61,18 @@ def register():
 
     model_names = foz.list_zoo_models()
 
-    trigger.inputs.define_property('fiftyone_sim_brain_key', types.String())
-    trigger.inputs.define_property('fiftyone_sim_model', types.Enum(model_names))
+    trigger.define_input_property('fiftyone_sim_brain_key', types.String())
+    trigger.define_input_property('fiftyone_sim_model', types.Enum(model_names))
     
-    trigger.outputs.define_property('dag_run_id', types.String())
+    trigger.define_output_property('dag_run_id', types.String())
 
     status = MyAirflowStatusOperator(
         "my-airflow-status-operator",
         "My Airflow Status Operator",
     )
 
-    status.inputs.define_property('dag_run_id', types.String())
-    status.outputs.define_property('state', types.Enum(["queued", "running", "success", "failed"]))
+    status.define_input_property('dag_run_id', types.String())
+    status.define_output_property('state', types.Enum(["queued", "running", "success", "failed"]))
 
     foo.register_operator(trigger)
     foo.register_operator(status)
