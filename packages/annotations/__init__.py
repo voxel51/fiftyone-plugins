@@ -20,7 +20,7 @@ def create_anno_schema(ctx):
 
   inputs.define_property(
     "media_field",
-    types.SampleField(ctx.dataset),
+    types.Enum(ctx.dataset.get_field_schema().keys()),
     label="Media Field",
     default="filepath",
     required=True,
