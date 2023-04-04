@@ -13,7 +13,8 @@ class Trigger(foo.Operator):
             types.Enum([
                 "clear_view",
                 "set_view",
-                "reload_samples"
+                "reload_samples",
+                "open_panel"
             ]),
             label="Operator to trigger"
         )
@@ -24,7 +25,32 @@ class Trigger(foo.Operator):
         if (operator_to_trigger == "set_view"):
             view_to_set = ctx.dataset.limit(3)._serialize()
             params = {"view": view_to_set}
+
+        if (operator_to_trigger == "open_panel"):
+            params = {
+                "name": "Embeddings",
+                "isActive": True,
+            }
+
         ctx.trigger(operator_to_trigger, params=params)
+
+class ShowRandomSamples(foo.Operator):
+    def __init__(self):
+        super().__init__(
+            "show_random_samples",
+            "Show Random Samples"
+        )
+        self.define_input_property(
+            "number_of_samples",
+            types.Number(),
+            label="Number of samples to show",
+            default=10
+        )
+
+    def execute(self, ctx):
+        number_of_samples = ctx.params.get("number_of_samples", None)
+        samples = ctx.dataset.take(number_of_samples).values('id')
+        ctx.trigger("show_samples", params={"samples": samples})
 
 #
 # How do triggers work?
@@ -59,10 +85,15 @@ class Trigger(foo.Operator):
 
 
 op = None
+r = None
 def register():
     op = Trigger()
+    r = ShowRandomSamples()
     foo.register_operator(op)
+    foo.register_operator(r)
 
 def unregister():
     if op is not None:
         foo.unregister_operator(op)
+    if r is not None:
+        foo.unregister_operator(r)
