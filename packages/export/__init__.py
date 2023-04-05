@@ -12,6 +12,7 @@ class ExportSamples(foo.DynamicOperator):
     def resolve_input(self, ctx):
         show_estimate = False
         inputs = types.Object()
+        view = types.View(label="Export samples")
 
         inputs.define_property("style", types.Enum(["direct_download", "cloud_export"]), default="direct_download")
         
@@ -54,7 +55,7 @@ class ExportSamples(foo.DynamicOperator):
         if show_estimate:
             inputs.define_property("estimate", types.String(), default="Estimated export size: TODO MB")
 
-        return inputs
+        return types.Property(inputs, view=view)
         
 
 op = None
