@@ -5,15 +5,31 @@ import fiftyone as fo
 def create_anno_schema(ctx):
   inputs = types.Object()
   view = types.View(label="Request Annotations")
+  default_view = types.View(space=6)
   # all backends
+  backend_keys = fo.annotation_config.backends.keys()
+  backend_choices = types.RadioGroup()
+  for backend_key in backend_keys:
+    label = backend_key
+    if backend_key == "cvat":
+      label = "CVAT"
+      description = "Open-source annotation tool"
+    elif backend_key == "labelbox":
+      label = "Labelbox"
+      description = "Data labeling platform"
+    elif backend_key == "labelstudio":
+      label = "Label Studio"
+      description = "Multi-type data labeling and annotation tool"
+    backend_choices.add_choice(backend_key, label=label, description=description)
+
   inputs.define_property(
     "backend",
-    types.Enum(fo.annotation_config.backends.keys()),
+    types.Enum(backend_choices.values()),
     label="Annotation Backend",
     default=fo.annotation_config.default_backend,
     description="The annotation backend to use.",
     required=True,
-    view=types.RadioGroup()
+    view=backend_choices
   )
   cur_backend_name = ctx.params.get("backend", None)
   cur_backend = fo.annotation_config.backends[cur_backend_name] if cur_backend_name else None
@@ -25,27 +41,17 @@ def create_anno_schema(ctx):
     default="filepath",
     required=True,
     description="The sample field containing the path to the source media to upload",
+    view=default_view
   )
-  inputs.define_property(
-    "launch_editor",
-    types.Boolean(),
-    label="Launch Editor",
-    default=False,
-    description="Whether to launch the annotation backend’s editor after uploading the samples",
-  )
-  inputs.define_property(
-    "use_custom_label_schema",
-    types.Boolean(),
-    label="Use Custom Label Schema",
-    default=False,
-    description="Whether to use a custom label schema",
-  )
-  if (ctx.params.get("use_custom_label_schema", False)):
+  use_custom_label_schema = ctx.params.get("use_custom_label_schema", False)
+
+  if use_custom_label_schema:
     inputs.define_property(
       "label_schema",
       types.String(),
       label="Label Schema",
       description="A dictionary defining the label schema to use. If this argument is provided, it takes precedence over label_field and label_type",
+      view=default_view
     )
   else:
     inputs.define_property(
@@ -53,8 +59,26 @@ def create_anno_schema(ctx):
       types.String(),
       required=True,
       label="Label Field",
-      description="A string indicating a new or existing label field to annotate"
+      description="A string indicating a new or existing label field to annotate",
+      view=default_view
     )
+  inputs.define_property(
+    "launch_editor",
+    types.Boolean(),
+    label="Launch Editor",
+    default=False,
+    description="Whether to launch the annotation backend’s editor after uploading the samples",
+    view=default_view
+  )
+  inputs.define_property(
+    "use_custom_label_schema",
+    types.Boolean(),
+    label="Use Custom Label Schema",
+    default=False,
+    description="Whether to use a custom label schema",
+    view=default_view
+  )
+  if not use_custom_label_schema:
     label_type_choices = [
       types.Choice("classification", label="Classification"),
       types.Choice("classifications", label="Classifications"),
@@ -157,12 +181,15 @@ def create_anno_schema(ctx):
       description="Use the dataset's mask targets to generate segmentation masks",
     )
     
+    checkbox_style = types.View(space=20)
+
     inputs.define_property(
       "allow_additions",
       types.Boolean(),
       default=True,
       label="Allow Additions",
       description="Whether to allow new labels to be added. Only applicable when editing existing label fields",
+      view=checkbox_style
     )
     inputs.define_property(
       "allow_deletions",
@@ -170,6 +197,7 @@ def create_anno_schema(ctx):
       default=True,
       label="Allow Deletions",
       description="Whether to allow new labels to be deleted. Only applicable when editing existing label fields",
+      view=checkbox_style
     )
     inputs.define_property(
       "allow_label_edits",
@@ -177,6 +205,7 @@ def create_anno_schema(ctx):
       default=True,
       label="Allow Label Edits",
       description="Whether to allow the label attribute of existing labels to be modified. Only applicable when editing existing fields with label attributes",
+      view=checkbox_style
     )
     inputs.define_property(
       "allow_index_edits",
@@ -184,13 +213,15 @@ def create_anno_schema(ctx):
       default=True,
       label="Allow Index Edits",
       description="Whether to allow the index attribute of existing video tracks to be modified. Only applicable when editing existing frame fields with index attributes",
+      view=checkbox_style
     )
     inputs.define_property(
       "allow_spatial_edits",
       types.Boolean(),
       default=True,
       label="Allow Spatial Edits",
-      description="Whether to allow edits to the spatial properties (bounding boxes, vertices, keypoints, masks, etc) of labels. Only applicable when editing existing spatial label fields"
+      description="Whether to allow edits to the spatial properties (bounding boxes, vertices, keypoints, masks, etc) of labels. Only applicable when editing existing spatial label fields",
+      view=checkbox_style
     )
 
   if (ctx.params.get("backend", None) == "cvat"):
