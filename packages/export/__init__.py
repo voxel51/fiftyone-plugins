@@ -14,19 +14,22 @@ class ExportSamples(foo.DynamicOperator):
         inputs = types.Object()
         view = types.View(label="Export samples")
 
-        inputs.define_property("style", types.Enum(["direct_download", "cloud_export"]), default="direct_download")
+        style_choices = types.RadioGroup()
+        style_choices.add_choice("direct_download", label="Direct Download", description="Download the exported data directly to your computer")
+        style_choices.add_choice("cloud_export", label="Cloud Export", description="Export the data to a cloud storage location")
+        inputs.define_property("style", types.Enum(style_choices.values()), label="Export Style", description="", default="direct_download", view=style_choices)
         
         if (ctx.params.get("style", None) == "cloud_export"):
-            inputs.define_property("cloud_storage_path", types.String())
+            inputs.define_property("cloud_storage_path", types.String(), label="Cloud Storage Path", description="The cloud storage location to export the data to. For example, 's3://my-bucket/my-folder'.", default="s3://")
 
-        inputs.define_property("view", types.Enum(["current_filters"]), default="current_filters")
-        inputs.define_property("data", types.Enum([
-            "media_and_labels",
-            "media_only",
-            "labels_only",
-            "filepaths_and_tags",
-            "filepaths_only"
-        ]))
+        inputs.define_property("view", types.Enum(["current_filters"]), label="View and Filters", default="current_filters")
+        data_choices = types.Choices()
+        data_choices.add_choice("media_and_labels", label="Media and Labels", description="Export the media and labels for the selected samples")
+        data_choices.add_choice("media_only", label="Media Only", description="Export the media for the selected samples")
+        data_choices.add_choice("labels_only", label="Labels Only", description="Export the labels for the selected samples")
+        data_choices.add_choice("filepaths_and_tags", label="Filepaths and Tags", description="Export the filepaths and tags for the selected samples")
+        data_choices.add_choice("filepaths_only", label="Filepaths Only", description="Export the filepaths for the selected samples")
+        inputs.define_property("data", types.Enum(data_choices.values()), label="Media and Data", description="Choose what data or media to export", view=data_choices)
         cur_data = ctx.params.get("data", None)
         if (cur_data == "media_and_labels" or cur_data == "labels_only"):
             inputs.define_property("label_format", types.Enum([
