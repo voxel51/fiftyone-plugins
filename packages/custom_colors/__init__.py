@@ -15,7 +15,7 @@ class CustomColors(foo.DynamicOperator):
             # TODO - change this to a header
             inputs.define_property("header", types.String(), label="Header", defautl=field)
             # TODO - change to a types.ColorView()
-            inputs.str("color", required=True)
+            inputs.str("color", required=True, view=types.Color(label="Color", description="Choose a color for this field"))
 
             inputs.bool("something", label="Something", default=False)
         else:
@@ -26,7 +26,9 @@ class CustomColors(foo.DynamicOperator):
 
 op = None
 def register():
-    op = CustomColors()
-    foo.register_operator(op)
+    pass
+    # op = CustomColors()
+    # foo.register_operator(op)
 def unregister():
-    foo.unregister_operator(op)
+    pass
+    # foo.unregister_operator(op)

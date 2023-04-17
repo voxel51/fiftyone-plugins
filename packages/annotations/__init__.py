@@ -2,10 +2,101 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone as fo
 
+
+def create_attribute_schema(ctx):
+  attribute_schema = types.Object()
+  attribute_schema.define_property(
+    "attribute_name",
+    types.String(),
+    label="Attribute Name",
+    description="The name of the attribute to create.",
+    required=True,
+    view=types.View(space=6)
+  )
+  attribute_schema.define_property(
+    "type",
+    types.Enum(
+      ["radio", "select", "checkbox", "text"]
+    ),
+    label="Attribute Type",
+    description="The type of attribute to create.",
+    view=types.View(space=6)
+  )
+  attribute_schema.define_property(
+    "values",
+    types.List(types.String()),
+    label="Values",
+    description="The classes to include in the attribute.",
+    default=[]
+  )
+  return attribute_schema
+
+def create_class_schema(ctx):
+  class_schema = types.Object()
+  class_schema.define_property(
+    "classes",
+    types.List(types.String()),
+    label="Classes",
+    required=True,
+    view=types.View(space=6)
+  )
+  class_schema.define_property(
+    "attributes",
+    types.List(create_attribute_schema(ctx)),
+    label="Attributes",
+    required=True,
+    view=types.View(space=6)
+  )
+  return class_schema
+
+def create_field_schema(ctx):
+  field_schema = types.Object()
+  field_schema.define_property(
+    "field_name",
+    types.String(),
+    label="Field Name",
+    description="The name of the field.",
+    required=True,
+    view=types.View(space=6)
+  )
+  field_schema.define_property(
+    "type",
+    types.Enum(
+      ["detections", "polygons", "polylines", "points", "text", "scalar", "classifcation", "classifcations"]
+    ),
+    label="Field Type",
+    description="The type of the field.",
+    view=types.View(space=6)
+  )
+  field_schema.define_property(
+    "classes",
+    types.List(create_class_schema(ctx)),
+    label="Classes",
+    description="The classes to include in the field.",
+    default=[],
+  )
+  return field_schema
+
+
+def define_custom_label_schema(ctx, inputs):
+  inputs.define_property(
+    "label_schema_fields",
+    types.List(create_field_schema(ctx)),
+    label="Label Schema Fields",
+    description="The fields to include in the label schema.",
+    default=[],
+  )
+
 def create_anno_schema(ctx):
   inputs = types.Object()
   view = types.View(label="Request Annotations")
   default_view = types.View(space=6)
+  target_choices = types.RadioGroup()
+  target_choices.add_choice("dataset", label="Dataset", description="Request annotations for the entire dataset")
+  target_choices.add_choice("view", label="View", description=f"Request annotations for the current view ({ctx.view.count()} samples)")
+  target_choice = ctx.params.get("target", None)
+  inputs.enum("target", target_choices.values(), label="Choose what to annotate", view=target_choices)
+  inputs.str("annotation_key", label="Annotation Key", required=True)
   # all backends
   backend_keys = fo.annotation_config.backends.keys()
   backend_choices = types.RadioGroup()
@@ -32,42 +123,23 @@ def create_anno_schema(ctx):
     view=backend_choices
   )
   cur_backend_name = ctx.params.get("backend", None)
+
+  if target_choice is None or cur_backend_name is None:
+    return types.Property(inputs, view=view)
+
   cur_backend = fo.annotation_config.backends[cur_backend_name] if cur_backend_name else None
 
+  # this should only list the app_config.media_fields
+  # the user is choosing the "filepath" alternative
+
+  # if ctx.dataset.app_config.media_fields is only fiflepath, then we should not show this
   inputs.define_property(
     "media_field",
-    types.Enum(ctx.dataset.get_field_schema().keys()),
+    types.Enum(ctx.dataset.app_config.media_fields),
     label="Media Field",
     default="filepath",
     required=True,
     description="The sample field containing the path to the source media to upload",
-    view=default_view
-  )
-  use_custom_label_schema = ctx.params.get("use_custom_label_schema", False)
-
-  if use_custom_label_schema:
-    inputs.define_property(
-      "label_schema",
-      types.String(),
-      label="Label Schema",
-      description="A dictionary defining the label schema to use. If this argument is provided, it takes precedence over label_field and label_type",
-      view=default_view
-    )
-  else:
-    inputs.define_property(
-      "label_field",
-      types.String(),
-      required=True,
-      label="Label Field",
-      description="A string indicating a new or existing label field to annotate",
-      view=default_view
-    )
-  inputs.define_property(
-    "launch_editor",
-    types.Boolean(),
-    label="Launch Editor",
-    default=False,
-    description="Whether to launch the annotation backend’s editor after uploading the samples",
     view=default_view
   )
   inputs.define_property(
@@ -78,151 +150,75 @@ def create_anno_schema(ctx):
     description="Whether to use a custom label schema",
     view=default_view
   )
+  use_custom_label_schema = ctx.params.get("use_custom_label_schema", False)
+
+  if use_custom_label_schema:
+    define_custom_label_schema(ctx, inputs)
+
   if not use_custom_label_schema:
-    label_type_choices = [
-      types.Choice("classification", label="Classification"),
-      types.Choice("classifications", label="Classifications"),
-      types.Choice("detections", label="Detections"),
-      types.Choice("polylines", label="Polylines"),
-      types.Choice("polygons", label="Polygons"),
-      types.Choice("keypoints", label="Keypoints"),
-      types.Choice("segmentations", label="Segmentations"),
-    ]
     inputs.define_property(
-      "label_type",
-      types.Enum([c.value for c in label_type_choices]),
-      required=True,
-      label="Label Type",
-      view=types.Dropdown(
-        choices=label_type_choices
-      )
+      "label_schema",
+      create_field_schema(ctx),
+      label="Label Schema",
+      description="The label schema to annotate."
     )
-    classDef = types.Object()
-    classDef.define_property(
-      "classes",
-      types.List(types.String()),
-      label="Classes",
-    )
-    attributeDef = types.Object()
-    attributeDef.define_property(
-      "key",
-      types.String(),
-      label="Name"
-    )
-    # TODO fix this - so the values are dynamic
-    # attributeDef.define_property(
-    #   "type",
-    #   types.Enum(cur_backend.supported_attr_types() if cur_backend else []),
-    # )
-    attributeDef.define_property(
-      "type",
-      types.Enum(["select", "checkbox", "radio", "occluded", "text", "groud_id"]),
-      label="Type"
-    )
-    inputs.define_property(
-      "override_attributes_for_classes",
-      types.Boolean(),
-      label="Override Attributes for Classes",
-      default=False,
-    )
-    classDef.define_property(
-      "attributes",
-      types.List(attributeDef),
-      label="Attributes"
-    )
-    override_attributes_for_classes = ctx.params.get("override_attributes_for_classes", False)
-    simpleClassDef = types.Object()
-    simpleClassDef.define_property(
-      "name",
-      types.String(),
-      label="Name",
-      description="The name of the class",
-    )
-    inputs.define_property(
-      "classes",
-      types.List(
-        classDef if override_attributes_for_classes else types.String(),
-        min_items=1
-      ),
-      label="Classes",
-      required=True,
-    )
+  inputs.define_property(
+    "launch_editor",
+    types.Boolean(),
+    label="Launch Editor",
+    default=False,
+    description="Whether to launch the annotation backend’s editor after uploading the samples",
+    view=default_view
+  )
+  inputs.define_property(
+    "use_dataset_mask_targets",
+    types.Boolean(),
+    label="Use Dataset Mask Targets",
+    description="Use the dataset's mask targets to generate segmentation masks",
+  )
+  
+  checkbox_style = types.View(space=20)
 
-    attributes_style_choices = types.RadioGroup(
-      choices=[
-        types.Choice("default", description="Use the default label schema", label="Default"),
-        types.Choice("list", description="Use a list of class names", label="List"),
-        types.Choice("dict", description="Use a dictionary mapping class names to attributes", label="Dict"),
-      ]
-    )
-    inputs.define_property(
-      "attributes_style",
-      types.Enum(attributes_style_choices.values()),
-      label="Attributes Style",
-      view=attributes_style_choices
-    )
-    if (ctx.params.get("attributes_style", None) == "list"):
-      inputs.define_property(
-        "attributes_list",
-        types.List(types.String()),
-        label="Attributes",
-      )
-    if (ctx.params.get("attributes_style", None) == "dict"):
-      inputs.define_property(
-        "attributes_dict",
-        types.Object(),
-        label="Attributes",
-      )
-    
-    inputs.define_property(
-      "use_dataset_mask_targets",
-      types.Boolean(),
-      label="Use Dataset Mask Targets",
-      description="Use the dataset's mask targets to generate segmentation masks",
-    )
-    
-    checkbox_style = types.View(space=20)
-
-    inputs.define_property(
-      "allow_additions",
-      types.Boolean(),
-      default=True,
-      label="Allow Additions",
-      description="Whether to allow new labels to be added. Only applicable when editing existing label fields",
-      view=checkbox_style
-    )
-    inputs.define_property(
-      "allow_deletions",
-      types.Boolean(),
-      default=True,
-      label="Allow Deletions",
-      description="Whether to allow new labels to be deleted. Only applicable when editing existing label fields",
-      view=checkbox_style
-    )
-    inputs.define_property(
-      "allow_label_edits",
-      types.Boolean(),
-      default=True,
-      label="Allow Label Edits",
-      description="Whether to allow the label attribute of existing labels to be modified. Only applicable when editing existing fields with label attributes",
-      view=checkbox_style
-    )
-    inputs.define_property(
-      "allow_index_edits",
-      types.Boolean(),
-      default=True,
-      label="Allow Index Edits",
-      description="Whether to allow the index attribute of existing video tracks to be modified. Only applicable when editing existing frame fields with index attributes",
-      view=checkbox_style
-    )
-    inputs.define_property(
-      "allow_spatial_edits",
-      types.Boolean(),
-      default=True,
-      label="Allow Spatial Edits",
-      description="Whether to allow edits to the spatial properties (bounding boxes, vertices, keypoints, masks, etc) of labels. Only applicable when editing existing spatial label fields",
-      view=checkbox_style
-    )
+  inputs.define_property(
+    "allow_additions",
+    types.Boolean(),
+    default=True,
+    label="Allow Additions",
+    description="Whether to allow new labels to be added. Only applicable when editing existing label fields",
+    view=checkbox_style
+  )
+  inputs.define_property(
+    "allow_deletions",
+    types.Boolean(),
+    default=True,
+    label="Allow Deletions",
+    description="Whether to allow new labels to be deleted. Only applicable when editing existing label fields",
+    view=checkbox_style
+  )
+  inputs.define_property(
+    "allow_label_edits",
+    types.Boolean(),
+    default=True,
+    label="Allow Label Edits",
+    description="Whether to allow the label attribute of existing labels to be modified. Only applicable when editing existing fields with label attributes",
+    view=checkbox_style
+  )
+  inputs.define_property(
+    "allow_index_edits",
+    types.Boolean(),
+    default=True,
+    label="Allow Index Edits",
+    description="Whether to allow the index attribute of existing video tracks to be modified. Only applicable when editing existing frame fields with index attributes",
+    view=checkbox_style
+  )
+  inputs.define_property(
+    "allow_spatial_edits",
+    types.Boolean(),
+    default=True,
+    label="Allow Spatial Edits",
+    description="Whether to allow edits to the spatial properties (bounding boxes, vertices, keypoints, masks, etc) of labels. Only applicable when editing existing spatial label fields",
+    view=checkbox_style
+  )
 
   if (ctx.params.get("backend", None) == "cvat"):
     inputs.define_property(
@@ -341,7 +337,11 @@ class RequestAnnotation(foo.DynamicOperator):
     return create_anno_schema(ctx)
 
   def execute(self, ctx):
-    somehow_trigger_workflow(ctx)
+    print(ctx.params)
+
+    # formatted_params = {}
+
+    # ctx.view.annotate(formatted_params)
     return {}
 
 op = None

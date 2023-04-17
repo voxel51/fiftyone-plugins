@@ -57,31 +57,22 @@ class CustomFormOperator(foo.DynamicOperator):
     def execute(self, ctx):
         return {}
 
-
 class QueryBuilder(foo.DynamicOperator):
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.add_property(
-            types.Property("field", types.Enum(ctx.dataset.get_field_schema().keys()))
-        )
+        inputs.define_property("field", types.Enum(ctx.dataset.get_field_schema().keys()))
         field = ctx.params.get("field", None)
         if field:
             field_inst = ctx.dataset.get_field(field)
             if isinstance(field_inst, fo.EmbeddedDocumentField):
                 field_schema = field_inst.get_field_schema()
                 if (isinstance(field_schema.get('detections', None), fo.ListField)):
-                    inputs.add_property(
-                        types.Property("contains label", types.Enum(ctx.dataset.distinct(field + ".detections.label")))
-                    )
+                    inputs.define_property("contains_label", types.Enum(ctx.dataset.distinct(field + ".detections.label")))
             else:
-                inputs.add_property(
-                    types.Property("operation", types.Enum(["==", "!=", ">", "<", ">=", "<="]))
-                )
-                inputs.add_property(
-                    types.Property("value", types.String())
-                )
+                inputs.define_property("operation", types.Enum(["==", "!=", ">", "<", ">=", "<="]))
+                inputs.define_property("value", types.String())
 
-        return inputs
+        return types.Property(inputs)
     def execute(self, ctx):
         return {}
 
