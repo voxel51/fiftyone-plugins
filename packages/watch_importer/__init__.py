@@ -1,37 +1,52 @@
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 
+DEFAULT_PATHS = {
+    'img_dir': '/Users/ritchie/fiftyone/watches',
+    'labels_path': '/Users/ritchie/Projects/watch-dataset/labels.json'
+}
+
 class WatchImporter(foo.DynamicOperator):
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.define_property("create_dataset", types.Boolean(), default=False)
+        inputs.define_property("create_dataset", types.Boolean(), label="Create Dataset?", default=False)
         if ctx.params.get('create_dataset', False):
-            inputs.define_property("dataset_name", types.String(), default='watches')
-        inputs.define_property("mode", types.Enum([
-            "clear_dataset_and_import",
-            "add_sample_unless_exists",
-            "add_all_samples",
-            "just_clear_dataset"
-        ]))
-        inputs.define_property("img_dir", types.String())
-        inputs.define_property("labels_path", types.String())
-        labels_path = ctx.params.get('labels_path', None)
-        if labels_path is not None:
+            inputs.define_property("dataset_name", types.String(), label="Dataset Name", default='watches')
+        if ctx.params.get('create_dataset', False) == False:
+            inputs.define_property("mode", types.Enum([
+                "clear_dataset_and_import",
+                "add_sample_unless_exists",
+                "add_all_samples",
+                "just_clear_dataset"
+            ]), label="Mode", default="clear_dataset_and_import")
+        inputs.define_property(
+            "use_default_paths",
+            types.Boolean(),
+            label="Use Default Paths?",
+            default=False
+        )
+        use_default_paths = ctx.params.get('use_default_paths', False)
+        if not use_default_paths:
+            inputs.define_property("img_dir", types.String(), label="Image Directory", default=DEFAULT_PATHS.get('img_dir'))
+            inputs.define_property("labels_path", types.String(), label="Labels Path", default=DEFAULT_PATHS.get('labels_path'))
+        labels_path =  DEFAULT_PATHS.get('labels_path') if use_default_paths else ctx.params.get('labels_path', None)
+        if labels_path is not None or use_default_paths:
             if exists(labels_path):
                 try:
                     samples_to_import = len(load_json(labels_path))
                 except:
                     samples_to_import = 0
 
-                inputs.define_property("samples_to_import", types.Number(), default=samples_to_import)
+                inputs.define_property("samples_to_import", types.Number(), label="Samples Found", default=samples_to_import)
             else:
-                inputs.define_property("number_of_samples_imported", types.Number(), default=0)
-        return inputs
+                inputs.define_property("samples_to_import", types.Number(), label="Samples Found", default=0)
+        return types.Property(inputs)
     def execute(self, ctx):
         if ctx.params.get('create_dataset', False):
             ctx.dataset = fo.Dataset(name=ctx.params.get('dataset_name', 'watches'))
-        img_dir = ctx.params.get('img_dir', '/Users/ritchie/fiftyone/watches')
-        labels_path = ctx.params.get('labels_path', None)
+        use_default_paths = ctx.params.get('use_default_paths', False)
+        img_dir =  DEFAULT_PATHS.get('img_dir') if use_default_paths else ctx.params.get('img_dir', None)
+        labels_path =  DEFAULT_PATHS.get('labels_path') if use_default_paths else ctx.params.get('labels_path', None)
         mode = ctx.params.get('mode', 'delete_dataset_and_import')
         if mode == 'clear_dataset_and_import' or mode == 'just_clear_dataset':
             ctx.dataset.clear()
@@ -48,12 +63,15 @@ class WatchImporter(foo.DynamicOperator):
             if (filepath is not None):
                 samples.append(fo.Sample(filepath=filepath, **without_fp(item)))
         ds.add_samples(samples)
+        ctx.trigger("reload_samples")
         return {
             'number_of_samples_imported': len(samples)
         }
 
-        
-
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.define_property("number_of_samples_imported", types.Number(), label="Number of Samples Imported", default=0)
+        return types.Property(outputs, view=types.View(label="Imported Successfully!"))
 
 op = None
 
