@@ -87,7 +87,7 @@ def register():
         "hello-world",
         "Hello World Operator",
     )
-    operator.define_input_property("message", types.String())
+    operator.define_input_property("message", types.String(), required=True)
     operator.define_output_property("message", types.String())
     foo.register_operator(operator)
 
