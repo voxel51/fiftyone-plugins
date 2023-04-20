@@ -61,10 +61,10 @@ def register():
 
     model_names = foz.list_zoo_models()
 
-    trigger.define_input_property('fiftyone_sim_brain_key', types.String())
-    trigger.define_input_property('fiftyone_sim_model', types.Enum(model_names))
+    trigger.define_input_property('fiftyone_sim_brain_key', types.String(), label="Brain Key")
+    trigger.define_input_property('fiftyone_sim_model', types.Enum(model_names), label="Model")
     
-    trigger.define_output_property('dag_run_id', types.String())
+    trigger.define_output_property('dag_run_id', types.String(), label="Run ID")
 
     status = MyAirflowStatusOperator(
         "my-airflow-status-operator",

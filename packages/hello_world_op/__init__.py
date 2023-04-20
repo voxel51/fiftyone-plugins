@@ -14,6 +14,7 @@ airflow_auth = HTTPBasicAuth(AIRFLOW_USERNAME, AIRFLOW_PASSWORD)
 
 class HelloWorldOperator(foo.Operator):
     def execute(self, ctx):
+        ctx.log("Hello World!")
         return {
             "message": ctx.params.get("message") + " World!"
         }
