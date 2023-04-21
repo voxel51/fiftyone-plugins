@@ -1,2 +1,3 @@
 fiftyone:
-    version: '*'
+  version: '*'
+name: compute_similarity

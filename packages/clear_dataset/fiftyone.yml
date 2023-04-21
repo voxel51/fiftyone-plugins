@@ -1,8 +1,8 @@
-fiftyone:
-    version: '*'
-name: my-importer
-version: 1.0.0
 enabled: true
+fiftyone:
+  version: '*'
+name: my-importer
 operators:
-    my-operator-name:
-        enabled: true
+  my-operator-name:
+    enabled: true
+version: 1.0.0

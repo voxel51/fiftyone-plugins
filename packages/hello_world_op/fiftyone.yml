@@ -1,2 +1,3 @@
 fiftyone:
-    version: '*'
+  version: '*'
+name: hello_world_op
