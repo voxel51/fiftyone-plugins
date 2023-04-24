@@ -1,2 +1,8 @@
+name: "@voxel51/compute_visualization"
+description: Compute visualizations for a FiftyOne dataset
+version: 1.0.0
+license: MIT
 fiftyone:
-    version: '*'
+    version: ~0.21.0
+operators:
+    - compute_visualization

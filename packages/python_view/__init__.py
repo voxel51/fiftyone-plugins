@@ -26,13 +26,6 @@ class PythonView(foo.DynamicOperator):
 
     ctx.trigger("set_view", {"view": view._serialize()})
 
+def register(p):
+  p.register(PythonView)
 
-
-op = None
-
-def register():
-  op = PythonView()
-  foo.register_operator(op)
-
-def unregister():
-  foo.unregister_operator(op)

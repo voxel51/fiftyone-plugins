@@ -84,16 +84,7 @@ class ShowRandomSamples(foo.Operator):
 # operator will prompt the user for input (if inputs are defined).
 
 
-op = None
-r = None
-def register():
-    op = Trigger()
-    r = ShowRandomSamples()
-    foo.register_operator(op)
-    foo.register_operator(r)
+def register(p):
+    p.register(Trigger)
+    p.register(ShowRandomSamples)
 
-def unregister():
-    if op is not None:
-        foo.unregister_operator(op)
-    if r is not None:
-        foo.unregister_operator(r)

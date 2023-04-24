@@ -1,2 +1,6 @@
 fiftyone:
     version: '*'
+name: "@voxel51/triggers"
+operators:
+    - trigger
+    - show_random_samples

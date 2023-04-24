@@ -1,2 +1,5 @@
 fiftyone:
     version: '*'
+name: "@voxel51/python_view"
+operators:
+    - create_view_with_python

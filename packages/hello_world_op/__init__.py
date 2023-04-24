@@ -1,149 +1,28 @@
+import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-import fiftyone as fo
-import fiftyone.brain as fob
-import requests
-from requests.auth import HTTPBasicAuth
-import os
-import fiftyone.zoo as foz
 
-AIRFLOW_USERNAME = os.environ.get('AIRFLOW_USERNAME')
-AIRFLOW_PASSWORD = os.environ.get('AIRFLOW_PASSWORD')
+class HelloWorld(foo.DynamicOperator):
+    def __init__(self, plugin_definition=None):
+        super().__init__(
+            "hello_world_op",
+            "Hello World"
+        )
+        
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.define_property("message", types.String(), label="Message")            
+        return types.Property(inputs)
 
-airflow_auth = HTTPBasicAuth(AIRFLOW_USERNAME, AIRFLOW_PASSWORD)
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.define_property("message", types.String(), label="Message")            
+        return types.Property(outputs)
 
-class HelloWorldOperator(foo.Operator):
     def execute(self, ctx):
-        ctx.log("Hello World!")
         return {
             "message": ctx.params.get("message") + " World!"
         }
 
-class KitchenSinkOperator(foo.Operator):
-    def execute(self, ctx):
-        return ctx.params
-
-class MyAirflowTriggerOperator(foo.Operator):
-    def execute(self, ctx):
-        # NOTE: the folowing params are available, but are just passed along to the airflow api
-        # dataset_name = ctx.params.get('fiftyone_dataset_name')
-        # embeddings_field = ctx.params.get('fiftyone_embeddings_field')
-        # vis_brain_key = ctx.params.get('fiftyone_vis_brain_key')
-        # sim_model = ctx.params.get('fiftyone_sim_model')
-        # emb_model = ctx.params.get('fiftyone_emb_model')
-        view_param = {'fiftyone_view_stages': ctx.view._serialize(), 'fiftyone_dataset_name': ctx.dataset_name}
-        airflow_params = {**view_param, **ctx.params}
-
-        # trigger the "my-example-dag: defined in airflow.py
-        r = requests.post('http://localhost:8080/api/v1/dags/my-fiftyone-compute-embeddings/dagRuns',
-            json={
-                "conf": airflow_params
-            },
-            auth=airflow_auth)
-
-        result = r.json()
-
-        ctx.save()
-
-        print(result)
-        return {
-          'dag_run_id': result['dag_run_id'],
-        }
-
-# An operator that prints the status of an airflow workflow
-class MyAirflowStatusOperator(foo.Operator):
-    def execute(self, ctx):
-        dag_run_id = ctx.params.get('dag_run_id')
-        r = requests.get(f'http://localhost:8080/api/v1/dags/my-fiftyone-compute-embeddings/dagRuns/{dag_run_id}',
-            auth=airflow_auth)
-        result = r.json()
-        return {
-          'dag_run_id': result['dag_run_id'],
-          'state': result['state'],
-        }
-
-class CreateSampleFromFileOperator(foo.Operator):
-    def resolveInput(self, ctx):
-        requests("http://localhost:8080/api/v1/dags/my-fiftyone-compute-embeddings/dagRuns")
-        inputs = types.ObjectType()
-
-    def execute(self, ctx):
-        dataset = ctx.dataset
-        filepath = ctx.params.get("filepath", None)
-        sample = fo.Sample(filepath=filepath)
-        # add a sample to the dataset
-        dataset.add_sample(sample)
-
-        return {
-          # return the sample ids
-          # this will be passed as the input to the select samples operator
-          "samples": {
-            "sample_ids": [sample.id]
-          }
-        }
-
-def register():
-    operator = HelloWorldOperator(
-        "hello-world",
-        "Hello World Operator",
-    )
-    operator.define_input_property("message", types.String(), required=True)
-    operator.define_output_property("message", types.String())
-    foo.register_operator(operator)
-
-    # kso = KitchenSinkOperator(
-    #     "kitchen-sink",
-    #     "Kitchen Sink Operator",
-    # )
-    # kso.define_input_property("string", types.String())
-    # kso.define_input_property("number", types.Number())
-    # kso.define_input_property("boolean", types.Boolean())
-    # kso.define_input_property("enum", types.Enum(["a", "b", "c"]))
-    # kso.define_input_property("list", types.List(types.String()))
-
-    # kso.define_output_property("string", types.String())
-    # kso.define_output_property("number", types.Number())
-    # kso.define_output_property("boolean", types.Boolean())
-    # kso.define_output_property("enum", types.Enum(["a", "b", "c"]))
-    # kso.define_output_property("list", types.List(types.String()))
-
-
-    # foo.register_operator(kso)
-
-    # trigger = MyAirflowTriggerOperator(
-    #     "trigger-compute-embeddings",
-    #     "Trigger Compute Embeddings Airflow DAG",
-    # )
-
-    # model_names = foz.list_zoo_models()
-
-    # # trigger.define_input_property('fiftyone_dataset_name', types.Dataset())
-    # # trigger.define_input_property('fiftyone_embeddings_field', types.String())
-    # # trigger.define_input_property('fiftyone_emb_model', types.Enum(model_names))
-    # vis_key = trigger.define_input_property('fiftyone_vis_brain_key', types.String())
-    # trigger.define_input_property('fiftyone_sim_brain_key', types.String())
-    # trigger.define_input_property('fiftyone_sim_model', types.Enum(model_names))
-    
-    # trigger.define_output_property('dag_run_id', types.String())
-
-    # status = MyAirflowStatusOperator(
-    #     "my-airflow-status-operator",
-    #     "My Airflow Status Operator",
-    # )
-
-    # status.define_input_property('dag_run_id', types.String())
-    # status.define_output_property('state', types.Enum(["queued", "running", "success", "failed"]))
-
-    # foo.register_operator(trigger)
-    # foo.register_operator(status)
-
-    fileOp = CreateSampleFromFileOperator('create_sample_from_file', 'Create Sample From File')
-    # add a parameter to the operator which will be displayed in the UI
-    fileOp.define_input_property('filepath', types.String())
-    #fileOp.allowed_roles =[fo.roles.Admin]
-    # add an output property to the operator which tells the UI to execute this operator with the output value
-    foo.register_operator(fileOp)
-
-def unregister():
-    pass
-    # foo.unregister_operator(operator)
+def register(p):
+    p.register(HelloWorld)

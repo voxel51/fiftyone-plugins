@@ -59,16 +59,6 @@ class ExportSamples(foo.DynamicOperator):
             inputs.define_property("estimate", types.String(), default="Estimated export size: TODO MB")
 
         return types.Property(inputs, view=view)
-        
 
-op = None
-
-def register():
-    op = ExportSamples()
-    foo.register_operator(op)
-
-def unregister():
-    foo.unregister_operator(op)
-
-def get_label_fields(dataset):
-    return list(dataset.get_field_schema(embedded_doc_type=fo.Label).keys())
+def register(p):
+    p.register(ExportSamples)

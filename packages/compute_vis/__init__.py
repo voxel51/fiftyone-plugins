@@ -2,13 +2,12 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone as fo
 import fiftyone.brain as fob
-from requests.auth import HTTPBasicAuth
 import fiftyone.zoo as foz
 
 class ComputeVis(foo.DynamicOperator):
   def __init__(self):
     super().__init__(
-      "compute-visualization",
+      "compute_visualization",
       "Compute Visualization",
     )
   
@@ -17,7 +16,7 @@ class ComputeVis(foo.DynamicOperator):
     inputs.str("brain_key", label="Brain Key", description="A key for storing the results of the visualization.", required=True)
     inputs.int("max_samples", label="Max Samples", description="The maximum number of samples to use for the visualization.", required=True)
     inputs.enum("method", ["tsne", "umap", "pca"], label="Method", description="The method to use for computing the visualization.", required=True)
-    # inputs.enum("model", foz.list_zoo_models(), label="Model", description="The model to use for computing the visualization.", required=True)
+    inputs.enum("model", foz.list_zoo_models(), label="Model", description="The model to use for computing the visualization.", required=True)
     return types.Property(inputs)
 
   def execute(self, ctx):
@@ -28,14 +27,5 @@ class ComputeVis(foo.DynamicOperator):
     results = fob.compute_visualization(ctx.dataset.limit(100), brain_key=brain_key, method="tsne")
     return {"results": results}
 
-
-
-
-op = None
-
-def register():
-  op = ComputeVis()
-  foo.register_operator(op)
-
-def unregister():
-  foo.unregister_operator(op)
+def register(p):
+  p.register(ComputeVis)

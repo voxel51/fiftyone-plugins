@@ -2,7 +2,6 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone as fo
 
-
 def create_attribute_schema(ctx):
   attribute_schema = types.Object()
   attribute_schema.define_property(
@@ -332,24 +331,12 @@ class RequestAnnotation(foo.DynamicOperator):
       "Request Annotation",
     )
 
-
   def resolve_input(self, ctx):
     return create_anno_schema(ctx)
 
   def execute(self, ctx):
     print(ctx.params)
-
-    # formatted_params = {}
-
-    # ctx.view.annotate(formatted_params)
     return {}
 
-op = None
-
-def register():
-  op = RequestAnnotation()
-  foo.register_operator(op)
-
-def unregister():
-  foo.unregister_operator(op)
-
+def register(p):
+  p.register(RequestAnnotation)

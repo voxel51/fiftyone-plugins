@@ -1,2 +1,3 @@
 fiftyone:
     version: '*'
+name: "@voxel51/export"
