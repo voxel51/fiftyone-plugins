@@ -30,10 +30,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
       {\
         "name": "@fiftyone/hello-world-plugin",\
         "reference": "workspace:packages/hello-world"\
-      },\
-      {\
-        "name": "testing-generator",\
-        "reference": "workspace:packages/testing-generator"\
       }\
     ],\
     "enableTopLevelFallback": true,\
@@ -43,8 +39,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
       ["@fiftyone/debugger-plugin", ["workspace:packages/debugger"]],\
       ["@fiftyone/hello-world-plugin", ["workspace:packages/hello-world"]],\
       ["@fiftyone/plugin-build", ["workspace:packages/build"]],\
-      ["plugin-examples", ["workspace:."]],\
-      ["testing-generator", ["workspace:packages/testing-generator"]]\
+      ["plugin-examples", ["workspace:."]]\
     ],\
     "fallbackPool": [\
     ],\
@@ -2886,19 +2881,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["yallist", "npm:4.0.0"]\
           ],\
           "linkType": "HARD"\
-        }]\
-      ]],\
-      ["testing-generator", [\
-        ["workspace:packages/testing-generator", {\
-          "packageLocation": "./packages/testing-generator/",\
-          "packageDependencies": [\
-            ["testing-generator", "workspace:packages/testing-generator"],\
-            ["@fiftyone/plugin-build", "workspace:packages/build"],\
-            ["nodemon", "npm:2.0.20"],\
-            ["react", "npm:18.2.0"],\
-            ["vite", "virtual:80c324452488abe10676cc015468d7ba604abd73a0c31ebc802b0d19f0dfa371561806aac1b732f6d97f45187a1496c24de914976e96fac6241c9ff5a6e4e3ea#npm:3.2.5"]\
-          ],\
-          "linkType": "SOFT"\
         }]\
       ]],\
       ["to-fast-properties", [\

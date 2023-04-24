@@ -2408,17 +2408,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"testing-generator@workspace:packages/testing-generator":
-  version: 0.0.0-use.local
-  resolution: "testing-generator@workspace:packages/testing-generator"
-  dependencies:
-    "@fiftyone/plugin-build": "*"
-    nodemon: ^2.0.19
-    react: ^18.2.0
-    vite: ^3.2.4
-  languageName: unknown
-  linkType: soft
-
 "to-fast-properties@npm:^2.0.0":
   version: 2.0.0
   resolution: "to-fast-properties@npm:2.0.0"
