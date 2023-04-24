@@ -22,8 +22,8 @@ exports.defineConfig = function defineConfig(dir) {
         'react-dom': 'ReactDOM',
         'recoil': 'recoil',
         '@fiftyone/state': '__fos__',
-        '@fiftyone/operators': '__foo__',
-        '@fiftyone/components': '__foc__'
+        '@fiftyone/components': '__foc__',
+        '@fiftyone/utilities': '__fou__'
       }) : undefined
     ],
     build: {
