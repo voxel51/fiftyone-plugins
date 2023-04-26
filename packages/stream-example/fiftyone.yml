@@ -1,0 +1,8 @@
+fiftyone:
+    version: '*'
+name: stream-example
+description: A simple stream example
+license: MIT
+version: 1.0.0
+operators:
+    - stream-example
