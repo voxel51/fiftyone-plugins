@@ -11,7 +11,7 @@ class PythonView(foo.DynamicOperator):
   
   def resolve_input(self, ctx):
     inputs = types.Object()
-    inputs.str("python", label="Python", required=True)
+    inputs.str("python", label="Python", required=True, view=types.CodeView(language="python"))
     return types.Property(inputs)
 
   def execute(self, ctx):
