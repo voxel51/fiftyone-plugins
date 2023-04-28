@@ -1,8 +1,0 @@
-fiftyone:
-    version: '*'
-name: hello_world_op
-description: A simple hello world operation
-license: MIT
-version: 1.0.0
-operators:
-    - hello_world_op

@@ -1,0 +1,5 @@
+fiftyone:
+    version: '*'
+name: "@voxel51/type_examples"
+operators:
+    - type_examples

@@ -8,7 +8,10 @@ class Trigger(foo.Operator):
             "trigger_example",
             "Example Trigger Operator"
         )
-        self.define_input_property(
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.define_property(
             "operator_to_trigger",
             types.Enum([
                 "clear_view",
@@ -18,6 +21,7 @@ class Trigger(foo.Operator):
             ]),
             label="Operator to trigger"
         )
+        return types.Property(inputs)
 
     def execute(self, ctx):
         operator_to_trigger = ctx.params.get("operator_to_trigger", None)
@@ -40,13 +44,17 @@ class ShowRandomSamples(foo.Operator):
             "show_random_samples",
             "Show Random Samples"
         )
-        self.define_input_property(
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.define_property(
             "number_of_samples",
             types.Number(),
             label="Number of samples to show",
             default=10
         )
-
+        return types.Property(inputs)
+        
     def execute(self, ctx):
         number_of_samples = ctx.params.get("number_of_samples", None)
         samples = ctx.dataset.take(number_of_samples).values('id')
