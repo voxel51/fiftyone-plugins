@@ -16,7 +16,7 @@ class TypeExamples(foo.Operator):
       types.PlotlyView
     ]
     all_choices = [types.Choice(t.__name__, label=t.__name__) for t in available_types]
-    choices = types.Choices(choices=all_choices)
+    choices = types.Dropdown(choices=all_choices)
     inputs.enum("type", choices.values(), label="Type", required=True, view=choices)
     return types.Property(inputs)
 

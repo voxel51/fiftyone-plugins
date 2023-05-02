@@ -1,0 +1,9 @@
+name: "@voxel51/demos"
+description: All built in Python Operators
+version: 1.0.0
+license: MIT
+fiftyone:
+    version: ~0.21.0
+operators:
+    - select_random_samples
+    - hello_world

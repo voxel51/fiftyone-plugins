@@ -14,7 +14,7 @@ class PythonView(foo.Operator):
     inputs = types.Object()
     src = ctx.params.get("python", None)
     py = inputs.str("python", label="Python", required=True)
-    if src and (not src.startswith("view.") or not src.startswith("dataset.")):
+    if src and (not src.startswith("view.") and not src.startswith("dataset.")):
       inputs.str("error", label="Error", view=types.Error())
       py.invalid = True
       py.error_message = "Python must start with view. or dataset."
@@ -26,7 +26,7 @@ class PythonView(foo.Operator):
     if src is None:
       return {}
     
-    view = eval(src, {"view": ctx.view})
+    view = eval(src, {"view": ctx.view, "dataset": ctx.dataset})
 
     ctx.trigger("set_view", {"view": view._serialize()})
 
