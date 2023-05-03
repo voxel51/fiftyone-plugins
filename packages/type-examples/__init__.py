@@ -2,10 +2,11 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 
 class TypeExamples(foo.Operator):
-  def __init__(self):
-    super().__init__(
-      "type_examples",
-      "Type Examples",
+  @property
+  def config(self):
+    return foo.OperatorConfig(
+      name="type_examples",
+      label="Type Examples",
     )
   
   def resolve_input(self, ctx):

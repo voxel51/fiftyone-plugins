@@ -4,12 +4,10 @@ import {useRecoilValue} from 'recoil'
 import * as foa  from '@fiftyone/aggregations'
 import { useEffect } from 'react'
 import {Button} from '@fiftyone/components'
-import {useOperatorExecutor} from '@fiftyone/operators'
-
-import foo from '@fiftyone/operators'
+import {useOperatorExecutor, Operator, registerOperator} from '@fiftyone/operators'
 
 export function HelloWorld() {
-  const executor = useOperatorExecutor('count')
+  const executor = useOperatorExecutor('@fiftyone/hello-world-plugin/count')
 
   if (executor.isLoading) return <h3>loading...</h3>
 
@@ -39,4 +37,18 @@ function Count({field}) {
   return <strong>{result[0]}</strong>
 }
 
+class MyAlertOperator extends Operator {
+  constructor() {
+    super(
+      'my-alert-operator',
+      'My Alert Operator'
+    )
+    this.pluginName = name
+  }
+  async execute() {
+    alert("hello world! from, " + this.pluginName)
+  }
+}
+
+registerOperator(new MyAlertOperator())
 

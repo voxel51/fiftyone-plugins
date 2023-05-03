@@ -3,10 +3,11 @@ import fiftyone.operators.types as types
 import fiftyone as fo
 
 class Trigger(foo.Operator):
-    def __init__(self):
-        super().__init__(
-            "trigger_example",
-            "Example Trigger Operator"
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="trigger_example",
+            label="Example Trigger Operator"
         )
 
     def resolve_input(self, ctx):
@@ -39,10 +40,11 @@ class Trigger(foo.Operator):
         ctx.trigger(operator_to_trigger, params=params)
 
 class ShowRandomSamples(foo.Operator):
-    def __init__(self):
-        super().__init__(
-            "show_random_samples",
-            "Show Random Samples"
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="show_random_samples",
+            label="Show Random Samples"
         )
 
     def resolve_input(self, ctx):

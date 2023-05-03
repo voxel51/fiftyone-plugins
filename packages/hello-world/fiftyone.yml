@@ -1,0 +1,5 @@
+fiftyone:
+    version: '*'
+name: "@fiftyone/hello-world-plugin"
+operators:
+    - count

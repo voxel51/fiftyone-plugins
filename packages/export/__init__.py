@@ -2,11 +2,12 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone as fo
 
-class ExportSamples(foo.DynamicOperator):
-    def __init__(self):
-        super().__init__(
-            "export_samples",
-            "Export Samples",
+class ExportSamples(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="export_samples",
+            label="Export Samples",
         )
         
     def resolve_input(self, ctx):
