@@ -40,7 +40,7 @@ function Count({field}) {
 class MyAlertOperator extends Operator {
   get config() {
     return new OperatorConfig({
-      name: 'alert_operator',
+      name: 'alert',
       label: 'My Alert Operator',
     })
   }
