@@ -2,4 +2,8 @@ fiftyone:
     version: '*'
 name: "@voxel51/type_examples"
 operators:
-    - type_examples
+    - example_plot
+    - example_table
+    - example_input_list
+    - example_choices
+    - example_image
