@@ -200,8 +200,16 @@ class ExampleSlideshow(foo.Operator):
         return foo.OperatorConfig(
             name="example_slideshow",
             label="Examples: Slideshow",
+            dynamic=True,
             execute_as_generator=True,
         )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        msg = inputs.str("msg", view=types.Warning(label="This operator is intended to be used with the quickstart-video dataset."))
+        if ctx.dataset_name != "quickstart-video":
+            msg.invalid = True
+        return types.Property(inputs)
     
     async def execute(self, ctx):
         group = ctx.view.first()
@@ -262,7 +270,6 @@ class SetFieldExample(foo.Operator):
             field = ctx.params.get("custom_field")
         else:
             field = ctx.params.get("field")
-        print(ctx.params)
         value = ctx.params.get("value")
         view = ctx.view
         if (len(ctx.selected) > 0):
@@ -283,5 +290,5 @@ def register(p):
     p.register(InputListExample)
     p.register(ChoicesExample)
     p.register(ImageExample)
-    p.register(ExampleSlideshow)
     p.register(SetFieldExample)
+    p.register(ExampleSlideshow)
