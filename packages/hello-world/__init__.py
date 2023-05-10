@@ -7,11 +7,10 @@ class Count(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="count",
-            label="Count",
-            execute_as_generator=True
+            label="Count"
         )
 
-    async def execute(self, ctx):
+    def execute(self, ctx):
         return {"count": len(ctx.view)}
     
     def resolve_output(self, ctx):
