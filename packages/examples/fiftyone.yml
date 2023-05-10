@@ -1,0 +1,11 @@
+fiftyone:
+    version: '~0.21.0'
+name: "@voxel51/examples"
+operators:
+    - example_plot
+    - example_table
+    - example_input_list
+    - example_choices
+    - example_image
+    - example_slideshow
+    - example_set_field
