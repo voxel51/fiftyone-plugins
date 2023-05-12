@@ -244,25 +244,41 @@ class ExampleShowOutput(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="example_show_output",
-            label="Examples: Show Output",
+            name="example_output_styles",
+            label="Examples: Output Styles",
             dynamic=True,
         )
     
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.str("msg", label="The Message to Show")
-        return types.Property(inputs)
+        styles = types.Choices(label="Choose how to show the Error")
+        show = styles.add_choice("show_output", label="Use the Show Output Operator")
+        styles.add_choice("resolve_output", label="Execute + Resolve Output")
+        inputs.enum("styles", styles.values(), default=show.value, view=styles)
+        return types.Property(inputs, label="Error Examples")
 
     def execute(self, ctx):
         outputs = types.Object()
         outputs.str("msg", view=types.Error(label=ctx.params["msg"]))
-        ctx.trigger(
-            "show_output",
-            {
-                "outputs": types.Property(outputs).to_json()
-            }
-        )
+        show_output = ctx.params["styles"] == "show_output"
+        if show_output:
+            ctx.trigger(
+                "show_output",
+                {
+                    "outputs": types.Property(outputs).to_json()
+                }
+            )
+        return {
+            "msg": ctx.params["msg"]
+        }
+    
+    def resolve_output(self, ctx):
+        if ctx.params["styles"] == "resolve_output":
+            outputs = types.Object()
+            outputs.str("msg", view=types.Error(label=ctx.params["msg"]))
+            return types.Property(outputs)
+
             
 
 ###
