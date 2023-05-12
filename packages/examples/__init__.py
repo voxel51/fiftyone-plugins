@@ -235,7 +235,35 @@ class ExampleSlideshow(foo.Operator):
                 }
             )
 
-        # yield ctx.trigger("show_output", {"outputs": types.Property(outputs).to_json(), "results": {"hello": "World"}})
+###
+### Show Output
+###
+
+
+class ExampleShowOutput(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_show_output",
+            label="Examples: Show Output",
+            dynamic=True,
+        )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.str("msg", label="The Message to Show")
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        outputs = types.Object()
+        outputs.str("msg", view=types.Error(label=ctx.params["msg"]))
+        ctx.trigger(
+            "show_output",
+            {
+                "outputs": types.Property(outputs).to_json()
+            }
+        )
+            
 
 ###
 ### Mutations
@@ -292,3 +320,4 @@ def register(p):
     p.register(ImageExample)
     p.register(SetFieldExample)
     p.register(ExampleSlideshow)
+    p.register(ExampleShowOutput)
