@@ -3,6 +3,7 @@ fiftyone:
 name: "@voxel51/examples"
 operators:
     - example_simple_input
+    - example_messages
     - example_plot
     - example_table
     - example_input_list

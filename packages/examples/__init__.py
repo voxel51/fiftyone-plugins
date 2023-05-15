@@ -4,6 +4,31 @@ import fiftyone as fo
 import asyncio
 
 ###
+### Messages
+###
+class MessageExamples(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_messages",
+            label="Examples: Messages",
+            dynamic=True,
+        )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        form_view = types.View(label="Form View Header", description="Form View Description")
+        inputs.message("message", "Message", description="A Message Description")
+        warning = types.Warning(label="Notice Label", description="A Notice Description")
+        inputs.view("warning", warning)
+        error = types.Error(label="Error Label", description="An Error Description")
+        inputs.view("error", error)
+        return types.Property(inputs, view=form_view)
+    
+    def execute(self, ctx):
+        return {}
+
+###
 ### Simple Input
 ###
 class SimpleInputExample(foo.Operator):
@@ -17,7 +42,8 @@ class SimpleInputExample(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.str("message", label="Message", required=True)
-        return types.Property(inputs)
+        header = "Simple Input Example"
+        return types.Property(inputs, view=types.View(label=header))
 
     def execute(self, ctx):
         return {"message": ctx.params["message"]}
@@ -25,7 +51,8 @@ class SimpleInputExample(foo.Operator):
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("message", label="Message")
-        return types.Property(outputs)
+        header = "Simple Input Example: Success!"
+        return types.Property(outputs, view=types.View(label=header))
 
 ###
 ### Advanced Input
@@ -38,14 +65,14 @@ class ChoicesExample(foo.Operator):
         return foo.OperatorConfig(
             name="example_choices",
             label="Examples: Choices",
+            dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
         radio_choices = types.RadioGroup()
-        radio_choices.add_choice("choice1", label="Choice 1")
-        radio_choices.add_choice("choice2", label="Choice 2")
-        radio_choices.add_choice("choice3", label="Choice 3")
+        radio_choices.add_choice("choice1", label="Use Defaults")
+        radio_choices.add_choice("choice2", label="Advanced")
         inputs.enum(
             "radio_choices",
             radio_choices.values(),
@@ -53,23 +80,23 @@ class ChoicesExample(foo.Operator):
             label="Radio Choices",
             view=radio_choices,
         )
-        dropdown_choices = types.Dropdown()
-        dropdown_choices.add_choice("choice1", label="Choice 1")
-        dropdown_choices.add_choice("choice2", label="Choice 2")
-        dropdown_choices.add_choice("choice3", label="Choice 3")
-        inputs.enum(
-            "dropdown_choices",
-            dropdown_choices.values(),
-            default=dropdown_choices.choices[0].value,
-            label="Radio Choices",
-            view=dropdown_choices,
-        )
+        if ctx.params.get("radio_choices", False) == "choice2":
+            dropdown_choices = types.Dropdown(label="Advanced Choices")
+            dropdown_choices.add_choice("choice1", label="Choice 1")
+            dropdown_choices.add_choice("choice2", label="Choice 2")
+            dropdown_choices.add_choice("choice3", label="Choice 3")
+            inputs.enum(
+                "dropdown_choices",
+                dropdown_choices.values(),
+                default=dropdown_choices.choices[0].value,
+                view=dropdown_choices,
+            )
         return types.Property(inputs)
 
     def execute(self, ctx):
         return {
-            "radio_choice": ctx.params["radio_choices"],
-            "dropdown_choice": ctx.params["dropdown_choices"],
+            "radio_choice": ctx.params.get("radio_choices", "None provided"),
+            "dropdown_choice": ctx.params.get("dropdown_choices",  "None provided"),
         }
 
     def resolve_output(self, ctx):
@@ -353,6 +380,7 @@ class SetFieldExample(foo.Operator):
         return types.Property(outputs)
     
 def register(p):
+    p.register(MessageExamples)
     p.register(SimpleInputExample)
     p.register(PlotExample)
     p.register(TableExample)
