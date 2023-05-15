@@ -13,3 +13,4 @@ operators:
     - example_set_field
     - example_output_styles
     - example_progress
+    - example_settings

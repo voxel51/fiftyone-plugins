@@ -403,6 +403,35 @@ class SetFieldExample(foo.Operator):
         outputs.str("field", label="Field")
         return types.Property(outputs)
     
+# an example operator that reads plugin settings
+class ExampleSettings(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_settings",
+            label="Examples: Settings",
+            dynamic=True,
+        )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        dropdown = types.AutocompleteView(label="Datasets")
+        for dataset in fo.list_datasets():
+            dropdown.add_choice(dataset, label=dataset)
+        inputs.enum("dataset", dropdown.values(), required=True, view=dropdown)
+        return types.Property(inputs)
+    
+    def execute(self, ctx):
+        dataset = fo.load_dataset(ctx.params["dataset"])
+        settings = dataset.app_config.plugins
+        return {"settings": settings or {}, "dataset": ctx.params["dataset"]}
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("dataset", label="Dataset")
+        outputs.obj("settings", label="Settings", view=types.JSONView())
+        return types.Property(outputs)
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -415,3 +444,4 @@ def register(p):
     p.register(ExampleSlideshow)
     p.register(ExampleShowOutput)
     p.register(ExampleProgress)
+    p.register(ExampleSettings)
