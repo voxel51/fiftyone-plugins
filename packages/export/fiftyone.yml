@@ -1,3 +1,5 @@
 fiftyone:
     version: '*'
 name: "@voxel51/export"
+operators:
+    - export_samples
