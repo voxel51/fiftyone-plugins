@@ -2,6 +2,7 @@ fiftyone:
     version: '~0.21.0'
 name: "@voxel51/examples"
 operators:
+    - example_simple_input
     - example_plot
     - example_table
     - example_input_list

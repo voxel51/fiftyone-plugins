@@ -4,6 +4,30 @@ import fiftyone as fo
 import asyncio
 
 ###
+### Simple Input
+###
+class SimpleInputExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_simple_input",
+            label="Examples: Simple Input",
+        )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.str("message", label="Message", required=True)
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        return {"message": ctx.params["message"]}
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("message", label="Message")
+        return types.Property(outputs)
+
+###
 ### Advanced Input
 ###
 
@@ -329,6 +353,7 @@ class SetFieldExample(foo.Operator):
         return types.Property(outputs)
     
 def register(p):
+    p.register(SimpleInputExample)
     p.register(PlotExample)
     p.register(TableExample)
     p.register(InputListExample)
