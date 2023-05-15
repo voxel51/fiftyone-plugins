@@ -330,7 +330,31 @@ class ExampleShowOutput(foo.Operator):
             outputs.str("msg", view=types.Error(label=ctx.params["msg"]))
             return types.Property(outputs)
 
-            
+class ExampleProgress(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_progress",
+            label="Examples: Progress",
+            execute_as_generator=True,
+        )
+    
+    async def execute(self, ctx):
+        outputs = types.Object()
+        schema = types.Property(outputs)
+        MAX = 100
+        for i in range(MAX):
+            progress_label = f"Loading {i} of {MAX}"
+            progress_view = types.ProgressView(label=progress_label)
+            loading_schema = types.Object()
+            loading_schema.int("percent_complete", view=progress_view)
+            show_output_params = {
+                "outputs": types.Property(loading_schema).to_json(),
+                "results": {"percent_complete": i / MAX}
+            }
+            yield ctx.trigger("show_output", show_output_params)
+            # simulate computation
+            await asyncio.sleep(0.5)    
 
 ###
 ### Mutations
@@ -390,3 +414,4 @@ def register(p):
     p.register(SetFieldExample)
     p.register(ExampleSlideshow)
     p.register(ExampleShowOutput)
+    p.register(ExampleProgress)
