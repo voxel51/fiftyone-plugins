@@ -2,6 +2,7 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone as fo
 import asyncio
+import json
 
 ###
 ### Messages
@@ -245,47 +246,6 @@ class PlotExample(foo.Operator):
         outputs.list("plot", types.Object(), view=plotly)
         return types.Property(outputs)
 
-class ExampleSlideshow(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="example_slideshow",
-            label="Examples: Slideshow",
-            dynamic=True,
-            execute_as_generator=True,
-        )
-    
-    def resolve_input(self, ctx):
-        inputs = types.Object()
-        msg = inputs.str("msg", view=types.Warning(label="This operator is intended to be used with the quickstart-video dataset."))
-        if ctx.dataset_name != "quickstart-video":
-            msg.invalid = True
-        return types.Property(inputs)
-    
-    async def execute(self, ctx):
-        group = ctx.view.first()
-        
-        fo.pprint(group)
-        fo.pprint(group.frames[1])
-
-        outputs = types.Object()
-        outputs.str("frame_url", view=types.ImageView(space=12, image={"width": "80%"}))
-        outputs.int("progress", view=types.ProgressView())
-        frame_count = len(group.frames)
-        for frame_number in range(1, frame_count):
-            frame = group.frames[frame_number]
-            await asyncio.sleep(0.04)
-            yield ctx.trigger(
-                "show_output",
-                {
-                    "outputs": types.Property(outputs).to_json(),
-                    "results": {
-                        "frame_url": f"http://localhost:5151/media?filepath={frame.filepath}",
-                        "progress": frame_number / (frame_count - 1),
-                    }
-                }
-            )
-
 ###
 ### Show Output
 ###
@@ -423,13 +383,15 @@ class ExampleSettings(foo.Operator):
     
     def execute(self, ctx):
         dataset = fo.load_dataset(ctx.params["dataset"])
-        settings = dataset.app_config.plugins
-        return {"settings": settings or {}, "dataset": ctx.params["dataset"]}
+        global_settings = fo.app_config.plugins or {}
+        dataset_settings = dataset.app_config.plugins or {}
+        settings = {**global_settings, **dataset_settings}
+        return {"settings": json.dumps(settings, indent=4), "dataset": ctx.params["dataset"]}
     
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("dataset", label="Dataset")
-        outputs.obj("settings", label="Settings", view=types.JSONView())
+        outputs.str("settings", label="Settings", view=types.JSONView())
         return types.Property(outputs)
 
 def register(p):
