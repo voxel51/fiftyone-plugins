@@ -353,8 +353,10 @@ class SetFieldExample(foo.Operator):
         view = ctx.view
         if (len(ctx.selected) > 0):
             view = ctx.dataset.select(ctx.selected)
-        view.set_values(field, [value])
-        ctx.trigger("reload_samples")
+        for sample in view:
+            sample.set_field(field, value)
+            sample.save()
+        ctx.trigger("reload_dataset")
         return {"field": field, "updated": len(view)}
     
     def resolve_output(self, ctx):
