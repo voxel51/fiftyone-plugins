@@ -403,7 +403,6 @@ def register(p):
     p.register(ChoicesExample)
     p.register(ImageExample)
     p.register(SetFieldExample)
-    p.register(ExampleSlideshow)
     p.register(ExampleShowOutput)
     p.register(ExampleProgress)
     p.register(ExampleSettings)
