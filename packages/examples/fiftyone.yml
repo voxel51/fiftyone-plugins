@@ -1,6 +1,8 @@
 fiftyone:
     version: '~0.21.0'
 name: "@voxel51/examples"
+version: "1.0.0"
+description: "Examples of how to use the operator type system to build custom FiftyOne operations"
 operators:
     - example_simple_input
     - example_messages

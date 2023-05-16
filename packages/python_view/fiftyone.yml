@@ -1,5 +1,7 @@
 fiftyone:
     version: '*'
 name: "@voxel51/python_view"
+version: "1.0.0"
+description: Create views in the FiftyOne App with Python
 operators:
     - create_view_with_python
