@@ -24,6 +24,10 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         "reference": "workspace:plugins/create"\
       },\
       {\
+        "name": "@voxel51/examples",\
+        "reference": "workspace:plugins/examples"\
+      },\
+      {\
         "name": "@voxel51/hello-world",\
         "reference": "workspace:plugins/hello-world"\
       }\
@@ -33,6 +37,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
     "fallbackExclusionList": [\
       ["@fiftyone/create-plugin", ["workspace:plugins/create"]],\
       ["@fiftyone/plugin-build", ["workspace:plugins/build"]],\
+      ["@voxel51/examples", ["workspace:plugins/examples"]],\
       ["@voxel51/hello-world", ["workspace:plugins/hello-world"]],\
       ["plugin-examples", ["workspace:."]]\
     ],\
@@ -865,6 +870,19 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["resolve", "patch:resolve@npm%3A1.22.1#~builtin<compat/resolve>::version=1.22.1&hash=07638b"]\
           ],\
           "linkType": "HARD"\
+        }]\
+      ]],\
+      ["@voxel51/examples", [\
+        ["workspace:plugins/examples", {\
+          "packageLocation": "./plugins/examples/",\
+          "packageDependencies": [\
+            ["@voxel51/examples", "workspace:plugins/examples"],\
+            ["@fiftyone/plugin-build", "workspace:plugins/build"],\
+            ["nodemon", "npm:2.0.20"],\
+            ["react", "npm:18.2.0"],\
+            ["vite", "virtual:334c6fac23eb269bb68a297b851816cbb7c4af004fb5365a6e4ef8f8113f063a591e590bc87256f0e1a9907e9bd611f1fe114d727be83b4be5a6bde705059256#npm:3.2.5"]\
+          ],\
+          "linkType": "SOFT"\
         }]\
       ]],\
       ["@voxel51/hello-world", [\

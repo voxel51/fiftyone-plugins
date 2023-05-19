@@ -1,0 +1,22 @@
+{
+    "name": "@voxel51/examples",
+    "version": "1.0.0",
+    "main": "src/index.ts",
+    "fiftyone": {
+        "script": "dist/index.umd.js"
+    },
+    "scripts": {
+        "dev": "nodemon --watch ./src --ext js,jsx,ts,tsx --exec 'yarn build'",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@fiftyone/plugin-build": "*",
+        "@mui/material": "^5.13.5",
+        "react": "^18.2.0"
+    },
+    "devDependencies": {
+        "nodemon": "^2.0.19",
+        "vite": "^3.2.4"
+    }
+}
