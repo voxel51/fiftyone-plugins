@@ -945,6 +945,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"custom-view@workspace:packages/examples":
+  version: 0.0.0-use.local
+  resolution: "custom-view@workspace:packages/examples"
+  dependencies:
+    "@fiftyone/plugin-build": "*"
+    nodemon: ^2.0.19
+    react: ^18.2.0
+    vite: ^3.2.4
+  languageName: unknown
+  linkType: soft
+
 "debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.3.3":
   version: 4.3.4
   resolution: "debug@npm:4.3.4"

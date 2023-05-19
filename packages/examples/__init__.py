@@ -5,8 +5,10 @@ import asyncio
 import json
 
 ###
-### Messages
+# Messages
 ###
+
+
 class MessageExamples(foo.Operator):
     @property
     def config(self):
@@ -15,23 +17,28 @@ class MessageExamples(foo.Operator):
             label="Examples: Messages",
             dynamic=True,
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
-        form_view = types.View(label="Form View Header", description="Form View Description")
-        inputs.message("message", "Message", description="A Message Description")
-        warning = types.Warning(label="Notice Label", description="A Notice Description")
+        form_view = types.View(label="Form View Header",
+                               description="Form View Description")
+        inputs.message("message", "Message",
+                       description="A Message Description")
+        warning = types.Warning(label="Notice Label",
+                                description="A Notice Description")
         inputs.view("warning", warning)
-        error = types.Error(label="Error Label", description="An Error Description")
+        error = types.Error(label="Error Label",
+                            description="An Error Description")
         inputs.view("error", error)
         return types.Property(inputs, view=form_view)
-    
+
     def execute(self, ctx):
         return {}
 
 ###
-### Markdown
+# Markdown
 ###
+
 
 class MarkdownExample(foo.Operator):
     @property
@@ -40,23 +47,26 @@ class MarkdownExample(foo.Operator):
             name="example_markdown",
             label="Examples: Markdown",
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.str("markdown", label="Markdown", view=types.CodeView(language="markdown"))
+        inputs.str("markdown", label="Markdown",
+                   view=types.CodeView(language="markdown"))
         return types.Property(inputs)
-    
+
     def execute(self, ctx):
         return {"markdown": ctx.params["markdown"]}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("markdown", label="Markdown", view=types.MarkdownView())
         return types.Property(outputs)
 
 ###
-### Simple Input
+# Simple Input
 ###
+
+
 class SimpleInputExample(foo.Operator):
     @property
     def config(self):
@@ -64,7 +74,7 @@ class SimpleInputExample(foo.Operator):
             name="example_simple_input",
             label="Examples: Simple Input",
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.str("message", label="Message", required=True)
@@ -73,7 +83,7 @@ class SimpleInputExample(foo.Operator):
 
     def execute(self, ctx):
         return {"message": ctx.params["message"]}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("message", label="Message")
@@ -81,7 +91,7 @@ class SimpleInputExample(foo.Operator):
         return types.Property(outputs, view=types.View(label=header))
 
 ###
-### Advanced Input
+# Advanced Input
 ###
 
 
@@ -169,7 +179,7 @@ class InputListExample(foo.Operator):
 
 
 ###
-### Advanced Output
+# Advanced Output
 ###
 
 class ImageExample(foo.Operator):
@@ -271,7 +281,7 @@ class PlotExample(foo.Operator):
         return types.Property(outputs)
 
 ###
-### Show Output
+# Show Output
 ###
 
 
@@ -283,12 +293,13 @@ class ExampleShowOutput(foo.Operator):
             label="Examples: Output Styles",
             dynamic=True,
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.str("msg", label="The Message to Show")
         styles = types.Choices(label="Choose how to show the Error")
-        show = styles.add_choice("show_output", label="Use the Show Output Operator")
+        show = styles.add_choice(
+            "show_output", label="Use the Show Output Operator")
         styles.add_choice("resolve_output", label="Execute + Resolve Output")
         inputs.enum("styles", styles.values(), default=show.value, view=styles)
         return types.Property(inputs, label="Error Examples")
@@ -307,12 +318,13 @@ class ExampleShowOutput(foo.Operator):
         return {
             "msg": ctx.params["msg"]
         }
-    
+
     def resolve_output(self, ctx):
         if ctx.params["styles"] == "resolve_output":
             outputs = types.Object()
             outputs.str("msg", view=types.Error(label=ctx.params["msg"]))
             return types.Property(outputs)
+
 
 class ExampleProgress(foo.Operator):
     @property
@@ -322,7 +334,7 @@ class ExampleProgress(foo.Operator):
             label="Examples: Progress",
             execute_as_generator=True,
         )
-    
+
     async def execute(self, ctx):
         outputs = types.Object()
         schema = types.Property(outputs)
@@ -338,11 +350,13 @@ class ExampleProgress(foo.Operator):
             }
             yield ctx.trigger("show_output", show_output_params)
             # simulate computation
-            await asyncio.sleep(0.5)    
+            await asyncio.sleep(0.5)
 
 ###
-### Mutations
+# Mutations
 ###
+
+
 class SetFieldExample(foo.Operator):
     @property
     def config(self):
@@ -355,16 +369,19 @@ class SetFieldExample(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
         if (len(ctx.selected) > 0):
-            inputs.str('msg', view=types.Notice(label=f"Update {len(ctx.selected)} Selected Samples"))
+            inputs.str('msg', view=types.Notice(
+                label=f"Update {len(ctx.selected)} Selected Samples"))
         else:
-            inputs.str('msg', view=types.Notice(label=f"Update {len(ctx.view)} Samples"))
+            inputs.str('msg', view=types.Notice(
+                label=f"Update {len(ctx.view)} Samples"))
         fields = ctx.view.get_field_schema(flat=True)
         field_names = list(fields.keys())
         inputs.bool("use_custom", label="Use Custom Field")
         if (ctx.params.get("use_custom", False)):
             inputs.str("custom_field", label="Custom Field")
         else:
-            inputs.enum("field", field_names, label="Field", view=types.Dropdown())
+            inputs.enum("field", field_names, label="Field",
+                        view=types.Dropdown())
         inputs.str("value", label="Value")
         return types.Property(inputs)
 
@@ -382,14 +399,16 @@ class SetFieldExample(foo.Operator):
             sample.save()
         ctx.trigger("reload_dataset")
         return {"field": field, "updated": len(view)}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.int("updated", label="Updated")
         outputs.str("field", label="Field")
         return types.Property(outputs)
-    
+
 # an example operator that reads plugin settings
+
+
 class ExampleSettings(foo.Operator):
     @property
     def config(self):
@@ -398,7 +417,7 @@ class ExampleSettings(foo.Operator):
             label="Examples: Settings",
             dynamic=True,
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
         dropdown = types.AutocompleteView(label="Datasets")
@@ -406,19 +425,47 @@ class ExampleSettings(foo.Operator):
             dropdown.add_choice(dataset, label=dataset)
         inputs.enum("dataset", dropdown.values(), required=True, view=dropdown)
         return types.Property(inputs)
-    
+
     def execute(self, ctx):
         dataset = fo.load_dataset(ctx.params["dataset"])
         global_settings = fo.app_config.plugins or {}
         dataset_settings = dataset.app_config.plugins or {}
         settings = {**global_settings, **dataset_settings}
         return {"settings": json.dumps(settings, indent=4), "dataset": ctx.params["dataset"]}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("dataset", label="Dataset")
         outputs.str("settings", label="Settings", view=types.JSONView())
         return types.Property(outputs)
+
+
+class CustomViewExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_custom_view",
+            label="Examples: custom view",
+        )
+
+    def execute(self, ctx):
+        return {}
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        component = types.View(
+            label="My custom component",
+            component="ExampleCustomView"
+        )
+        inputs.define_property(
+            "component",
+            types.String(),
+            view=component,
+            invalid=True,
+            error_message="Custom error message"
+        )
+        return types.Property(inputs)
+
 
 def register(p):
     p.register(MessageExamples)
@@ -433,3 +480,4 @@ def register(p):
     p.register(ExampleProgress)
     p.register(ExampleSettings)
     p.register(MarkdownExample)
+    p.register(CustomViewExample)
