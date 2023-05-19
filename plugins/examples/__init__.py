@@ -5,8 +5,10 @@ import asyncio
 import json
 
 ###
-### Messages
+# Messages
 ###
+
+
 class MessageExamples(foo.Operator):
     @property
     def config(self):
@@ -39,7 +41,7 @@ class MessageExamples(foo.Operator):
 
 
 ###
-### Markdown
+# Markdown
 ###
 
 
@@ -70,7 +72,7 @@ class MarkdownExample(foo.Operator):
 
 
 ###
-### Simple Input
+# Simple Input
 ###
 class SimpleInputExample(foo.Operator):
     @property
@@ -97,7 +99,7 @@ class SimpleInputExample(foo.Operator):
 
 
 ###
-### Advanced Input
+# Advanced Input
 ###
 
 
@@ -191,7 +193,7 @@ class InputListExample(foo.Operator):
 
 
 ###
-### Advanced Output
+# Advanced Output
 ###
 
 
@@ -301,7 +303,7 @@ class PlotExample(foo.Operator):
 
 
 ###
-### Show Output
+# Show Output
 ###
 
 
@@ -370,7 +372,7 @@ class ExampleProgress(foo.Operator):
 
 
 ###
-### Mutations
+# Mutations
 ###
 class SetFieldExample(foo.Operator):
     @property
@@ -464,6 +466,33 @@ class ExampleSettings(foo.Operator):
         return types.Property(outputs)
 
 
+class CustomViewExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_custom_view",
+            label="Examples: custom view",
+        )
+
+    def execute(self, ctx):
+        return {}
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        component = types.View(
+            label="My custom component",
+            component="ExampleCustomView"
+        )
+        inputs.define_property(
+            "component",
+            types.String(),
+            view=component,
+            invalid=True,
+            error_message="Custom error message"
+        )
+        return types.Property(inputs)
+
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -477,3 +506,4 @@ def register(p):
     p.register(ExampleProgress)
     p.register(ExampleSettings)
     p.register(MarkdownExample)
+    p.register(CustomViewExample)
