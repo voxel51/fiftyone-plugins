@@ -30,6 +30,31 @@ class MessageExamples(foo.Operator):
         return {}
 
 ###
+### Markdown
+###
+
+class MarkdownExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_markdown",
+            label="Examples: Markdown",
+        )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.str("markdown", label="Markdown", view=types.CodeView(language="markdown"))
+        return types.Property(inputs)
+    
+    def execute(self, ctx):
+        return {"markdown": ctx.params["markdown"]}
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("markdown", label="Markdown", view=types.MarkdownView())
+        return types.Property(outputs)
+
+###
 ### Simple Input
 ###
 class SimpleInputExample(foo.Operator):
@@ -146,7 +171,6 @@ class InputListExample(foo.Operator):
 ###
 ### Advanced Output
 ###
-
 
 class ImageExample(foo.Operator):
     @property
@@ -408,3 +432,4 @@ def register(p):
     p.register(ExampleShowOutput)
     p.register(ExampleProgress)
     p.register(ExampleSettings)
+    p.register(MarkdownExample)

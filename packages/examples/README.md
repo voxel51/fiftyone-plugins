@@ -69,3 +69,6 @@ fop.download_plugin(
 ### example_settings
 
  - Example of reading all plugin settings
+### example_markdown
+
+ - Example rendering markdown as output

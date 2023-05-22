@@ -5,7 +5,7 @@ import {Button} from '@fiftyone/components'
 import {types, useOperatorExecutor, Operator, OperatorConfig, registerOperator, executeOperator} from '@fiftyone/operators'
 
 export function HelloWorld() {
-  const executor = useOperatorExecutor('@fiftyone/hello-world-plugin/count')
+  const executor = useOperatorExecutor('@voxel51/hello-world/count')
   const onClickAlert = useCallback(executeOperator);
   const dataset = useRecoilValue(fos.dataset);
 
