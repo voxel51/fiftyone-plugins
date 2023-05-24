@@ -420,6 +420,37 @@ class ExampleSettings(foo.Operator):
         outputs.str("settings", label="Settings", view=types.JSONView())
         return types.Property(outputs)
 
+class OpenHistogramsPanel(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_open_histograms_panel",
+            label="Examples: open Histograms panel",
+        )
+
+    def resolve_placement(self, ctx):
+        return types.Placement(
+            # Display placement in the actions row of samples grid
+            types.Places.SAMPLES_GRID_SECONDARY_ACTIONS,
+            # Display a button as the placement
+            types.Button(
+                # label for placement button visible on hover
+                label="Open Histograms Panel",
+                # icon for placement button. If not provided, button with label
+                # will be displayed
+                icon="/assets/histograms.svg",
+                # skip operator prompt when we do not require an input from the user
+                prompt=False
+            )
+        )
+
+    def execute(self, ctx):
+        return ctx.trigger(
+            "open_panel",
+            params=dict(name="Histograms", isActive=True, layout="horizontal"),
+        )
+
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -433,3 +464,4 @@ def register(p):
     p.register(ExampleProgress)
     p.register(ExampleSettings)
     p.register(MarkdownExample)
+    p.register(OpenHistogramsPanel)
