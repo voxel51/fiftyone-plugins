@@ -37,11 +37,11 @@
         "@fiftyone/looker": "portal:../fiftyone/app/packages/looker",
         "@fiftyone/looker-3d": "portal:../fiftyone/app/packages/looker-3d",
         "@fiftyone/map": "portal:../fiftyone/app/packages/map",
+        "@fiftyone/operators": "portal:../fiftyone/app/packages/operators",
         "@fiftyone/plugins": "portal:../fiftyone/app/packages/plugins",
         "@fiftyone/relay": "portal:../fiftyone/app/packages/relay",
         "@fiftyone/spaces": "portal:../fiftyone/app/packages/spaces",
         "@fiftyone/state": "portal:../fiftyone/app/packages/state",
-        "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities",
-        "@fiftyone/operators": "portal:../fiftyone/app/packages/operators"
+        "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities"
     }
 }
