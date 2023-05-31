@@ -1,46 +1,46 @@
 {
-  "name": "plugin-examples",
-  "packageManager": "yarn@3.5.1",
-  "devDependencies": {
-    "@types/node": "^18.0.1",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
-    "@vitejs/plugin-react": "^1.3.0",
-    "nodemon": "^2.0.19",
-    "react": "^18.2.0",
-    "react-inspector": "^6.0.1",
-    "recoil": "^0.7.5",
-    "rollup-plugin-external-globals": "^0.6.1",
-    "rollup-plugin-polyfill-node": "^0.10.0",
-    "typescript": "^4.6.3"
-  },
-  "scripts": {
-    "create-plugin": "yarn workspace @fiftyone/create-plugin create-plugin"
-  },
-  "workspaces": [
-    "packages/*"
-  ],
-  "dependencies": {
-    "ts-node": "^10.9.1"
-  },
-  "resolutions": {
-    "@fiftyone/fiftyone": "portal:../fiftyone/app",
-    "@fiftyone/aggregations": "portal:../fiftyone/app/packages/aggregations",
-    "@fiftyone/app": "portal:../fiftyone/app/packages/app",
-    "@fiftyone/components": "portal:../fiftyone/app/packages/components",
-    "@fiftyone/core": "portal:../fiftyone/app/packages/core",
-    "@fiftyone/dataset": "portal:../fiftyone/app/packages/dataset",
-    "FiftyOne": "portal:../fiftyone/app/packages/desktop",
-    "@fiftyone/embeddings": "portal:../fiftyone/app/packages/embeddings",
-    "@fiftyone/flashlight": "portal:../fiftyone/app/packages/flashlight",
-    "@fiftyone/looker": "portal:../fiftyone/app/packages/looker",
-    "@fiftyone/looker-3d": "portal:../fiftyone/app/packages/looker-3d",
-    "@fiftyone/map": "portal:../fiftyone/app/packages/map",
-    "@fiftyone/plugins": "portal:../fiftyone/app/packages/plugins",
-    "@fiftyone/relay": "portal:../fiftyone/app/packages/relay",
-    "@fiftyone/spaces": "portal:../fiftyone/app/packages/spaces",
-    "@fiftyone/state": "portal:../fiftyone/app/packages/state",
-    "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities",
-    "@fiftyone/operators": "portal:../fiftyone/app/packages/operators"
-  }
+    "name": "plugin-examples",
+    "packageManager": "yarn@3.5.1",
+    "devDependencies": {
+        "@types/node": "^18.0.1",
+        "@types/react": "^18.0.0",
+        "@types/react-dom": "^18.0.0",
+        "@vitejs/plugin-react": "^1.3.0",
+        "nodemon": "^2.0.19",
+        "react": "^18.2.0",
+        "react-inspector": "^6.0.1",
+        "recoil": "^0.7.5",
+        "rollup-plugin-external-globals": "^0.6.1",
+        "rollup-plugin-polyfill-node": "^0.10.0",
+        "typescript": "^4.6.3"
+    },
+    "scripts": {
+        "create-plugin": "yarn workspace @fiftyone/create-plugin create-plugin"
+    },
+    "workspaces": [
+        "packages/*"
+    ],
+    "dependencies": {
+        "ts-node": "^10.9.1"
+    },
+    "resolutions": {
+        "@fiftyone/fiftyone": "portal:../fiftyone/app",
+        "@fiftyone/aggregations": "portal:../fiftyone/app/packages/aggregations",
+        "@fiftyone/app": "portal:../fiftyone/app/packages/app",
+        "@fiftyone/components": "portal:../fiftyone/app/packages/components",
+        "@fiftyone/core": "portal:../fiftyone/app/packages/core",
+        "@fiftyone/dataset": "portal:../fiftyone/app/packages/dataset",
+        "FiftyOne": "portal:../fiftyone/app/packages/desktop",
+        "@fiftyone/embeddings": "portal:../fiftyone/app/packages/embeddings",
+        "@fiftyone/flashlight": "portal:../fiftyone/app/packages/flashlight",
+        "@fiftyone/looker": "portal:../fiftyone/app/packages/looker",
+        "@fiftyone/looker-3d": "portal:../fiftyone/app/packages/looker-3d",
+        "@fiftyone/map": "portal:../fiftyone/app/packages/map",
+        "@fiftyone/operators": "portal:../fiftyone/app/packages/operators",
+        "@fiftyone/plugins": "portal:../fiftyone/app/packages/plugins",
+        "@fiftyone/relay": "portal:../fiftyone/app/packages/relay",
+        "@fiftyone/spaces": "portal:../fiftyone/app/packages/spaces",
+        "@fiftyone/state": "portal:../fiftyone/app/packages/state",
+        "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities"
+    }
 }
