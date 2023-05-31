@@ -38,3 +38,5 @@ packages/watch_importer
 !.yarn/plugins
 !.yarn/sdks
 !.yarn/versions
+
+tsconfig.fo.json
