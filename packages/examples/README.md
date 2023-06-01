@@ -10,7 +10,7 @@ own operators, or read the source to understand how to:
  - interact with FiftyOne `Views` and `Datasets`
  - update `Sample` fields
 
-## Install
+## Installalation
 
 CLI
 
