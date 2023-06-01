@@ -6,7 +6,7 @@ import {types, useOperatorExecutor, Operator, OperatorConfig, registerOperator, 
 
 export function HelloWorld() {
   const executor = useOperatorExecutor('@voxel51/hello-world/count')
-  const onClickAlert = useCallback(executeOperator);
+  const onClickAlert = useCallback(() => executeOperator('@voxel51/hello-world/alert'));
   const dataset = useRecoilValue(fos.dataset);
 
   if (executor.isLoading) return <h3>loading...</h3>
@@ -32,4 +32,4 @@ class MyAlertOperator extends Operator {
   }
 }
 
-registerOperator(MyAlertOperator, "@fiftyone/hello-world-plugin")
+registerOperator(MyAlertOperator, "@voxel51/hello-world")
