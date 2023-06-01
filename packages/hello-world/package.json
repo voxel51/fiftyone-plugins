@@ -1,5 +1,5 @@
 {
-  "name": "@fiftyone/hello-world-plugin",
+  "name": "@voxel51/hello-world",
   "version": "1.0.0",
   "main": "src/HelloWorldPlugin.tsx",
   "license": "MIT",

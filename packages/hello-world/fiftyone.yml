@@ -1,0 +1,7 @@
+fiftyone:
+    version: '*'
+name: "@voxel51/hello-world"
+version: "1.0.0"
+description: "An example of JavaScript and Python components and operators in a single plugin"
+operators:
+    - count

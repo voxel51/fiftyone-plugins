@@ -1,6 +1,4 @@
 const path = require('path')
-const defaultResolutions = require('../../../package.json').resolutions
-
 const {FIFTYONE_DIR} = process.env
 
 module.exports.default = function fiftyoneRollup () {

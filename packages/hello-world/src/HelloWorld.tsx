@@ -1,43 +1,35 @@
-import * as fop from '@fiftyone/plugins'
 import * as fos from '@fiftyone/state'
-import {useRecoilValue as useVal} from 'recoil'
-import * as foa  from '@fiftyone/aggregations'
-import { useEffect } from 'react'
+import {useRecoilValue} from 'recoil'
+import {useCallback} from 'react'
 import {Button} from '@fiftyone/components'
+import {types, useOperatorExecutor, Operator, OperatorConfig, registerOperator, executeOperator} from '@fiftyone/operators'
 
 export function HelloWorld() {
-  const dataset = useVal(fos.dataset)
+  const executor = useOperatorExecutor('@voxel51/hello-world/count')
+  const onClickAlert = useCallback(executeOperator);
+  const dataset = useRecoilValue(fos.dataset);
 
-  const {fieldToCount} = fop.usePluginSettings('hello-world', {fieldToCount: 'filepath'})
-  
-  return (
-    <h1>
-      You are viewing the <strong>{dataset.name}</strong> dataset.
-      It has <Count field={fieldToCount} /> samples. 
-    </h1>
-  )
+  if (executor.isLoading) return <h3>loading...</h3>
+  if (executor.result) return <h3>Count: {executor.result.count}</h3>
+
+  return <>
+      <h1>Hello, world!</h1>
+      <h2>You are viewing the <strong>{dataset.name}</strong> dataset!</h2>
+      <Button onClick={() => executor.execute()}>Count</Button>
+      <Button onClick={onClickAlert}>Alert</Button>
+    </>
 }
 
-function Count({field}) {
-  const dataset = useVal(fos.dataset)
-  const view = useVal(fos.view)
-  const filters = useVal(fos.filters)
-  const [aggregate, result, loading] = foa.useAggregation({view, filters, dataset})
-
-  const load = () => {
-    const aggregations = [
-      new foa.aggregations.Count({fieldOrExpr: field})
-    ]
-    aggregate(aggregations, dataset.name)
+class MyAlertOperator extends Operator {
+  get config() {
+    return new OperatorConfig({
+      name: 'alert',
+      label: 'My Alert Operator',
+    })
   }
-  
-  if (!result) {
-    return <Button onClick={load}>Click to Load</Button>
+  async execute() {
+    alert("Hello, world... plugin:" + this.pluginName)
   }
-
-  if (loading) return <Button disabled>Loading...</Button>
-
-  return <strong>{result[0]}</strong>
 }
 
-
+registerOperator(MyAlertOperator, "@fiftyone/hello-world-plugin")

@@ -24,11 +24,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
         "reference": "workspace:packages/create"\
       },\
       {\
-        "name": "@fiftyone/debugger-plugin",\
-        "reference": "workspace:packages/debugger"\
-      },\
-      {\
-        "name": "@fiftyone/hello-world-plugin",\
+        "name": "@voxel51/hello-world",\
         "reference": "workspace:packages/hello-world"\
       }\
     ],\
@@ -36,9 +32,8 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
     "ignorePatternData": "(^(?:\\\\.yarn\\\\/sdks(?:\\\\/(?!\\\\.{1,2}(?:\\\\/|$))(?:(?:(?!(?:^|\\\\/)\\\\.{1,2}(?:\\\\/|$)).)*?)|$))$)",\
     "fallbackExclusionList": [\
       ["@fiftyone/create-plugin", ["workspace:packages/create"]],\
-      ["@fiftyone/debugger-plugin", ["workspace:packages/debugger"]],\
-      ["@fiftyone/hello-world-plugin", ["workspace:packages/hello-world"]],\
       ["@fiftyone/plugin-build", ["workspace:packages/build"]],\
+      ["@voxel51/hello-world", ["workspace:packages/hello-world"]],\
       ["plugin-examples", ["workspace:."]]\
     ],\
     "fallbackPool": [\
@@ -514,29 +509,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "linkType": "SOFT"\
         }]\
       ]],\
-      ["@fiftyone/debugger-plugin", [\
-        ["workspace:packages/debugger", {\
-          "packageLocation": "./packages/debugger/",\
-          "packageDependencies": [\
-            ["@fiftyone/debugger-plugin", "workspace:packages/debugger"],\
-            ["vite", "virtual:80c324452488abe10676cc015468d7ba604abd73a0c31ebc802b0d19f0dfa371561806aac1b732f6d97f45187a1496c24de914976e96fac6241c9ff5a6e4e3ea#npm:3.2.5"]\
-          ],\
-          "linkType": "SOFT"\
-        }]\
-      ]],\
-      ["@fiftyone/hello-world-plugin", [\
-        ["workspace:packages/hello-world", {\
-          "packageLocation": "./packages/hello-world/",\
-          "packageDependencies": [\
-            ["@fiftyone/hello-world-plugin", "workspace:packages/hello-world"],\
-            ["@fiftyone/plugin-build", "workspace:packages/build"],\
-            ["nodemon", "npm:2.0.20"],\
-            ["react", "npm:18.2.0"],\
-            ["vite", "virtual:80c324452488abe10676cc015468d7ba604abd73a0c31ebc802b0d19f0dfa371561806aac1b732f6d97f45187a1496c24de914976e96fac6241c9ff5a6e4e3ea#npm:3.2.5"]\
-          ],\
-          "linkType": "SOFT"\
-        }]\
-      ]],\
       ["@fiftyone/plugin-build", [\
         ["workspace:packages/build", {\
           "packageLocation": "./packages/build/",\
@@ -893,6 +865,19 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["resolve", "patch:resolve@npm%3A1.22.1#~builtin<compat/resolve>::version=1.22.1&hash=07638b"]\
           ],\
           "linkType": "HARD"\
+        }]\
+      ]],\
+      ["@voxel51/hello-world", [\
+        ["workspace:packages/hello-world", {\
+          "packageLocation": "./packages/hello-world/",\
+          "packageDependencies": [\
+            ["@voxel51/hello-world", "workspace:packages/hello-world"],\
+            ["@fiftyone/plugin-build", "workspace:packages/build"],\
+            ["nodemon", "npm:2.0.20"],\
+            ["react", "npm:18.2.0"],\
+            ["vite", "virtual:80c324452488abe10676cc015468d7ba604abd73a0c31ebc802b0d19f0dfa371561806aac1b732f6d97f45187a1496c24de914976e96fac6241c9ff5a6e4e3ea#npm:3.2.5"]\
+          ],\
+          "linkType": "SOFT"\
         }]\
       ]],\
       ["abbrev", [\

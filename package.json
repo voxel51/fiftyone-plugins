@@ -40,6 +40,7 @@
     "@fiftyone/relay": "portal:../fiftyone/app/packages/relay",
     "@fiftyone/spaces": "portal:../fiftyone/app/packages/spaces",
     "@fiftyone/state": "portal:../fiftyone/app/packages/state",
-    "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities"
+    "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities",
+    "@fiftyone/operators": "portal:../fiftyone/app/packages/operators"
   }
 }

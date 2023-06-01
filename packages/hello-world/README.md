@@ -1,33 +1,42 @@
-# hello-world
-Example Fiftyone Plugin
+## About
+
+This plugin contains an example of using both Python and JS together in a FiftyOne plugin.
+
+It demonstrates how to do the following:
+
+ - use Python and JS in the same plugin
+ - define a `Panel`
+ - adhoc operator execution
+ - hook based operator execution
+ - how to use the `build` package to build a JS plugin
 
 ## Install
 
-**Note: You must have fiftyone installed from source.**
+CLI
 
-In this directory run the following:
-
-```sh
-npm install
+```shell
+fiftyone plugins download \
+        https://github.com/voxel51/fiftyone-plugins \
+        --plugin-names @voxel51/hello-world
 ```
 
-Then link the required packages:
+Python
 
-```sh
-cd $MY_FIFTYONE_SRC_DIR/app/packages;
-cd aggregations;
-npm link;
-cd ../plugins;
-npm link;
-cd ../state;
-npm link;
-cd $HELLO_WORLD_DIR;
-npm link @fiftyone/aggregations;
-npm link @fiftyone/plugins;
-npm link @fiftyone/state;
+```python
+import fiftyone.plugins as fop
+
+fop.download_plugin(
+    "https://github.com/voxel51/fiftyone-plugins",
+    plugin_names=["@voxel51/hello-world"]
 ```
 
-You also must set the `FIFTYONE_PLUGINS_DIR` env var to
-tell `fiftyone` to load this plugin.
+## Operators
 
-Note: once the plugin system is fully released, these steps will likely change.
+### my_alert_operator
+
+ - Example of a very basic JS operator
+
+### count
+
+ - Example of a simple python operator
+ - Returns the size of the current view
