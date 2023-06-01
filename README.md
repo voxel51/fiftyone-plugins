@@ -11,14 +11,14 @@ This repo serves as a registry for all **external** fiftyone plugins developed b
     </tr>
     <tr>
         <td><code>1.0.0</code></td>
-        <td><b><a href="https://github.com/voxel51/fiftyone-gpt">@voxel51/fiftyone-gpt</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-gpt">@voxel51/voxelgpt</a></b></td>
         <td>Wish you could search your images or videos without writing a line of code? Now you can!</td>
         <td><a href="https://github.com/voxel51/fiftyone-gpt">About</a></td>
         <td><a href="https://github.com/voxel51/fiftyone-gpt#installation">Install</a></td>
         <td>
         </td>
     </tr>
-    <tr>
+    <!-- <tr>
         <td><code>1.0.0</code></td>
         <td><b><a href="https://github.com/voxel51/fiftyone-docs-search">@voxel51/fiftyone-docs-search</a></b></td>
         <td>Enable semantic search on the Voxel51 documentation from the FiftyOne app</td>
@@ -26,7 +26,7 @@ This repo serves as a registry for all **external** fiftyone plugins developed b
         <td><a href="https://github.com/voxel51/fiftyone-docs-search#installation">Install</a></td>
         <td>
         </td>
-    </tr>
+    </tr> -->
     <tr>
         <td><code>1.0.0</code></td>
         <td><b><a href="packages/hello-world/README.md">@voxel51/hello-world</a></b></td>
