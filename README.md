@@ -56,7 +56,7 @@ This repo serves as a registry for all **external** fiftyone plugins developed b
 There are a few ways to use this repository.
 
 1. Clone and run the plugins.
-2. As a starter sekelton for building your own plugin.
+2. As a starter skeleton for building your own plugin.
 3. As a contributor to a Voxel51 external plugin. Note: contributions can be made to core plugins [here](https://github.com/voxel51/fiftyone/tree/develop/app).
 
 **Prerequisites**
