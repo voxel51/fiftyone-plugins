@@ -10,7 +10,7 @@ It demonstrates how to do the following:
  - hook based operator execution
  - how to use the `build` package to build a JS plugin
 
-## Installalation
+## Installation
 
 CLI
 
