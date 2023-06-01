@@ -4,7 +4,7 @@ Create a `fiftyone.View` in the FiftyoneApp using the python syntax.
 
 To use, open the operator browser and type "Create View with Python".
 
-## Installalation
+## Installation
 
 CLI
 
