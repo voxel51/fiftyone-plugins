@@ -11,8 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "@fiftyone/plugin-build": "*"
+    "@fiftyone/plugin-build": "*",
+    "react": "^18.2.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.19",
