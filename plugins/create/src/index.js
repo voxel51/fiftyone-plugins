@@ -1,9 +1,8 @@
 const path = require("path");
 const fs = require("fs");
 
-const ROOT_DIR = path.join(__dirname, "..", "..", "..");
-const PACKAGES_DIR = path.join(ROOT_DIR, "packages");
-const SKELETON_DIR = path.join(ROOT_DIR, "__skeleton__");
+const PLUGINS_DIR = path.join(__dirname, "../../");
+const SKELETON_DIR = path.join(PLUGINS_DIR, "__skeleton__");
 
 // a function that checks if the given plugin name is a valid filename
 // and does not already exist as a directory
@@ -26,7 +25,7 @@ function validatePluginName(pluginName, targetDir) {
 }
 
 function main(pluginName) {
-  const targetDir = path.join(PACKAGES_DIR, pluginName);
+  const targetDir = path.join(PLUGINS_DIR, pluginName);
   validatePluginName(pluginName, targetDir);
   console.log(`Creating Fiftyone Plugin: "${pluginName}"`);
   console.log(`in directory ${targetDir}`);
