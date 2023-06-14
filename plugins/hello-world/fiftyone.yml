@@ -1,0 +1,9 @@
+name: "@voxel51/hello-world"
+description: An example of JavaScript and Python components and operators in a single plugin
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/blob/main/packages/count/README.md
+license: Apache 2.0
+operators:
+  - count

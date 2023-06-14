@@ -1,0 +1,41 @@
+{
+    "name": "@voxel51/hello-world",
+    "version": "1.0.0",
+    "main": "src/HelloWorldPlugin.tsx",
+    "license": "MIT",
+    "fiftyone": {
+        "script": "dist/index.umd.js"
+    },
+    "scripts": {
+        "dev": "nodemon --watch ./src --ext js,jsx,ts,tsx --exec 'yarn build'",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "nodemon": "^2.0.19",
+        "react": "^18.2.0"
+    },
+    "devDependencies": {
+        "@fiftyone/plugin-build": "*",
+        "vite": "^3.2.4"
+    },
+    "resolutions": {
+        "@fiftyone/fiftyone": "portal:../fiftyone/app",
+        "@fiftyone/aggregations": "portal:../fiftyone/app/packages/aggregations",
+        "@fiftyone/app": "portal:../fiftyone/app/packages/app",
+        "@fiftyone/components": "portal:../fiftyone/app/packages/components",
+        "@fiftyone/core": "portal:../fiftyone/app/packages/core",
+        "@fiftyone/dataset": "portal:../fiftyone/app/packages/dataset",
+        "FiftyOne": "portal:../fiftyone/app/packages/desktop",
+        "@fiftyone/embeddings": "portal:../fiftyone/app/packages/embeddings",
+        "@fiftyone/flashlight": "portal:../fiftyone/app/packages/flashlight",
+        "@fiftyone/looker": "portal:../fiftyone/app/packages/looker",
+        "@fiftyone/looker-3d": "portal:../fiftyone/app/packages/looker-3d",
+        "@fiftyone/map": "portal:../fiftyone/app/packages/map",
+        "@fiftyone/plugins": "portal:../fiftyone/app/packages/plugins",
+        "@fiftyone/relay": "portal:../fiftyone/app/packages/relay",
+        "@fiftyone/spaces": "portal:../fiftyone/app/packages/spaces",
+        "@fiftyone/state": "portal:../fiftyone/app/packages/state",
+        "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities"
+    }
+}
