@@ -3,7 +3,7 @@ description: A collection of import/export utilities
 version: 1.0.0
 fiftyone:
   version: "*"
-url: https://github.com/voxel51/fiftyone-plugins/blob/main/packages/io/README.md
+url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md
 license: Apache 2.0
 operators:
   - add_samples

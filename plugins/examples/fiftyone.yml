@@ -3,7 +3,7 @@ description: Examples of how to use the operator type system to build custom Fif
 version: 1.0.0
 fiftyone:
   version: "*"
-url: https://github.com/voxel51/fiftyone-plugins/blob/main/packages/examples/README.md
+url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md
 license: Apache 2.0
 operators:
   - example_simple_input

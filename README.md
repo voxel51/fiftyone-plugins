@@ -17,43 +17,43 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment.
         <th colspan="3" >Links</th>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/io/README.md">@voxel51/io</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>A collection of import/export utilities</td>
         <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/io/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/io/README.md#installation">Install</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md#installation">Install</a></td>
         <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/io/README.md#operators">Operators</a>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md#operators">Operators</a>
         </td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/count/README.md">@voxel51/hello-world</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md">@voxel51/hello-world</a></b></td>
         <td>An example of JavaScript and Python components and operators in a single plugin</td>
         <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/count/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/count/README.md#installation">Install</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md#installation">Install</a></td>
         <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/count/README.md#operators">Operators</a>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md#operators">Operators</a>
         </td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/examples/README.md">@voxel51/examples</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">@voxel51/examples</a></b></td>
         <td>Examples of how to use the operator type system to build custom FiftyOne operations</td>
         <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/examples/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/examples/README.md#installation">Install</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#installation">Install</a></td>
         <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/examples/README.md#operators">Operators</a>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#operators">Operators</a>
         </td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/python-view/README.md">@voxel51/python-view</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md">@voxel51/python-view</a></b></td>
         <td>Create views in the FiftyOne App with Python</td>
         <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/python-view/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/python-view/README.md#installation">Install</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md#installation">Install</a></td>
         <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/packages/python-view/README.md#operators">Operators</a>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md#operators">Operators</a>
         </td>
     </tr>
     <tr>
