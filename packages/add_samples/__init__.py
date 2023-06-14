@@ -69,7 +69,7 @@ class AddSamples(foo.Operator):
         sample = fo.Sample(filepath=path)
         ctx.dataset.add_sample(sample)
       
-      ctx.trigger("reload_samples")
+      ctx.trigger("reload_dataset")
       
     return {"added_samples": len(matched_paths)}
   
