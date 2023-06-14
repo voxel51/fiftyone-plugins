@@ -23,10 +23,32 @@ pre-commit run --files <file>
 When developing locally, you must make your source install of this repository
 available to FiftyOne.
 
-A convenient way to do that is to symlink your `fiftyone-plugins` directory
-into your FiftyOne plugins directory:
+A convenient way to do that is to symlink this repository into your FiftyOne
+plugins directory:
 
 ```shell
-git clone https://github.com/voxel51/fiftyone-plugins
-ln -s "$(pwd)/fiftyone-plugins" "$(fiftyone config plugins_dir)/voxelgpt"
+cd /path/to/fiftyone-plugins
+ln -s "$(pwd)" "$(fiftyone config plugins_dir)/voxelgpt"
 ```
+
+## Legacy instructions (possibly outdated)
+
+### Prerequisites
+
+-   Follow
+    [these instructions](https://github.com/voxel51/fiftyone/blob/develop/CONTRIBUTING.md)
+    to install Fiftyone from source
+-   Set the `FIFTYONE_DIR` environment variable to the location where you
+    cloned the `fiftyone` repository
+
+### Create a new plugin
+
+-   Run `yarn create-plugin <your-plugin-name>` to create a new plugin
+
+### Source install
+
+-   Run `bash install.bash` to install the dev dependencies
+
+### Develop
+
+-   Run `yarn workspace <plugin-name> dev` to compile/watch a plugin
