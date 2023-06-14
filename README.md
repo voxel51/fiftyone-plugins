@@ -27,13 +27,13 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment.
         </td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md">@voxel51/hello-world</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">@voxel51/hello-world</a></b></td>
         <td>An example of JavaScript and Python components and operators in a single plugin</td>
         <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md#installation">Install</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#installation">Install</a></td>
         <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/count/README.md#operators">Operators</a>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#operators">Operators</a>
         </td>
     </tr>
     <tr>
