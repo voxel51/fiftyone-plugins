@@ -4,42 +4,15 @@ A plugin that contains standard import/export utilities.
 
 ## Installation
 
-### Install latest
-
-To install the latest version of this plugin, simply run:
-
 ```shell
 fiftyone plugins download \
     https://github.com/voxel51/fiftyone-plugins \
     --plugin-names @voxel51/io
 ```
 
-### Plugin management
-
-```shell
-# List all downloaded plugins
-fiftyone plugins list
-
-# List available operators
-fiftyone operators list
-
-# Disable this plugin
-fiftyone plugins disable @voxel51/io
-
-# Enable this plugin
-fiftyone plugins enable @voxel51/io
-```
-
-### Local development
-
-If you plan to develop this plugin (or any other plugins in the
-`fiftyone-plugins` repository), you can clone the repository and symlink it
-into your plugins directory like so:
-
-```shell
-git clone https://github.com/voxel51/fiftyone-plugins
-ln -s "$(pwd)/fiftyone-plugins" "$(fiftyone config plugins_dir)/fiftyone-plugins"
-```
+Refer to the [main README](https://github.com/voxel51/fiftyone-plugins) for
+more information about managing downloaded plugins and developing plugins
+locally.
 
 ## Usage
 

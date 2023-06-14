@@ -15,23 +15,33 @@ class MessageExamples(foo.Operator):
             label="Examples: Messages",
             dynamic=True,
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
-        form_view = types.View(label="Form View Header", description="Form View Description")
-        inputs.message("message", "Message", description="A Message Description")
-        warning = types.Warning(label="Notice Label", description="A Notice Description")
+        form_view = types.View(
+            label="Form View Header", description="Form View Description"
+        )
+        inputs.message(
+            "message", "Message", description="A Message Description"
+        )
+        warning = types.Warning(
+            label="Notice Label", description="A Notice Description"
+        )
         inputs.view("warning", warning)
-        error = types.Error(label="Error Label", description="An Error Description")
+        error = types.Error(
+            label="Error Label", description="An Error Description"
+        )
         inputs.view("error", error)
         return types.Property(inputs, view=form_view)
-    
+
     def execute(self, ctx):
         return {}
+
 
 ###
 ### Markdown
 ###
+
 
 class MarkdownExample(foo.Operator):
     @property
@@ -40,19 +50,24 @@ class MarkdownExample(foo.Operator):
             name="example_markdown",
             label="Examples: Markdown",
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.str("markdown", label="Markdown", view=types.CodeView(language="markdown"))
+        inputs.str(
+            "markdown",
+            label="Markdown",
+            view=types.CodeView(language="markdown"),
+        )
         return types.Property(inputs)
-    
+
     def execute(self, ctx):
         return {"markdown": ctx.params["markdown"]}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("markdown", label="Markdown", view=types.MarkdownView())
         return types.Property(outputs)
+
 
 ###
 ### Simple Input
@@ -64,7 +79,7 @@ class SimpleInputExample(foo.Operator):
             name="example_simple_input",
             label="Examples: Simple Input",
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.str("message", label="Message", required=True)
@@ -73,12 +88,13 @@ class SimpleInputExample(foo.Operator):
 
     def execute(self, ctx):
         return {"message": ctx.params["message"]}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("message", label="Message")
         header = "Simple Input Example: Success!"
         return types.Property(outputs, view=types.View(label=header))
+
 
 ###
 ### Advanced Input
@@ -122,7 +138,9 @@ class ChoicesExample(foo.Operator):
     def execute(self, ctx):
         return {
             "radio_choice": ctx.params.get("radio_choices", "None provided"),
-            "dropdown_choice": ctx.params.get("dropdown_choices",  "None provided"),
+            "dropdown_choice": ctx.params.get(
+                "dropdown_choices", "None provided"
+            ),
         }
 
     def resolve_output(self, ctx):
@@ -160,7 +178,11 @@ class InputListExample(foo.Operator):
         return types.Property(inputs)
 
     def execute(self, ctx):
-        return {"people": [person.get("first_name") for person in ctx.params["list"]]}
+        return {
+            "people": [
+                person.get("first_name") for person in ctx.params["list"]
+            ]
+        }
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -171,6 +193,7 @@ class InputListExample(foo.Operator):
 ###
 ### Advanced Output
 ###
+
 
 class ImageExample(foo.Operator):
     @property
@@ -256,7 +279,13 @@ class PlotExample(foo.Operator):
                         [20, 1, 60, 80, 30],
                         [30, 60, 1, -10, 20],
                     ],
-                    "x": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+                    "x": [
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                    ],
                     "y": ["Morning", "Afternoon", "Evening"],
                     "type": "heatmap",
                     "hoverongaps": False,
@@ -269,6 +298,7 @@ class PlotExample(foo.Operator):
         plotly = types.PlotlyView(label="My Plotly")
         outputs.list("plot", types.Object(), view=plotly)
         return types.Property(outputs)
+
 
 ###
 ### Show Output
@@ -283,12 +313,14 @@ class ExampleShowOutput(foo.Operator):
             label="Examples: Output Styles",
             dynamic=True,
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.str("msg", label="The Message to Show")
         styles = types.Choices(label="Choose how to show the Error")
-        show = styles.add_choice("show_output", label="Use the Show Output Operator")
+        show = styles.add_choice(
+            "show_output", label="Use the Show Output Operator"
+        )
         styles.add_choice("resolve_output", label="Execute + Resolve Output")
         inputs.enum("styles", styles.values(), default=show.value, view=styles)
         return types.Property(inputs, label="Error Examples")
@@ -299,20 +331,16 @@ class ExampleShowOutput(foo.Operator):
         show_output = ctx.params["styles"] == "show_output"
         if show_output:
             ctx.trigger(
-                "show_output",
-                {
-                    "outputs": types.Property(outputs).to_json()
-                }
+                "show_output", {"outputs": types.Property(outputs).to_json()}
             )
-        return {
-            "msg": ctx.params["msg"]
-        }
-    
+        return {"msg": ctx.params["msg"]}
+
     def resolve_output(self, ctx):
         if ctx.params["styles"] == "resolve_output":
             outputs = types.Object()
             outputs.str("msg", view=types.Error(label=ctx.params["msg"]))
             return types.Property(outputs)
+
 
 class ExampleProgress(foo.Operator):
     @property
@@ -322,7 +350,7 @@ class ExampleProgress(foo.Operator):
             label="Examples: Progress",
             execute_as_generator=True,
         )
-    
+
     async def execute(self, ctx):
         outputs = types.Object()
         schema = types.Property(outputs)
@@ -334,11 +362,12 @@ class ExampleProgress(foo.Operator):
             loading_schema.int("percent_complete", view=progress_view)
             show_output_params = {
                 "outputs": types.Property(loading_schema).to_json(),
-                "results": {"percent_complete": i / MAX}
+                "results": {"percent_complete": i / MAX},
             }
             yield ctx.trigger("show_output", show_output_params)
             # simulate computation
-            await asyncio.sleep(0.5)    
+            await asyncio.sleep(0.5)
+
 
 ###
 ### Mutations
@@ -354,41 +383,52 @@ class SetFieldExample(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        if (len(ctx.selected) > 0):
-            inputs.str('msg', view=types.Notice(label=f"Update {len(ctx.selected)} Selected Samples"))
+        if len(ctx.selected) > 0:
+            inputs.str(
+                "msg",
+                view=types.Notice(
+                    label=f"Update {len(ctx.selected)} Selected Samples"
+                ),
+            )
         else:
-            inputs.str('msg', view=types.Notice(label=f"Update {len(ctx.view)} Samples"))
+            inputs.str(
+                "msg",
+                view=types.Notice(label=f"Update {len(ctx.view)} Samples"),
+            )
         fields = ctx.view.get_field_schema(flat=True)
         field_names = list(fields.keys())
         inputs.bool("use_custom", label="Use Custom Field")
-        if (ctx.params.get("use_custom", False)):
+        if ctx.params.get("use_custom", False):
             inputs.str("custom_field", label="Custom Field")
         else:
-            inputs.enum("field", field_names, label="Field", view=types.Dropdown())
+            inputs.enum(
+                "field", field_names, label="Field", view=types.Dropdown()
+            )
         inputs.str("value", label="Value")
         return types.Property(inputs)
 
     def execute(self, ctx):
-        if (ctx.params.get("use_custom", False)):
+        if ctx.params.get("use_custom", False):
             field = ctx.params.get("custom_field")
         else:
             field = ctx.params.get("field")
         value = ctx.params.get("value")
         view = ctx.view
-        if (len(ctx.selected) > 0):
+        if len(ctx.selected) > 0:
             view = ctx.dataset.select(ctx.selected)
         for sample in view:
             sample.set_field(field, value)
             sample.save()
         ctx.trigger("reload_dataset")
         return {"field": field, "updated": len(view)}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.int("updated", label="Updated")
         outputs.str("field", label="Field")
         return types.Property(outputs)
-    
+
+
 # an example operator that reads plugin settings
 class ExampleSettings(foo.Operator):
     @property
@@ -398,7 +438,7 @@ class ExampleSettings(foo.Operator):
             label="Examples: Settings",
             dynamic=True,
         )
-    
+
     def resolve_input(self, ctx):
         inputs = types.Object()
         dropdown = types.AutocompleteView(label="Datasets")
@@ -406,19 +446,23 @@ class ExampleSettings(foo.Operator):
             dropdown.add_choice(dataset, label=dataset)
         inputs.enum("dataset", dropdown.values(), required=True, view=dropdown)
         return types.Property(inputs)
-    
+
     def execute(self, ctx):
         dataset = fo.load_dataset(ctx.params["dataset"])
         global_settings = fo.app_config.plugins or {}
         dataset_settings = dataset.app_config.plugins or {}
         settings = {**global_settings, **dataset_settings}
-        return {"settings": json.dumps(settings, indent=4), "dataset": ctx.params["dataset"]}
-    
+        return {
+            "settings": json.dumps(settings, indent=4),
+            "dataset": ctx.params["dataset"],
+        }
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("dataset", label="Dataset")
         outputs.str("settings", label="Settings", view=types.JSONView())
         return types.Property(outputs)
+
 
 def register(p):
     p.register(MessageExamples)
