@@ -21,13 +21,13 @@ import fiftyone.plugins as fop
 
 fop.download_plugin(
     "https://github.com/voxel51/fiftyone-plugins",
-    plugin_names=["@voxel51/python_view"]
+    plugin_names=["@voxel51/python_view"])
 ```
 
 ## Operators
 
 ### create_view_with_python
 
- - Accepts Python as the only input param
- - The provided Python must start with "view."
- - Updates the app's view to match the provided Python
+- Accepts Python as the only input param
+- The provided Python must start with "view."
+- Updates the app's view to match the provided Python
