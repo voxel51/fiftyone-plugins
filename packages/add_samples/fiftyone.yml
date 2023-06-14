@@ -1,7 +1,0 @@
-fiftyone:
-    version: '*'
-name: "@voxel51/add-samples"
-version: "1.0.0"
-description: Add samples to a dataset
-operators:
-    - add_samples
