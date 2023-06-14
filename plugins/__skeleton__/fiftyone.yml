@@ -1,0 +1,8 @@
+fiftyone:
+  version: "*"
+name: "{{PLUGIN_NAME}}"
+version: "1.0.0"
+description: "Fiftyone starter plugin"
+operators:
+  - {{PLUGIN_NAME}}_greet_py
+  - {{PLUGIN_NAME}}_greet_js
