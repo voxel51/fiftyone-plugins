@@ -339,17 +339,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@fiftyone/create-plugin@workspace:packages/create":
+"@fiftyone/create-plugin@workspace:plugins/create":
   version: 0.0.0-use.local
-  resolution: "@fiftyone/create-plugin@workspace:packages/create"
+  resolution: "@fiftyone/create-plugin@workspace:plugins/create"
   dependencies:
     ts-node: ^10.9.1
   languageName: unknown
   linkType: soft
 
-"@fiftyone/plugin-build@*, @fiftyone/plugin-build@workspace:packages/build":
+"@fiftyone/plugin-build@*, @fiftyone/plugin-build@workspace:plugins/build":
   version: 0.0.0-use.local
-  resolution: "@fiftyone/plugin-build@workspace:packages/build"
+  resolution: "@fiftyone/plugin-build@workspace:plugins/build"
   dependencies:
     "@rollup/plugin-node-resolve": ^15.0.1
     "@vitejs/plugin-react": ^1.3.0
@@ -631,9 +631,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@voxel51/hello-world@workspace:packages/hello-world":
+"@voxel51/hello-world@workspace:plugins/hello-world":
   version: 0.0.0-use.local
-  resolution: "@voxel51/hello-world@workspace:packages/hello-world"
+  resolution: "@voxel51/hello-world@workspace:plugins/hello-world"
   dependencies:
     "@fiftyone/plugin-build": "*"
     nodemon: ^2.0.19
