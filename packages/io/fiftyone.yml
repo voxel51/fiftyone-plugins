@@ -1,0 +1,8 @@
+fiftyone:
+  version: "*"
+name: "@voxel51/io"
+version: "1.0.0"
+description: Import/export utilities
+operators:
+  - add_samples
+  - export_samples
