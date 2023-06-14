@@ -18,8 +18,11 @@ class ExportSamples(foo.Operator):
         show_estimate = False
         inputs = types.Object()
         view = types.View(label="Export samples")
+        dataset_or_view = self.get_dataset_or_view(ctx)
         if (ctx.params.get("style", None) == "cloud_export"):
             inputs.define_property("cloud_storage_path", types.String(), label="Cloud Storage Path", description="The cloud storage location to export the data to. For example, 's3://my-bucket/my-folder'.", default="s3://")
+
+        # inputs.view(types.Notice("Exporting samples will create a new dataset."))
 
         view_choices = types.RadioGroup()
         view_choices.add_choice("all_samples", label="All Samples", description="Export all samples in the dataset")
@@ -34,18 +37,19 @@ class ExportSamples(foo.Operator):
         data_choices.add_choice("filepaths_only", label="Filepaths Only", description="Export the filepaths for the selected samples")
         inputs.define_property("data", types.Enum(data_choices.values()), label="Media and Data", description="Choose what data or media to export", view=data_choices)
         cur_data = ctx.params.get("data", None)
-        if (cur_data == "media_and_labels" or cur_data == "labels_only"):
-            inputs.define_property("label_format", types.Enum(get_dataset_types().keys()), label="Label Format", description="The format of the labels to export", default="FiftyOneDataset")
+        if cur_data == "media_and_labels" or cur_data == "labels_only":
+            labeled_dataset_types = list(get_labeled_dataset_types().keys())
+            inputs.define_property("label_format", types.Enum(labeled_dataset_types), default=labeled_dataset_types[0], label="Label Format", description="The format of the labels to export")
             cur_label_format = ctx.params.get("label_format", None)
             needs_field = cur_label_format != "FiftyOneDataset"
-            if (needs_field):
+            if needs_field:
                 label_fields = get_label_fields(ctx.dataset)
                 label_field_choices = types.Dropdown(multiple=True)
                 for field in label_fields:
                     label_field_choices.add_choice(field, label=field)
                 single_field = cur_label_format != "CSVDataset"
-                if (single_field):
-                    inputs.define_property("field", types.Enum(label_field_choices.values()), label="Label Field", description="The field containing the labels to export", default="ground_truth")
+                if single_field:
+                    inputs.define_property("field", types.Enum(label_field_choices.values()), label="Label Field", description="The field containing the labels to export", default=label_fields[0])
                 else:
                     label_field_choices
                     inputs.define_property(
@@ -58,10 +62,11 @@ class ExportSamples(foo.Operator):
                     )
 
         if show_estimate:
-            inputs.define_property("estimate", types.String(), default="Estimated export size: TODO MB")
+            inputs.view("estimate", types.Notice("Estimated export size: 5MB"))
 
         if cur_data:
-            filepath_property = inputs.define_property("filepath", types.String(), label="Filepath", description="The filepath to export the data to. For example, '/path/to/export'.", default="/path/to/export")
+            default_filepath = os.path.join(os.environ["HOME"], f"export-{ctx.dataset_name}")
+            filepath_property = inputs.define_property("filepath", types.String(), label="Filepath", description="The filepath to export the data to. For example, '/path/to/export'.", default=default_filepath)
             cur_filepath = ctx.params.get("filepath", None)
             if cur_filepath:
                 parent_dir = os.path.dirname(cur_filepath)
@@ -72,23 +77,31 @@ class ExportSamples(foo.Operator):
 
         return types.Property(inputs, view=view)
     
+    def get_dataset_or_view(self, ctx):
+        return ctx.view if ctx.params.get("view", None) == "current_view" else ctx.dataset
+
     def execute(self, ctx):
         # The Dataset or DatasetView containing the samples you wish to export
-        dataset_or_view = ctx.view if ctx.params.get("view", None) == "current_view" else ctx.dataset
+        dataset_or_view = self.get_dataset_or_view(ctx)
 
         # The directory to which to write the exported dataset
         export_dir = ctx.params.get("filepath", None)
 
         # The name of the sample field containing the label that you wish to export
         # Used when exporting labeled datasets (e.g., classification or detection)
-        label_field = ctx.params.get("field", None)
         label_fields = ctx.params.get("fields", None)
+        label_field = ctx.params.get("field", label_fields)
 
-        # The type of dataset to export
-        # Any subclass of `fiftyone.types.Dataset` is supported
-        dataset_types = get_dataset_types()
-        dataset_type_name = ctx.params.get("label_format", "FiftyOneDataset")  # for example
-        dataset_type = dataset_types[dataset_type_name]
+       
+
+        if ctx.params.get("data", None) == "media_only":
+            dataset_type = fot.MediaDirectory
+            label_field = None
+        else:
+            # The type of dataset to export
+            dataset_types = get_labeled_dataset_types()
+            dataset_type_name = ctx.params.get("label_format")
+            dataset_type = dataset_types[dataset_type_name]
 
         count = dataset_or_view.count()
 
@@ -96,8 +109,7 @@ class ExportSamples(foo.Operator):
         dataset_or_view.export(
             export_dir=export_dir,
             dataset_type=dataset_type,
-            label_field=label_field,
-            label_fields=label_fields
+            label_field=label_field
         )
 
         return {"count": count, "export_dir": export_dir}
@@ -110,12 +122,12 @@ class ExportSamples(foo.Operator):
         return types.Property(outputs, view=view)
 
 
-def get_dataset_types():
+def get_labeled_dataset_types():
     keys = dir(fot)
     result = {}
     for key in keys:
         t = getattr(fot, key)
-        if (isinstance(t, type) and issubclass(t, fot.Dataset)):
+        if (isinstance(t, type) and issubclass(t, fot.LabeledDataset)):
             result[key] = t
     return result
 
