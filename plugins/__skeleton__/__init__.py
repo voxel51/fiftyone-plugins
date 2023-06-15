@@ -7,7 +7,7 @@ class Greet(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="{{PLUGIN_NAME}}_greet_py",
-            label="{{PLUGIN_NAME}}: Greet from Py"
+            label="{{PLUGIN_NAME}}: Greet from Py",
         )
 
     def execute(self, ctx):

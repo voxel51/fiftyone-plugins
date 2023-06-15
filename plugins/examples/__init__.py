@@ -480,15 +480,14 @@ class CustomViewExample(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
         component = types.View(
-            label="My custom component",
-            component="ExampleCustomView"
+            label="My custom component", component="ExampleCustomView"
         )
         inputs.define_property(
             "component",
             types.String(),
             view=component,
             invalid=True,
-            error_message="Custom error message"
+            error_message="Custom error message",
         )
         return types.Property(inputs)
 
@@ -513,8 +512,8 @@ class OpenHistogramsPanel(foo.Operator):
                 # will be displayed
                 icon="/assets/histograms.svg",
                 # skip operator prompt when we do not require an input from the user
-                prompt=False
-            )
+                prompt=False,
+            ),
         )
 
     def execute(self, ctx):
