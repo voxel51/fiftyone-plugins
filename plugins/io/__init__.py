@@ -9,6 +9,7 @@ import os
 import glob
 
 import fiftyone as fo
+import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.types as fot
@@ -26,113 +27,109 @@ class AddSamples(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        style_choices = types.RadioGroup()
-        style_choices.add_choice("entire_directory", label="Entire Directory")
-        style_choices.add_choice("specific_files", label="Specific Files")
 
+        style_choices = types.RadioGroup()
+        style_choices.add_choice("DIRECTORY", label="Directory")
+        style_choices.add_choice("GLOB_PATTERN", label="Glob pattern")
         inputs.enum(
             "style",
             style_choices.values(),
-            default="entire_directory",
+            default="DIRECTORY",
             view=style_choices,
         )
-        cur_style = ctx.params.get("style", "entire_directory")
+        style = ctx.params.get("style", "DIRECTORY")
 
-        if cur_style == "entire_directory":
-            cur_directory = ctx.params.get("directory", os.environ["HOME"])
-            directory_exists = os.path.isdir(cur_directory)
-            directory_prop = inputs.str(
+        if style == "DIRECTORY":
+            dir_prop = inputs.str(
                 "directory",
                 required=True,
-                default=os.environ["HOME"],
                 label="Directory",
             )
+            directory = ctx.params.get("directory", None)
 
-            if not directory_exists:
-                directory_prop.invalid = True
-                directory_prop.error_message = "Directory does not exist"
+            if directory:
+                n = len(glob_files(directory=directory))
+                if n > 0:
+                    dir_prop.view = types.View(caption=f"Found {n} files")
+                else:
+                    dir_prop.invalid = True
+                    dir_prop.error_message = "No matching files"
         else:
-            cur_file_pattern = ctx.params.get("files", None)
-            matched_paths = 0
-            try:
-                matched_paths = len(glob.glob(cur_file_pattern))
-            except:
-                pass
-            file_pattern_view = types.View(
-                caption=f"Matched {matched_paths} files"
-            )
-            inputs.str(
-                "files",
+            glob_prop = inputs.str(
+                "glob_patt",
                 required=True,
-                default=os.environ["HOME"],
-                label="File Pattern",
-                view=file_pattern_view,
+                label="Glob pattern",
             )
+            glob_patt = ctx.params.get("glob_patt", None)
 
-        return types.Property(inputs, view=types.View(label="Add Samples"))
+            if glob_patt:
+                n = len(glob_files(glob_patt=glob_patt))
+                if n > 0:
+                    glob_prop.view = types.View(caption=f"Found {n} files")
+                else:
+                    glob_prop.invalid = True
+                    glob_prop.error_message = "No matching files"
+
+        return types.Property(inputs, view=types.View(label="Add samples"))
 
     def execute(self, ctx):
-        glob_pattern = None
-        cur_style = ctx.params.get("style", "entire_directory")
-        if cur_style == "entire_directory":
-            dir = ctx.params.get("directory", os.environ["HOME"])
-            glob_pattern = f"{dir}/*.*"
-        else:
-            glob_pattern = ctx.params.get("files", None)
-
-        matched_paths = None
-        try:
-            matched_paths = glob.glob(glob_pattern)
-        except:
-            pass
-
-        if len(matched_paths) > 0:
-            for path in matched_paths:
-                print(f"adding sample {path}")
-                # TODO: add progress bar
-                sample = fo.Sample(filepath=path)
-                ctx.dataset.add_sample(sample)
-
-            ctx.trigger("reload_dataset")
-
-        return {"added_samples": len(matched_paths)}
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        outputs.int(
-            "added_samples", required=True, default=0, label="Added Samples"
+        filepaths = glob_files(
+            directory=ctx.params.get("directory", None),
+            glob_patt=ctx.params.get("glob_patt", None),
         )
-        return types.Property(outputs, view=types.View(label="Add Samples"))
+
+        if not filepaths:
+            return
+
+        batcher = fou.DynamicBatcher(
+            filepaths, target_latency=0.1, max_batch_beta=2.0
+        )
+
+        num_added = 0
+        num_total = len(filepaths)
+
+        with batcher:
+            for batch in batcher:
+                samples = [fo.Sample(filepath=filepath) for filepath in batch]
+                ctx.dataset.add_samples(samples)
+                num_added += len(samples)
+
+                label = f"Loaded {num_added} of {num_total}"
+                loading = types.Object()
+                loading.int("progress", view=types.ProgressView(label=label))
+                yield ctx.trigger(
+                    "show_output",
+                    dict(
+                        outputs=types.Property(loading).to_json(),
+                        results={"progress": num_added / num_total},
+                    ),
+                )
+
+        yield ctx.trigger("reload_dataset")
 
 
-def list_dirs(path, depth, current_depth=0):
-    dirs = []
-
-    if current_depth > depth:
-        return dirs
+def glob_files(directory=None, glob_patt=None):
+    if directory is not None:
+        glob_patt = f"{directory}/*"
 
     try:
-        for item in os.listdir(path):
-            item_path = os.path.join(path, item)
-            if os.path.isdir(item_path):
-                dirs.append(item_path)
-                dirs.extend(list_dirs(item_path, depth, current_depth + 1))
-    except PermissionError:
-        pass
-
-    return dirs
+        return glob.glob(glob_patt, recursive=True)
+    except:
+        return []
 
 
 class ExportSamples(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="export_samples", label="Export samples", dynamic=True
+            name="export_samples",
+            label="Export samples",
+            dynamic=True,
         )
 
     def resolve_input(self, ctx):
-        show_estimate = False
         inputs = types.Object()
+
         view = types.View(label="Export samples")
         dataset_or_view = self.get_dataset_or_view(ctx)
         if ctx.params.get("style", None) == "cloud_export":
@@ -239,9 +236,7 @@ class ExportSamples(foo.Operator):
                         view=label_field_choices,
                     )
 
-        if show_estimate:
-            # inputs.view("estimate", types.Notice("Estimated export size: 5MB"))
-            pass
+        # inputs.view("estimate", types.Notice("Estimated export size: 5MB"))
 
         if cur_data:
             default_filepath = os.path.join(
