@@ -53,7 +53,7 @@ class AddSamples(foo.Operator):
 
             # Validate
             if directory:
-                n = len(glob_files(directory=directory))
+                n = len(_glob_files(directory=directory))
                 if n > 0:
                     dir_prop.view = types.View(caption=f"Found {n} files")
                 else:
@@ -70,7 +70,7 @@ class AddSamples(foo.Operator):
 
             # Validate
             if glob_patt:
-                n = len(glob_files(glob_patt=glob_patt))
+                n = len(_glob_files(glob_patt=glob_patt))
                 if n > 0:
                     glob_prop.view = types.View(caption=f"Found {n} files")
                 else:
@@ -80,7 +80,7 @@ class AddSamples(foo.Operator):
         return types.Property(inputs, view=types.View(label="Add samples"))
 
     def execute(self, ctx):
-        filepaths = glob_files(
+        filepaths = _glob_files(
             directory=ctx.params.get("directory", None),
             glob_patt=ctx.params.get("glob_patt", None),
         )
@@ -113,16 +113,6 @@ class AddSamples(foo.Operator):
                 )
 
         yield ctx.trigger("reload_dataset")
-
-
-def glob_files(directory=None, glob_patt=None):
-    if directory is not None:
-        glob_patt = f"{directory}/*"
-
-    try:
-        return glob.glob(glob_patt, recursive=True)
-    except:
-        return []
 
 
 class ExportSamples(foo.Operator):
@@ -266,7 +256,7 @@ class ExportSamples(foo.Operator):
             export_dir = ctx.params.get("export_dir", None)
 
             if export_dir is not None and os.path.isdir(export_dir):
-                overwrite_prop = inputs.bool(
+                inputs.bool(
                     "overwrite",
                     default=True,
                     label="Directory already exists. Overwrite it?",
@@ -347,6 +337,16 @@ class ExportSamples(foo.Operator):
 def register(p):
     p.register(AddSamples)
     p.register(ExportSamples)
+
+
+def _glob_files(directory=None, glob_patt=None):
+    if directory is not None:
+        glob_patt = f"{directory}/*"
+
+    try:
+        return glob.glob(glob_patt, recursive=True)
+    except:
+        return []
 
 
 def _get_target_view(ctx, target):
