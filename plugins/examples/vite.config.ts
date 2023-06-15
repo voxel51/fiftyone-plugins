@@ -1,4 +1,3 @@
-import { defineConfig } from '@fiftyone/plugin-build'
+import { defineConfig } from "@fiftyone/plugin-build";
 
-export default defineConfig(__dirname)
-
+export default defineConfig(__dirname);
