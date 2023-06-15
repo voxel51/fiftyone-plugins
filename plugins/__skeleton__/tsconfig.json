@@ -1,5 +1,4 @@
 {
-    "extends": "./tsconfig.fo.json",
     "compilerOptions": {
         "target": "ESNext",
         "useDefineForClassFields": true,

@@ -25,7 +25,3 @@ if [ "$1" != "--link-only" ]; then
 fi
 
 yarn link $FIFTYONE_DIR/app --all --private --relative
-
-echo "Adding tsconfig.fo.json files for plugins..."
-
-node scripts/generate-tsconfig-fo.js
