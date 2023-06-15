@@ -1,24 +1,24 @@
+import * as fos from "@fiftyone/state";
+import { useRecoilValue } from "recoil";
+import { useCallback } from "react";
 import { Button } from "@fiftyone/components";
 import {
+  types,
+  useOperatorExecutor,
   Operator,
   OperatorConfig,
-  executeOperator,
   registerOperator,
-  useOperatorExecutor,
+  executeOperator,
 } from "@fiftyone/operators";
-import * as fos from "@fiftyone/state";
-import { useCallback } from "react";
-import { useRecoilValue } from "recoil";
 
 export function HelloWorld() {
   const executor = useOperatorExecutor("@voxel51/hello-world/count");
-  const onClickAlert = useCallback(
-    () => executeOperator("@voxel51/hello-world/alert"),
-    []
+  const onClickAlert = useCallback(() =>
+    executeOperator("@voxel51/hello-world/alert")
   );
   const dataset = useRecoilValue(fos.dataset);
 
-  if (executor.isExecuting) return <h3>loading...</h3>;
+  if (executor.isLoading) return <h3>loading...</h3>;
   if (executor.result) return <h3>Count: {executor.result.count}</h3>;
 
   return (
@@ -27,7 +27,7 @@ export function HelloWorld() {
       <h2>
         You are viewing the <strong>{dataset.name}</strong> dataset!
       </h2>
-      <Button onClick={() => executor.execute({})}>Count</Button>
+      <Button onClick={() => executor.execute()}>Count</Button>
       <Button onClick={onClickAlert}>Alert</Button>
     </>
   );
