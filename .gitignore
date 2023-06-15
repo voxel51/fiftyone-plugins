@@ -14,8 +14,9 @@ __pycache__
 *~
 
 build/
-dist/
 !plugins/build
+dist/
+!plugins/**/dist
 
 /eta/
 
