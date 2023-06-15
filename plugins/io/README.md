@@ -60,20 +60,23 @@ This operator is essentially a wrapper around the following
 [export receipe](https://docs.voxel51.com/user_guide/export_datasets.html#basic-recipe):
 
 ```py
-# The directory to which to write the exported dataset
+# The directory to which to write the export
 export_dir = "/path/for/export"
 
 # The type of dataset to export
 dataset_type = fo.types.COCODetectionDataset  # for example
 
-# The name of the sample field containing the label that you wish to export
-# Used when exporting labeled datasets (e.g., classification or detection)
-label_field = "ground_truth"  # for example
+# The name of the sample field containing the labels to export
+label_field = "ground_truth"
+
+# Whether to include the media files
+export_media = True
 
 dataset_or_view.export(
     export_dir=export_dir,
     dataset_type=dataset_type,
     label_field=label_field,
+    export_media=export_media,
 )
 ```
 

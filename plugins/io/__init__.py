@@ -8,6 +8,8 @@ I/O operators.
 import os
 import glob
 
+import eta.core.utils as etau
+
 import fiftyone as fo
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
@@ -28,6 +30,7 @@ class AddSamples(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
+        # Choose input type
         style_choices = types.RadioGroup()
         style_choices.add_choice("DIRECTORY", label="Directory")
         style_choices.add_choice("GLOB_PATTERN", label="Glob pattern")
@@ -40,6 +43,7 @@ class AddSamples(foo.Operator):
         style = ctx.params.get("style", "DIRECTORY")
 
         if style == "DIRECTORY":
+            # Choose a directory
             dir_prop = inputs.str(
                 "directory",
                 required=True,
@@ -47,6 +51,7 @@ class AddSamples(foo.Operator):
             )
             directory = ctx.params.get("directory", None)
 
+            # Validate
             if directory:
                 n = len(glob_files(directory=directory))
                 if n > 0:
@@ -55,6 +60,7 @@ class AddSamples(foo.Operator):
                     dir_prop.invalid = True
                     dir_prop.error_message = "No matching files"
         else:
+            # Choose a glob pattern
             glob_prop = inputs.str(
                 "glob_patt",
                 required=True,
@@ -62,6 +68,7 @@ class AddSamples(foo.Operator):
             )
             glob_patt = ctx.params.get("glob_patt", None)
 
+            # Validate
             if glob_patt:
                 n = len(glob_files(glob_patt=glob_patt))
                 if n > 0:
@@ -96,7 +103,7 @@ class AddSamples(foo.Operator):
 
                 label = f"Loaded {num_added} of {num_total}"
                 loading = types.Object()
-                loading.int("progress", view=types.ProgressView(label=label))
+                loading.float("progress", view=types.ProgressView(label=label))
                 yield ctx.trigger(
                     "show_output",
                     dict(
@@ -130,224 +137,343 @@ class ExportSamples(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        view = types.View(label="Export samples")
-        dataset_or_view = self.get_dataset_or_view(ctx)
-        if ctx.params.get("style", None) == "cloud_export":
-            inputs.define_property(
-                "cloud_storage_path",
-                types.String(),
-                label="Cloud Storage Path",
-                description="The cloud storage location to export the data to. For example, 's3://my-bucket/my-folder'.",
-                default="s3://",
+        # Choose what view to export, if necessary
+        has_view = ctx.view != ctx.dataset.view()
+        has_selected = bool(ctx.selected)
+        default_target = None
+        if has_view or has_selected:
+            target_choices = types.RadioGroup()
+            target_choices.add_choice(
+                "DATASET",
+                label="Entire dataset",
+                description="Export the entire dataset",
             )
 
-        # inputs.view(types.Notice("Exporting samples will create a new dataset."))
+            if has_view:
+                target_choices.add_choice(
+                    "CURRENT_VIEW",
+                    label="Current view",
+                    description="Export the current view",
+                )
+                default_target = "CURRENT_VIEW"
 
-        view_choices = types.RadioGroup()
-        view_choices.add_choice(
-            "all_samples",
-            label="All Samples",
-            description="Export all samples in the dataset",
+            if has_selected:
+                target_choices.add_choice(
+                    "SELECTED_SAMPLES",
+                    label="Selected samples",
+                    description="Export only the selected samples",
+                )
+                default_target = "SELECTED_SAMPLES"
+
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                required=True,
+                view=target_choices,
+                default=default_target,
+            )
+
+        target = ctx.params.get("target", default_target)
+        target_view = _get_target_view(ctx, target)
+
+        if target == "SELECTED_SAMPLES":
+            target_str = "selected samples"
+        elif target == "CURRENT_VIEW":
+            target_str = "current view"
+        else:
+            target_str = "dataset"
+
+        # Choose whether to export media and/or labels
+        export_choices = types.Choices()
+        export_choices.add_choice(
+            "FILEPATHS_ONLY",
+            label="Filepaths only",
+            description=f"Export the filepaths of the {target_str}",
         )
-        view_choices.add_choice(
-            "current_view",
-            label="Current View",
-            description="Export the samples that match the current view",
+        export_choices.add_choice(
+            "MEDIA_ONLY",
+            label="Media only",
+            description=f"Export media of the {target_str}",
         )
-        view_choices.add_choice(
-            "selected_samples",
-            label="Selected Samples",
-            description="Export the currently selected samples",
+        export_choices.add_choice(
+            "LABELS_ONLY",
+            label="Labels only",
+            description=f"Export labels of the {target_str}",
         )
+        export_choices.add_choice(
+            "MEDIA_AND_LABELS",
+            label="Media and labels",
+            description=f"Export media and labels of the {target_str}",
+        )
+
         inputs.enum(
-            "view",
-            view_choices.values(),
-            view=view_choices,
-            default="all_samples",
+            "export_type",
+            export_choices.values(),
+            required=True,
+            label="Export type",
+            description="Choose what to export",
+            view=export_choices,
         )
-        data_choices = types.Choices()
-        data_choices.add_choice(
-            "media_and_labels",
-            label="Media and Labels",
-            description="Export the media and labels for the selected samples",
-        )
-        data_choices.add_choice(
-            "media_only",
-            label="Media Only",
-            description="Export the media for the selected samples",
-        )
-        data_choices.add_choice(
-            "labels_only",
-            label="Labels Only",
-            description="Export the labels for the selected samples",
-        )
-        data_choices.add_choice(
-            "filepaths_and_tags",
-            label="Filepaths and Tags",
-            description="Export the filepaths and tags for the selected samples",
-        )
-        data_choices.add_choice(
-            "filepaths_only",
-            label="Filepaths Only",
-            description="Export the filepaths for the selected samples",
-        )
-        inputs.define_property(
-            "data",
-            types.Enum(data_choices.values()),
-            label="Media and Data",
-            description="Choose what data or media to export",
-            view=data_choices,
-        )
-        cur_data = ctx.params.get("data", None)
-        if cur_data == "media_and_labels" or cur_data == "labels_only":
-            labeled_dataset_types = list(get_labeled_dataset_types().keys())
-            inputs.define_property(
-                "label_format",
-                types.Enum(labeled_dataset_types),
-                default=labeled_dataset_types[0],
-                label="Label Format",
-                description="The format of the labels to export",
+        export_type = ctx.params.get("export_type", None)
+
+        # Choose the label field(s) to export, if applicable
+        if export_type in ("LABELS_ONLY", "MEDIA_AND_LABELS"):
+            dataset_type_choices = _get_labeled_dataset_types(target_view)
+            inputs.enum(
+                "dataset_type",
+                dataset_type_choices,
+                required=True,
+                label="Label format",
+                description="The label format in which to export",
             )
-            cur_label_format = ctx.params.get("label_format", None)
-            needs_field = cur_label_format != "FiftyOneDataset"
-            if needs_field:
-                label_fields = get_label_fields(ctx.dataset)
-                label_field_choices = types.Dropdown(multiple=True)
-                for field in label_fields:
+
+            dataset_type = ctx.params.get("dataset_type", None)
+            if dataset_type == "CSV Dataset":
+                field_choices = types.Dropdown(multiple=True)
+                for field in _get_csv_fields(target_view):
+                    field_choices.add_choice(field, label=field)
+
+                inputs.list(
+                    "label_field",
+                    types.String(),
+                    required=True,
+                    label="Fields",
+                    description="Field(s) to include as columns of the CSV",
+                    view=field_choices,
+                )
+            elif dataset_type not in ("FiftyOne Dataset", None):
+                label_field_choices = types.Dropdown()
+                for field in _get_label_fields(target_view, dataset_type):
                     label_field_choices.add_choice(field, label=field)
 
-                single_field = cur_label_format != "CSVDataset"
-                if single_field:
-                    inputs.define_property(
-                        "field",
-                        types.Enum(label_field_choices.values()),
-                        label="Label Field",
-                        description="The field containing the labels to export",
-                        default=label_fields[0],
-                    )
-                else:
-                    label_field_choices
-                    inputs.define_property(
-                        "fields",
-                        types.List(types.String()),
-                        label="Label Fields",
-                        description="The fields containing the labels to export",
-                        default=["ground_truth"],
-                        view=label_field_choices,
-                    )
+                inputs.enum(
+                    "label_field",
+                    label_field_choices.values(),
+                    required=True,
+                    label="Label field",
+                    description="The field containing the labels to export",
+                    view=label_field_choices,
+                )
 
-        # inputs.view("estimate", types.Notice("Estimated export size: 5MB"))
-
-        if cur_data:
-            default_filepath = os.path.join(
-                os.environ["HOME"], f"export-{ctx.dataset_name}"
+        # Choose an export directory
+        if export_type is not None:
+            export_prop = inputs.str(
+                "export_dir",
+                label="Export directory",
+                required=True,
+                description="The directory at which to write the export",
             )
-            filepath_property = inputs.define_property(
-                "filepath",
-                types.String(),
-                label="Filepath",
-                description="The filepath to export the data to. For example, '/path/to/export'.",
-                default=default_filepath,
-            )
-            cur_filepath = ctx.params.get("filepath", None)
-            if cur_filepath:
-                parent_dir = os.path.dirname(cur_filepath)
-                if not os.path.isdir(parent_dir):
-                    filepath_property.invalid = True
-                    filepath_property.error_message = (
-                        "The filepath must be a valid directory"
+            export_dir = ctx.params.get("export_dir", None)
+
+            if export_dir is not None and os.path.isdir(export_dir):
+                overwrite_prop = inputs.bool(
+                    "overwrite",
+                    default=True,
+                    label="Directory already exists. Overwrite it?",
+                    view=types.CheckboxView(),
+                )
+                overwrite = ctx.params.get("overwrite", True)
+
+                if not overwrite:
+                    export_prop.invalid = True
+                    export_prop.error_message = (
+                        "The specifieid export directory already exists"
                     )
+        else:
+            export_dir = None
 
-        return types.Property(inputs, view=view)
+        # Estimate export size
+        if export_dir is not None:
+            label_field = ctx.params.get("label_field", None)
+            size_bytes = _estimate_export_size(
+                target_view, export_type, label_field
+            )
+            size_str = etau.to_human_bytes_str(size_bytes)
+            label = f"Estimated export size: {size_str}"
+            inputs.view("estimate", types.Notice(label=label))
 
-    def get_dataset_or_view(self, ctx):
-        return (
-            ctx.view
-            if ctx.params.get("view", None) == "current_view"
-            else ctx.dataset
-        )
+        return types.Property(inputs, view=types.View(label="Export samples"))
 
     def execute(self, ctx):
-        # The Dataset or DatasetView containing the samples you wish to export
-        dataset_or_view = self.get_dataset_or_view(ctx)
+        target = ctx.params.get("target", None)
+        export_dir = ctx.params["export_dir"]
+        export_type = ctx.params["export_type"]
+        dataset_type = ctx.params.get("dataset_type", None)
+        label_field = ctx.params.get("label_field", None)
 
-        # The directory to which to write the exported dataset
-        export_dir = ctx.params.get("filepath", None)
+        target_view = _get_target_view(ctx, target)
+        export_media = True
 
-        # The name of the sample field containing the label that you wish to export
-        # Used when exporting labeled datasets (e.g., classification or detection)
-        label_fields = ctx.params.get("fields", None)
-        label_field = ctx.params.get("field", label_fields)
-
-        if ctx.params.get("data", None) == "media_only":
+        if export_type == "MEDIA_ONLY":
             dataset_type = fot.MediaDirectory
             label_field = None
+        elif export_type == "FILEPATHS_ONLY":
+            dataset_type = fot.CSVDataset
+            label_field = "filepath"
+            export_media = False
+        elif export_type == "LABELS_ONLY":
+            dataset_type = _DATASET_TYPES[dataset_type]
+            export_media = False
         else:
-            # The type of dataset to export
-            dataset_types = get_labeled_dataset_types()
-            dataset_type_name = ctx.params.get("label_format")
-            dataset_type = dataset_types[dataset_type_name]
+            dataset_type = _DATASET_TYPES[dataset_type]
 
-        count = dataset_or_view.count()
-
-        # Export the dataset
-        dataset_or_view.export(
+        target_view.export(
             export_dir=export_dir,
             dataset_type=dataset_type,
             label_field=label_field,
+            export_media=export_media,
         )
 
-        return {"count": count, "export_dir": export_dir}
+        return {"count": len(target_view), "export_dir": export_dir}
 
     def resolve_output(self, ctx):
         outputs = types.Object()
-        view = types.View(label="Success! Samples Exported")
-        outputs.define_property(
+
+        outputs.int(
             "count",
-            types.Number(),
-            label="Number of Samples Exported",
+            label="Number of samples exported",
             description="The number of samples that were exported",
         )
-        outputs.define_property(
+        outputs.str(
             "export_dir",
-            types.String(),
-            label="Export Directory",
-            description="The directory that the samples were exported to",
+            label="Export directory",
+            description="The directory that the data was exported to",
         )
+
+        view = types.View(label="Export complete")
         return types.Property(outputs, view=view)
-
-
-def get_labeled_dataset_types():
-    keys = dir(fot)
-    result = {}
-    for key in keys:
-        t = getattr(fot, key)
-        if isinstance(t, type) and issubclass(t, fot.LabeledDataset):
-            result[key] = t
-
-    return result
-
-
-def get_sample_collection_from_ctx(ctx):
-    target = ctx.params.get("view", None)
-    if target == "current_view":
-        return ctx.view
-
-    if target == "selected_samples":
-        return ctx.dataset.select(ctx.selected)
-
-    return ctx.dataset
-
-
-def get_label_fields(dataset, dataset_type=None):
-    dataset_schema = dataset.get_field_schema()
-    return [
-        field_name
-        for field_name, field in dataset_schema.items()
-        if field_name != "filepath"
-    ]
 
 
 def register(p):
     p.register(AddSamples)
     p.register(ExportSamples)
+
+
+def _get_target_view(ctx, target):
+    if target == "SELECTED_SAMPLES":
+        return ctx.view.select(ctx.selected)
+
+    if target == "DATASET":
+        return ctx.dataset
+
+    return ctx.view
+
+
+def _estimate_export_size(view, export_type, label_field):
+    size_bytes = 0
+
+    # Estimate media size
+    if export_type in ("MEDIA_ONLY", "MEDIA_AND_LABELS"):
+        num_valid = len(view.exists("metadata.size_bytes"))
+        num_total = len(view)
+
+        if num_valid == 0:
+            size_bytes += 100e3 * num_total
+        else:
+            media_size = view.sum("metadata.size_bytes")
+            size_bytes += (num_total / num_valid) * media_size
+
+    if export_type == "FILEPATHS_ONLY":
+        label_field = "filepath"
+
+    # Estimate labels size
+    if label_field:
+        stats = view.select_fields(label_field).stats()
+        size_bytes += stats["samples_bytes"]
+
+    return size_bytes
+
+
+def _get_csv_fields(view):
+    for path, field in view.get_field_schema().items():
+        if isinstance(field, fo.EmbeddedDocumentField):
+            for _path, _field in field.get_field_schema().items():
+                if not isinstance(_field, (fo.ListField, fo.DictField)):
+                    yield path + "." + _path
+        elif not isinstance(field, (fo.ListField, fo.DictField)):
+            yield path
+
+
+def _get_labeled_dataset_types(view):
+    label_types = set(
+        view.get_field(field).document_type
+        for field in _get_fields_with_type(view, fo.Label)
+    )
+
+    dataset_types = []
+
+    if fo.Classification in label_types:
+        dataset_types.extend(_CLASSIFICATION_TYPES)
+
+    if fo.Detections in label_types:
+        dataset_types.extend(_DETECTION_TYPES)
+
+    if fo.Segmentation in label_types:
+        dataset_types.extend(_SEGMENTATION_TYPES)
+
+    dataset_types.extend(_OTHER_TYPES)
+
+    return sorted(set(dataset_types))
+
+
+def _get_label_fields(view, dataset_type):
+    label_fields = []
+
+    if dataset_type in _CLASSIFICATION_TYPES:
+        label_fields.extend(_get_fields_with_type(view, fo.Classification))
+
+    if dataset_type in _DETECTION_TYPES:
+        label_fields.extend(_get_fields_with_type(view, fo.Detections))
+
+    if dataset_type in _SEGMENTATION_TYPES:
+        label_fields.extend(_get_fields_with_type(view, fo.Segmentation))
+
+    return sorted(set(label_fields))
+
+
+def _get_fields_with_type(view, label_type):
+    return view.get_field_schema(embedded_doc_type=label_type).keys()
+
+
+_DATASET_TYPES = {
+    # Classification
+    "Classification directory tree": fot.ImageClassificationDirectoryTree,
+    "TF Image Classification": fot.TFImageClassificationDataset,
+    # Detection
+    "COCO": fot.COCODetectionDataset,
+    "VOC": fot.VOCDetectionDataset,
+    "KITTI": fot.KITTIDetectionDataset,
+    "YOLOv4": fot.YOLOv4Dataset,
+    "YOLOv5": fot.YOLOv5Dataset,
+    "TF Object Detection": fot.TFObjectDetectionDataset,
+    "CVAT": fot.CVATImageDataset,
+    # Segmentation
+    "Image segmentation": fot.ImageSegmentationDirectory,
+    # Other
+    "FiftyOne Dataset": fot.FiftyOneDataset,
+    "CSV Dataset": fot.CSVDataset,
+}
+
+_CLASSIFICATION_TYPES = [
+    "Classification directory tree",
+    "TF Image Classification",
+]
+
+_DETECTION_TYPES = [
+    "COCO",
+    "VOC",
+    "KITTI",
+    "YOLOv4",
+    "YOLOv5",
+    "TF Object Detection",
+    "CVAT",
+]
+
+_SEGMENTATION_TYPES = [
+    "Image segmentation",
+]
+
+_OTHER_TYPES = [
+    "FiftyOne Dataset",
+    "CSV Dataset",
+]
