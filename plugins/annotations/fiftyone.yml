@@ -1,8 +1,0 @@
-name: "@voxel51/request_annotation"
-description: Request Annotations for a FiftyOne dataset
-version: 1.0.0
-license: MIT
-fiftyone:
-    version: ~0.21.0
-operators:
-    - request_annotation

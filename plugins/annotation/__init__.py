@@ -1,6 +1,31 @@
+"""
+Annotation operators.
+
+| Copyright 2017-2023, Voxel51, Inc.
+| `voxel51.com <https://voxel51.com/>`_
+|
+"""
+import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-import fiftyone as fo
+
+
+class RequestAnnotations(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="request_annotations",
+            label="Request annotations",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        return create_anno_schema(ctx)
+
+    def execute(self, ctx):
+        print(ctx.params)
+        return {}
+
 
 def create_attribute_schema(ctx):
     attribute_schema = types.Object()
@@ -133,7 +158,9 @@ def create_anno_schema(ctx):
         elif backend_key == "labelstudio":
             label = "Label Studio"
             description = "Multi-type data labeling and annotation tool"
-        backend_choices.add_choice(backend_key, label=label, description=description)
+        backend_choices.add_choice(
+            backend_key, label=label, description=description
+        )
 
     inputs.define_property(
         "backend",
@@ -150,7 +177,9 @@ def create_anno_schema(ctx):
         return types.Property(inputs, view=view)
 
     cur_backend = (
-        fo.annotation_config.backends[cur_backend_name] if cur_backend_name else None
+        fo.annotation_config.backends[cur_backend_name]
+        if cur_backend_name
+        else None
     )
 
     # this should only list the app_config.media_fields
@@ -350,20 +379,5 @@ def create_anno_schema(ctx):
     return types.Property(inputs, view=view)
 
 
-class RequestAnnotation(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="request_annotation", label="Request Annotation", dynamic=True
-        )
-
-    def resolve_input(self, ctx):
-        return create_anno_schema(ctx)
-
-    def execute(self, ctx):
-        print(ctx.params)
-        return {}
-
-
 def register(p):
-    p.register(RequestAnnotation)
+    p.register(RequestAnnotations)
