@@ -7,3 +7,4 @@ url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/annotation/RE
 license: Apache 2.0
 operators:
   - request_annotations
+  - load_annotations

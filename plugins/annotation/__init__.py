@@ -41,9 +41,7 @@ class RequestAnnotations(foo.Operator):
         kwargs = {k: v for k, v in kwargs.items() if v not in (None, [])}
 
         target_view = _get_target_view(ctx, target)
-
-        # @todo uncomment when operator is done
-        # target_view.annotate(anno_key, label_schema=label_schema, **kwargs)
+        target_view.annotate(anno_key, label_schema=label_schema, **kwargs)
 
         return {
             "anno_key": anno_key,
@@ -71,8 +69,90 @@ class RequestAnnotations(foo.Operator):
         return types.Property(outputs, view=view)
 
 
+class LoadAnnotations(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="load_annotations",
+            label="Load annotations",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        anno_key_choices = types.DropdownView()
+        for anno_key in ctx.dataset.list_annotation_runs():
+            anno_key_choices.add_choice(anno_key, label=anno_key)
+
+        inputs.define_property(
+            "anno_key",
+            types.String(),
+            required=True,
+            label="Annotation key",
+            description="The annotation key for which to load annotations",
+            view=anno_key_choices,
+        )
+
+        unexpected_choices = types.DropdownView()
+        unexpected_choices.add_choice(
+            "keep",
+            label="keep",
+            description=(
+                "automatically keep all unexpected annotations in a field "
+                "whose name matches the the label type"
+            ),
+        )
+        unexpected_choices.add_choice(
+            "ignore",
+            label="ignore",
+            description="automatically ignore any unexpected annotations",
+        )
+
+        inputs.define_property(
+            "unexpected",
+            types.String(),
+            required=True,
+            default="keep",
+            label="Unexpected",
+            description="Choose how to handle unexpected annotations",
+            view=unexpected_choices,
+        )
+
+        inputs.define_property(
+            "cleanup",
+            types.Boolean(),
+            required=True,
+            default=False,
+            label="Cleanup",
+            description=(
+                "Whether to delete any informtation regarding this run from "
+                "the annotation backend after loading the annotations"
+            ),
+        )
+
+        view = types.View(label="Load annotations")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        anno_key = ctx.params["anno_key"]
+        unexpected = ctx.params["unexpected"]
+        cleanup = ctx.params["cleanup"]
+
+        ctx.dataset.load_annotations(
+            anno_key, unexpected=unexpected, cleanup=cleanup
+        )
+        ctx.trigger("reload_dataset")
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Request complete")
+        return types.Property(outputs, view=view)
+
+
 def register(p):
     p.register(RequestAnnotations)
+    p.register(LoadAnnotations)
 
 
 def build_annotation_request(ctx):
@@ -95,7 +175,7 @@ def build_annotation_request(ctx):
 
     # Media field
     media_fields = ctx.dataset.app_config.media_fields
-    if len(media_fields) >= 1:
+    if len(media_fields) > 1:
         inputs.define_property(
             "media_field",
             types.Enum(media_fields),
@@ -354,12 +434,7 @@ def _build_label_schema(label_schema_fields):
         classes = d.get("classes", None) or None
         attributes = d.get("attributes", None) or None
 
-        if (
-            not field_name
-            or not field_type
-            or not classes
-            or not any(c for c in classes)
-        ):
+        if not field_name or not field_type:
             return
 
         label_schema[field_name] = {"type": field_type}
