@@ -5,9 +5,12 @@ Annotation operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import json
+
 import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
+import fiftyone.utils.annotations as foua
 
 
 class RequestAnnotations(foo.Operator):
@@ -27,11 +30,15 @@ class RequestAnnotations(foo.Operator):
         target = ctx.params.pop("target", None)
         anno_key = ctx.params.pop("anno_key")
 
-        # Omit internal-only parameters
-        _ = ctx.params.pop("use_custom_label_schema")
+        # Parse label schema
+        _ = ctx.params.pop("schema_type")
+        label_schema = ctx.params.pop("label_schema", None)
+        label_schema_fields = ctx.params.pop("label_schema_fields", None)
+        if not label_schema:
+            label_schema = _build_label_schema(label_schema_fields)
 
         target_view = _get_target_view(ctx, target)
-        # target_view.annotate(anno_key, **params)
+        # target_view.annotate(anno_key, label_schema=label_schema, **params)
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -57,16 +64,13 @@ def build_annotation_request(ctx):
     # Annotation backend
     backend = get_annotation_backend(ctx, inputs)
     if backend is None:
-        warning = types.Warning(
-            label="You must configure an annotation backend",
-            description="https://docs.voxel51.com/user_guide/annotation.html",
-        )
-        inputs.view("warning", warning)
-
         return types.Property(inputs, view=inputs_style)
 
     # Annotation key
-    inputs.str("annotation_key", label="Annotation key", required=True)
+    inputs.str("anno_key", label="Annotation key", required=True)
+    anno_key = ctx.params.get("anno_key", None)
+    if anno_key is None:
+        return types.Property(inputs, view=inputs_style)
 
     # Media field
     media_fields = ctx.dataset.app_config.media_fields
@@ -74,9 +78,9 @@ def build_annotation_request(ctx):
         inputs.define_property(
             "media_field",
             types.Enum(media_fields),
-            label="Media field",
-            default="filepath",
             required=True,
+            default="filepath",
+            label="Media field",
             description=(
                 "The sample field containing the path to the source media to "
                 "upload"
@@ -85,14 +89,15 @@ def build_annotation_request(ctx):
         )
 
     # Label schema
-    get_label_schema(ctx, inputs)
+    label_schema = get_label_schema(ctx, inputs, backend, target_view)
+    if not label_schema:
+        return types.Property(inputs, view=inputs_style)
 
     # Backend-independent parameters
     get_generic_parameters(ctx, inputs)
 
     # Backend-specific parameters
-    if backend == "cvat":
-        get_cvat_parameters(ctx, inputs)
+    backend.get_custom_parameters(ctx, inputs)
 
     return types.Property(inputs, view=inputs_style)
 
@@ -178,129 +183,249 @@ def get_annotation_backend(ctx, inputs):
         label="Annotation backend",
         default=default_backend,
         description="The annotation backend to use",
-        required=True,
         view=backend_choices,
     )
-    return ctx.params.get("backend", default_backend)
+
+    backend = ctx.params.get("backend", default_backend)
+
+    if backend is None:
+        warning = types.Warning(
+            label="You have no annotation backends configured",
+            description="https://docs.voxel51.com/user_guide/annotation.html",
+        )
+        warning_prop = inputs.view("warning", warning)
+        warning_prop.invalid = True
+
+        return None
+
+    if backend == "cvat":
+        return CVATBackend(backend)
+
+    return AnnotationBackend(backend)
 
 
-def get_label_schema(ctx, inputs):
-    inputs.define_property(
-        "use_custom_label_schema",
-        types.Boolean(),
-        label="Use custom label schema",
-        default=False,
-        description="Whether to use a custom label schema",
-        view=_DEFAULT_STYLE,
+def get_label_schema(ctx, inputs, backend, view):
+    schema_choices = types.TabsView()
+    schema_choices.add_choice("BUILD", label="Build")
+    schema_choices.add_choice("JSON", label="JSON")
+    inputs.enum(
+        "schema_type",
+        schema_choices.values(),
+        required=True,
+        default="BUILD",
+        label="Label schema",
+        description="Choose how to provide your label schema",
+        view=schema_choices,
     )
-    use_custom_label_schema = ctx.params.get("use_custom_label_schema", False)
+    schema_type = ctx.params.get("schema_type", "BUILD")
 
-    if use_custom_label_schema:
-        inputs.define_property(
-            "label_schema_fields",
-            types.List(create_field_schema(ctx)),
-            label="Label schema fields",
-            description="The fields to include in the label schema",
-            default=[],
-        )
-    else:
-        inputs.define_property(
+    if schema_type == "JSON":
+        # @todo need an editable JSON viewer
+        prop = inputs.define_property(
             "label_schema",
-            create_field_schema(ctx),
-            label="Label schema",
-            description="The label schema to annotate",
+            types.String(),
+            required=True,
+            label="Paste your label schema JSON",
+            description="https://docs.voxel51.com/user_guide/annotation.html#label-schema",
+            # view=types.JSONView(),
         )
 
+        label_schema = ctx.params.get("label_schema", None)
 
-def create_field_schema(ctx):
+        if label_schema:
+            try:
+                label_schema = json.loads(label_schema)
+            except:
+                label_schema = None
+                prop.invalid = True
+                prop.error_message = "Invalid JSON"
+        else:
+            prop.invalid = True
+            prop.error_message = "Required property"
+
+        return label_schema
+    else:
+        prop = inputs.define_property(
+            "label_schema_fields",
+            types.List(build_label_schema_field(ctx, backend, view)),
+            required=True,
+            label="Label fields",
+            description="Configure the field(s) in your label schema",
+        )
+
+        label_schema_fields = ctx.params.get("label_schema_fields", None)
+
+        if not _build_label_schema(label_schema_fields):
+            label_schema_fields = None
+            prop.invalid = True
+            prop.error_message = "Required property"
+
+        return label_schema_fields
+
+
+def build_label_schema_field(ctx, backend, view):
     field_schema = types.Object()
+
+    scalar_types, label_types = backend.get_supported_types()
+
+    fields = []
+    if scalar_types:
+        scalar_fields = view.get_field_schema(ftype=scalar_types)
+        fields.extend(scalar_fields.keys())
+
+    if label_types:
+        label_fields = view.get_field_schema(embedded_doc_type=label_types)
+        fields.extend(label_fields.keys())
+
+    field_choices = types.AutocompleteView(space=6)
+    for field in fields:
+        field_choices.add_choice(field, label=field)
+
     field_schema.define_property(
         "field_name",
         types.String(),
-        label="Field name",
-        description="The name of the field",
         required=True,
-        view=types.View(space=6),
+        label="Field name",
+        description="The new or existing field name",
+        view=field_choices,
     )
+
+    # @todo set default for existing fields
     field_schema.define_property(
         "type",
-        types.Enum(
-            [
-                "detections",
-                "polygons",
-                "polylines",
-                "points",
-                "text",
-                "scalar",
-                "classifcation",
-                "classifcations",
-            ]
-        ),
+        types.Enum(backend.backend.supported_label_types),
+        required=True,
         label="Field type",
         description="The type of the field",
-        view=types.View(space=6),
+        view=_DEFAULT_STYLE,
     )
+
+    # @todo support per-class attributes
     field_schema.define_property(
         "classes",
-        types.List(create_class_schema(ctx)),
+        types.List(types.String()),
         label="Classes",
-        description="The classes to include in the field",
-        default=[],
+        description="The classes for the field",
     )
+
+    field_schema.define_property(
+        "attributes",
+        types.List(create_attribute_schema(ctx, backend)),
+        label="Attributes",
+        description="The label attributes for the field",
+    )
+
     return field_schema
 
 
-def create_attribute_schema(ctx):
+def _build_label_schema(label_schema_fields):
+    if not label_schema_fields:
+        return
+
+    label_schema = {}
+    for d in label_schema_fields:
+        field_name = d.get("field_name", None)
+        field_type = d.get("type", None)
+        classes = d.get("classes", None)
+        attributes = d.get("attributes", None)
+
+        if (
+            not field_name
+            or not field_type
+            or not classes
+            or not any(c for c in classes)
+        ):
+            return
+
+        label_schema[field_name] = {
+            "type": field_type,
+            "classes": classes,
+            "attributes": attributes,
+        }
+
+    return label_schema
+
+
+def create_class_schema(ctx, backend):
+    class_schema = types.Object()
+
+    # @todo conditionally show based on field type
+    class_schema.define_property(
+        "classes",
+        types.List(types.String()),
+        label="Classes",
+    )
+
+    # @todo conditionally show based on field type
+    class_schema.define_property(
+        "attributes",
+        types.List(create_attribute_schema(ctx, backend)),
+        label="Attributes",
+    )
+
+    return class_schema
+
+
+def create_attribute_schema(ctx, backend):
     attribute_schema = types.Object()
     attribute_schema.define_property(
-        "attribute_name",
+        "name",
         types.String(),
-        label="Attribute name",
-        description="The name of the attribute to create",
+        label="Name",
+        description="The attribute name",
         required=True,
         view=types.View(space=6),
     )
     attribute_schema.define_property(
         "type",
-        types.Enum(["radio", "select", "checkbox", "text"]),
-        label="Attribute type",
-        description="The type of attribute to create",
+        types.Enum(backend.backend.supported_attr_types),
+        label="Type",
+        description="The attribute type",
         view=types.View(space=6),
     )
     attribute_schema.define_property(
         "values",
         types.List(types.String()),
         label="Values",
-        description="The classes to include in the attribute",
-        default=[],
+        description="The attribute values",
     )
+
+    # @todo set property type based on `type` above
+    attribute_schema.define_property(
+        "default",
+        types.String(),
+        label="Default",
+        description="An optional default value for the attribute",
+    )
+
+    attribute_schema.define_property(
+        "mutable",
+        types.Boolean(),
+        default=True,
+        label="Mutable",
+        description="Whether the attribute should be mutable",
+        view=types.View(space=6),
+    )
+    attribute_schema.define_property(
+        "read_only",
+        types.Boolean(),
+        default=False,
+        label="Read-only",
+        description="Whether the attribute should be read-only",
+        view=types.View(space=6),
+    )
+
     return attribute_schema
-
-
-def create_class_schema(ctx):
-    class_schema = types.Object()
-    class_schema.define_property(
-        "classes",
-        types.List(types.String()),
-        label="Classes",
-        required=True,
-        view=types.View(space=6),
-    )
-    class_schema.define_property(
-        "attributes",
-        types.List(create_attribute_schema(ctx)),
-        label="Attributes",
-        required=True,
-        view=types.View(space=6),
-    )
-    return class_schema
 
 
 def get_generic_parameters(ctx, inputs):
     inputs.define_property(
         "options",
         types.String(),
-        view=types.Header(label="Options", description="General options"),
+        view=types.Header(
+            label="General options",
+            description="Options applicable to all backends",
+        ),
     )
     inputs.define_property(
         "launch_editor",
@@ -373,139 +498,171 @@ def get_generic_parameters(ctx, inputs):
     )
 
 
-def get_cvat_parameters(ctx, inputs):
-    inputs.define_property(
-        "cvat_header",
-        types.String(),
-        view=types.Header(
-            label="CVAT",
-            description="Settings specific for CVAT",
-        ),
-    )
-    inputs.define_property(
-        "task_size",
-        types.Number(min=1),
-        label="Task size",
-        description=(
-            "The maximum number of images to upload per job. Only applicable "
-            "to image tasks"
-        ),
-    )
-    inputs.define_property(
-        "segment_size",
-        types.Number(min=1),
-        label="Segment size",
-        description=(
-            "The maximum number of images to upload per job. Only applicable "
-            "to image tasks"
-        ),
-    )
-    inputs.define_property(
-        "image_quality",
-        types.Number(min=0, max=100, int=True),
-        default=75,
-        label="Image quality",
-        description=(
-            "An int in [0, 100] determining the image quality to upload "
-            "to CVAT"
-        ),
-    )
-    inputs.define_property(
-        "use_cache",
-        types.Boolean(),
-        default=True,
-        label="Use cache",
-        description=(
-            "Whether to use a cache when uploading data. Using a cache "
-            "reduces task creation time as data will be processed "
-            "on-the-fly and stored in the cache when requested"
-        ),
-    )
-    inputs.define_property(
-        "use_zip_chunks",
-        types.Boolean(),
-        default=True,
-        label="Use zip chunks",
-        description=(
-            "When annotating videos, whether to upload video frames in "
-            "smaller chunks. Setting this option to False may result in "
-            "reduced video quality in CVAT due to size limitations on ZIP "
-            "files that can be uploaded to CVAT"
-        ),
-    )
-    inputs.define_property(
-        "chunk_size",
-        types.Number(min=1),
-        label="Chunk size",
-        description="The number of frames to upload per ZIP chunk",
-    )
-    inputs.define_property(
-        "job_assignee",
-        types.String(),
-        label="Assignee",
-        description=(
-            "The username to assign the generated tasks. This argument "
-            "can be a list of usernames when annotating videos as each "
-            "video is uploaded to a separate task"
-        ),
-    )
-    inputs.define_property(
-        "job_reviewers",
-        types.List(types.String()),
-        label="Reviewers",
-        description=(
-            "The usernames to assign as reviewers to the generated tasks. "
-            "This argument can be a list of lists of usernames when "
-            "annotating videos as each video is uploaded to a separate "
-            "task",
-        ),
-    )
-    inputs.define_property(
-        "task_name",
-        types.String(),
-        label="Task name",
-        description=(
-            "The name to assign to the generated tasks. This argument can "
-            "be a list of strings when annotating videos as each video is "
-            "uploaded to a separate task"
-        ),
-    )
-    inputs.define_property(
-        "project_name",
-        types.String(),
-        label="Project name",
-        description="The name to assign to the generated project",
-    )
-    inputs.define_property(
-        "project_id",
-        types.String(),
-        label="Project ID",
-        description=(
-            "An ID of an existing CVAT project to which to "
-            "upload the annotation tasks"
-        ),
-    )
-    inputs.define_property(
-        "occluded_attr",
-        types.String(),
-        label="Occluded attribute",
-        description="An attribute to use for occluded labels",
-    )
-    inputs.define_property(
-        "group_id_attr",
-        types.String(),
-        label="Group ID attribute",
-        description="An attribute to use for grouping labels",
-    )
-    inputs.define_property(
-        "issue_tracker",
-        types.String(),
-        label="Issue tracker",
-        description="An issue tracker to use for the generated tasks",
-    )
-    inputs.define_property(
-        "organization",
-        types.String(),
-        label="Organization",
-        description="The organization to use for the generated tasks",
-    )
+class AnnotationBackend(object):
+    def __init__(self, name):
+        config = foua._parse_config(name, None)
+        backend = config.build()
+
+        self.name = name
+        self.backend = backend
+
+    def get_supported_types(self):
+        scalar = False
+        label_types = []
+
+        for type_str in self.backend.supported_label_types:
+            if type_str == "scalar":
+                scalar = True
+            else:
+                label_type = foua._LABEL_TYPES_MAP.get(type_str, None)
+                if label_type is not None:
+                    label_types.append(label_type)
+
+        if scalar:
+            scalar_types = self.backend.supported_scalar_types
+        else:
+            scalar_types = None
+
+        return scalar_types, label_types
+
+    def get_custom_parameters(self, ctx, inputs):
+        pass
+
+
+class CVATBackend(AnnotationBackend):
+    def get_custom_parameters(self, ctx, inputs):
+        inputs.define_property(
+            "cvat_header",
+            types.String(),
+            view=types.Header(
+                label="CVAT options",
+                description="CVAT-specific options",
+            ),
+        )
+        inputs.define_property(
+            "task_size",
+            types.Number(min=1),
+            label="Task size",
+            description=(
+                "The maximum number of images to upload per job. Only "
+                "applicable to image tasks"
+            ),
+        )
+        inputs.define_property(
+            "segment_size",
+            types.Number(min=1),
+            label="Segment size",
+            description=(
+                "The maximum number of images to upload per job. Only "
+                "applicable to image tasks"
+            ),
+        )
+        inputs.define_property(
+            "image_quality",
+            types.Number(min=0, max=100, int=True),
+            default=75,
+            label="Image quality",
+            description=(
+                "An int in [0, 100] determining the image quality to upload "
+                "to CVAT"
+            ),
+        )
+        inputs.define_property(
+            "use_cache",
+            types.Boolean(),
+            default=True,
+            label="Use cache",
+            description=(
+                "Whether to use a cache when uploading data. Using a cache "
+                "reduces task creation time as data will be processed "
+                "on-the-fly and stored in the cache when requested"
+            ),
+        )
+        inputs.define_property(
+            "use_zip_chunks",
+            types.Boolean(),
+            default=True,
+            label="Use zip chunks",
+            description=(
+                "When annotating videos, whether to upload video frames in "
+                "smaller chunks. Setting this option to False may result in "
+                "reduced video quality in CVAT due to size limitations on ZIP "
+                "files that can be uploaded to CVAT"
+            ),
+        )
+        inputs.define_property(
+            "chunk_size",
+            types.Number(min=1),
+            label="Chunk size",
+            description="The number of frames to upload per ZIP chunk",
+        )
+        inputs.define_property(
+            "job_assignee",
+            types.String(),
+            label="Assignee",
+            description=(
+                "The username to assign the generated tasks. This argument "
+                "can be a list of usernames when annotating videos as each "
+                "video is uploaded to a separate task"
+            ),
+        )
+        inputs.define_property(
+            "job_reviewers",
+            types.List(types.String()),
+            label="Reviewers",
+            description=(
+                "The usernames to assign as reviewers to the generated tasks. "
+                "This argument can be a list of lists of usernames when "
+                "annotating videos as each video is uploaded to a separate "
+                "task",
+            ),
+        )
+        inputs.define_property(
+            "task_name",
+            types.String(),
+            label="Task name",
+            description=(
+                "The name to assign to the generated tasks. This argument can "
+                "be a list of strings when annotating videos as each video is "
+                "uploaded to a separate task"
+            ),
+        )
+        inputs.define_property(
+            "project_name",
+            types.String(),
+            label="Project name",
+            description="The name to assign to the generated project",
+        )
+        inputs.define_property(
+            "project_id",
+            types.String(),
+            label="Project ID",
+            description=(
+                "An ID of an existing CVAT project to which to "
+                "upload the annotation tasks"
+            ),
+        )
+        inputs.define_property(
+            "occluded_attr",
+            types.String(),
+            label="Occluded attribute",
+            description="An attribute to use for occluded labels",
+        )
+        inputs.define_property(
+            "group_id_attr",
+            types.String(),
+            label="Group ID attribute",
+            description="An attribute to use for grouping labels",
+        )
+        inputs.define_property(
+            "issue_tracker",
+            types.String(),
+            label="Issue tracker",
+            description="An issue tracker to use for the generated tasks",
+        )
+        inputs.define_property(
+            "organization",
+            types.String(),
+            label="Organization",
+            description="The organization to use for the generated tasks",
+        )
