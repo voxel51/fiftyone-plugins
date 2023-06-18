@@ -349,7 +349,7 @@ def get_label_schema(ctx, inputs, backend, view):
     schema_type = ctx.params.get("schema_type", "BUILD")
 
     if schema_type == "JSON":
-        # @todo need an editable JSON viewer
+        # @todo switch to editable JSON viewer
         prop = inputs.define_property(
             "label_schema",
             types.String(),
@@ -419,9 +419,8 @@ def build_label_schema_field(ctx, backend, view):
         view=field_choices,
     )
 
-    supported_field_types = backend.backend.supported_label_types
     field_type_choices = types.AutocompleteView(space=6)
-    for field_type in supported_field_types:
+    for field_type in backend.get_supported_type_strings():
         field_type_choices.add_choice(field_type, label=field_type)
 
     # @todo set default for existing fields
@@ -439,7 +438,7 @@ def build_label_schema_field(ctx, backend, view):
         "classes",
         types.List(types.String()),
         label="Classes",
-        description="The classes for the field",
+        description="The classes for the field (required for new fields)",
     )
 
     field_schema.define_property(
@@ -633,6 +632,11 @@ class AnnotationBackend(object):
 
         self.name = name
         self.backend = backend
+
+    def get_supported_type_strings(self):
+        field_types = self.backend.supported_label_types
+        singles = ("detection", "instance", "polyline", "polygon", "keypoint")
+        return [t for t in field_types if t not in singles]
 
     def get_supported_types(self):
         scalar = False
