@@ -43,7 +43,7 @@ session = fo.launch_app(dataset)
 You can use this operator to create annotation tasks for the current dataset or
 view.
 
-This operator is essentially a wrapper around the following
+This operator is essentially a wrapper around the
 [request annotations Python workflow](https://docs.voxel51.com/user_guide/annotation.html#requesting-annotations):
 
 ```py
@@ -58,3 +58,18 @@ dataset_or_view.annotate(
 where the operator's form allows you to configure the annotation key,
 annotation backend, label schema, and any other applicable fields for your
 annotation backend.
+
+### load_annotations
+
+You can use this operator to load annotations from existing annotation runs
+back onto your dataset.
+
+This operator is essentially a wrapper around the
+[load annotations Python workflow](https://docs.voxel51.com/user_guide/annotation.html#loading-annotations):
+
+```py
+dataset_or_view.load_annotations(anno_key, ...)
+```
+
+where the operator's form allows you to configure the annotation key and
+related options.
