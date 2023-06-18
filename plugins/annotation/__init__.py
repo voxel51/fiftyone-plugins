@@ -112,14 +112,14 @@ class LoadAnnotations(foo.Operator):
             "keep",
             label="keep",
             description=(
-                "automatically keep all unexpected annotations in a field "
+                "Automatically keep all unexpected annotations in a field "
                 "whose name matches the the label type"
             ),
         )
         unexpected_choices.add_choice(
             "ignore",
             label="ignore",
-            description="automatically ignore any unexpected annotations",
+            description="Automatically ignore any unexpected annotations",
         )
 
         inputs.define_property(
