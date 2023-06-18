@@ -29,6 +29,7 @@ class RequestAnnotations(foo.Operator):
         kwargs = ctx.params.copy()
         target = kwargs.pop("target", None)
         anno_key = kwargs.pop("anno_key")
+        backend = kwargs.pop("backend")
 
         # Parse label schema
         kwargs.pop("schema_type")
@@ -37,11 +38,19 @@ class RequestAnnotations(foo.Operator):
         if not label_schema:
             label_schema = _build_label_schema(label_schema_fields)
 
+        # Parse backend-specific parameters
+        _get_backend(backend).parse_parameters(ctx, kwargs)
+
         # Remove None or [] values
         kwargs = {k: v for k, v in kwargs.items() if v not in (None, [])}
 
         target_view = _get_target_view(ctx, target)
-        target_view.annotate(anno_key, label_schema=label_schema, **kwargs)
+        target_view.annotate(
+            anno_key,
+            label_schema=label_schema,
+            backend=backend,
+            **kwargs,
+        )
 
         return {
             "anno_key": anno_key,
@@ -168,8 +177,7 @@ def build_annotation_request(ctx):
         return types.Property(inputs, view=inputs_style)
 
     # Annotation key
-    inputs.str("anno_key", label="Annotation key", required=True)
-    anno_key = ctx.params.get("anno_key", None)
+    anno_key = get_anno_key(ctx, inputs)
     if anno_key is None:
         return types.Property(inputs, view=inputs_style)
 
@@ -197,9 +205,20 @@ def build_annotation_request(ctx):
     get_generic_parameters(ctx, inputs)
 
     # Backend-specific parameters
-    backend.get_custom_parameters(ctx, inputs)
+    backend.get_parameters(ctx, inputs)
 
     return types.Property(inputs, view=inputs_style)
+
+
+def get_anno_key(ctx, inputs):
+    prop = inputs.str("anno_key", label="Annotation key", required=True)
+    anno_key = ctx.params.get("anno_key", None)
+    if anno_key is not None and anno_key in ctx.dataset.list_annotation_runs():
+        prop.invalid = True
+        prop.error_message = "Annotation key already exists"
+        anno_key = None
+
+    return anno_key
 
 
 def get_target_view(ctx, inputs):
@@ -298,8 +317,18 @@ def get_annotation_backend(ctx, inputs):
 
         return None
 
+    return _get_backend(backend)
+
+
+def _get_backend(backend):
     if backend == "cvat":
         return CVATBackend(backend)
+
+    if backend == "labelbox":
+        return LabelboxBackend(backend)
+
+    if backend == "labelstudio":
+        return LabelStudioBackend(backend)
 
     return AnnotationBackend(backend)
 
@@ -450,21 +479,16 @@ def _build_label_schema(label_schema_fields):
 
 def create_class_schema(ctx, backend):
     class_schema = types.Object()
-
-    # @todo conditionally show based on field type
     class_schema.define_property(
         "classes",
         types.List(types.String()),
         label="Classes",
     )
-
-    # @todo conditionally show based on field type
     class_schema.define_property(
         "attributes",
         types.List(create_attribute_schema(ctx, backend)),
         label="Attributes",
     )
-
     return class_schema
 
 
@@ -528,7 +552,7 @@ def get_generic_parameters(ctx, inputs):
         types.String(),
         view=types.Header(
             label="General options",
-            description="Options applicable to all backends",
+            description="https://docs.voxel51.com/user_guide/annotation.html#requesting-annotations",
         ),
     )
     inputs.define_property(
@@ -629,18 +653,21 @@ class AnnotationBackend(object):
 
         return scalar_types, label_types
 
-    def get_custom_parameters(self, ctx, inputs):
+    def get_parameters(self, ctx, inputs):
+        pass
+
+    def parse_parameters(self, ctx, params):
         pass
 
 
 class CVATBackend(AnnotationBackend):
-    def get_custom_parameters(self, ctx, inputs):
+    def get_parameters(self, ctx, inputs):
         inputs.define_property(
             "cvat_header",
             types.String(),
             view=types.Header(
                 label="CVAT options",
-                description="CVAT-specific options",
+                description="https://docs.voxel51.com/integrations/cvat.html#requesting-annotations",
             ),
         )
         inputs.define_property(
@@ -780,5 +807,127 @@ class CVATBackend(AnnotationBackend):
             types.String(),
             default=None,
             label="Organization",
-            description="The organization to use for the generated tasks",
+            description="An organization to use for the generated tasks",
+        )
+        inputs.define_property(
+            "frame_start",
+            types.Number(min=0, int=True),
+            default=None,
+            label="Frame start",
+            description=(
+                "An optional first frame of each video to upload when "
+                "creating video tasks"
+            ),
+        )
+        inputs.define_property(
+            "frame_stop",
+            types.Number(min=1, int=True),
+            default=None,
+            label="Frame stop",
+            description=(
+                "An optional last frame of each video to upload when "
+                "creating video tasks"
+            ),
+        )
+        inputs.define_property(
+            "frame_step",
+            types.Number(min=1, int=True),
+            default=None,
+            label="Frame step",
+            description=(
+                "An optional frame step defining which frames to sample when "
+                "creating video tasks. Note that this argument cannot be "
+                "provided when uploading existing tracks"
+            ),
+        )
+
+
+class LabelboxBackend(AnnotationBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.define_property(
+            "labelbox_header",
+            types.String(),
+            view=types.Header(
+                label="Labelbox options",
+                description="https://docs.voxel51.com/integrations/labelbox.html#requesting-annotations",
+            ),
+        )
+        inputs.define_property(
+            "project_name",
+            types.String(),
+            default=None,
+            label="Project name",
+            description="A name to assign to the generated project",
+        )
+        inputs.define_property(
+            "member",
+            types.List(self.create_member()),
+            default=None,
+            label="Members",
+            description=(
+                "An optional list of users to add or invite to the project"
+            ),
+        )
+        inputs.define_property(
+            "classes_as_attrs",
+            types.Boolean(),
+            default=True,
+            label="Annotate classes as attributes",
+            description=(
+                "Whether to show the label field at the top level and "
+                "annotate the class as a required attribute of each object"
+            ),
+        )
+
+    def parse_parameters(self, ctx, params):
+        if "member" in params:
+            params["member"] = [
+                (m["email"], m["role"]) for m in params["member"]
+            ]
+
+    def create_member(self):
+        member_schema = types.Object()
+        member_schema.define_property(
+            "email",
+            types.String(),
+            required=True,
+            label="Email",
+            description="Email address",
+            view=types.View(space=6),
+        )
+
+        role_choices = types.DropdownView(space=6)
+        role_choices.add_choice("LABELER", label="Labeler")
+        role_choices.add_choice("REVIEWER", label="Reviewer")
+        role_choices.add_choice("TEAM_MANAGER", label="Team manager")
+        role_choices.add_choice("ADMIN", label="Admin")
+
+        member_schema.define_property(
+            "role",
+            types.String(),
+            required=True,
+            label="Role",
+            description="The role to assign",
+            view=role_choices,
+        )
+
+        return member_schema
+
+
+class LabelStudioBackend(AnnotationBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.define_property(
+            "labelstudio_header",
+            types.String(),
+            view=types.Header(
+                label="Label Studio options",
+                description="https://docs.voxel51.com/integrations/labelstudio.html#requesting-annotations",
+            ),
+        )
+        inputs.define_property(
+            "project_name",
+            types.String(),
+            default=None,
+            label="Project name",
+            description="A name to assign to the generated project",
         )
