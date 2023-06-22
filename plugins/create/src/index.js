@@ -2,7 +2,8 @@ const path = require("path");
 const fs = require("fs");
 
 const PLUGINS_DIR = path.join(__dirname, "../../");
-const SKELETON_DIR = path.join(PLUGINS_DIR, "__skeleton__");
+const SKELETON_DIR = path.join(__dirname, "__skeleton__");
+const RENAMES = { "fiftyone.yml.template": "fiftyone.yml" };
 
 // a function that checks if the given plugin name is a valid filename
 // and does not already exist as a directory
@@ -62,6 +63,17 @@ if (require.main === module) {
 function replaceInFile(filepath, targetFilepath, string, replacement) {
   const contents = fs.readFileSync(filepath, "utf8");
   const newContents = contents.replace(new RegExp(string, "g"), replacement);
-  console.log("  CREATE", targetFilepath);
-  fs.writeFileSync(targetFilepath, newContents, "utf8");
+  const computedTargetFilePath = renameFile(targetFilepath);
+  console.log("  CREATE", computedTargetFilePath);
+  fs.writeFileSync(computedTargetFilePath, newContents, "utf8");
+}
+
+function renameFile(filePath) {
+  for (const rename in RENAMES) {
+    if (filePath.endsWith(rename)) {
+      const pattern = new RegExp(`${rename}$`);
+      return filePath.replace(pattern, RENAMES[rename]);
+    }
+  }
+  return filePath;
 }
