@@ -454,15 +454,13 @@ class ExampleSettings(foo.Operator):
         global_settings = fo.app_config.plugins or {}
         dataset_settings = dataset.app_config.plugins or {}
         settings = {**global_settings, **dataset_settings}
-        return {
-            "settings": json.dumps(settings, indent=4),
-            "dataset": ctx.params["dataset"],
-        }
+        dataset = ctx.params["dataset"]
+        return {"settings": settings, "dataset": dataset}
 
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.str("dataset", label="Dataset")
-        outputs.str("settings", label="Settings", view=types.JSONView())
+        outputs.obj("settings", label="Settings", view=types.JSONView())
         return types.Property(outputs)
 
 
