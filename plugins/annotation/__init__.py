@@ -35,7 +35,9 @@ class RequestAnnotations(foo.Operator):
         kwargs.pop("schema_type")
         label_schema = kwargs.pop("label_schema", None)
         label_schema_fields = kwargs.pop("label_schema_fields", None)
-        if not label_schema:
+        if label_schema:
+            label_schema = json.loads(label_schema)
+        else:
             label_schema = _build_label_schema(label_schema_fields)
 
         # Parse backend-specific parameters
@@ -52,31 +54,27 @@ class RequestAnnotations(foo.Operator):
             **kwargs,
         )
 
-        """
         return {
             "anno_key": anno_key,
-            "label_schema": json.dumps(label_schema, indent=4),
-            "kwargs": json.dumps(kwargs, indent=4),
+            "label_schema": label_schema,
+            "kwargs": kwargs,
         }
-        """
 
     def resolve_output(self, ctx):
         outputs = types.Object()
 
         # @todo remove these outputs, just for debugging
-        """
         outputs.str("anno_key", label="Annotation key")
-        outputs.str(
+        outputs.obj(
             "label_schema",
             label="Label schema",
-            # view=types.JSONView(),
+            view=types.JSONView(),
         )
-        outputs.str(
+        outputs.obj(
             "kwargs",
             label="kwargs",
-            # view=types.JSONView(),
+            view=types.JSONView(),
         )
-        """
 
         view = types.View(label="Request complete")
         return types.Property(outputs, view=view)
@@ -360,7 +358,7 @@ def get_label_schema(ctx, inputs, backend, view):
             required=True,
             label="Paste your label schema JSON",
             description="https://docs.voxel51.com/user_guide/annotation.html#label-schema",
-            # view=types.JSONView(),
+            view=types.CodeView(),
         )
 
         label_schema = ctx.params.get("label_schema", None)
