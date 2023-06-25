@@ -59,28 +59,8 @@ class RequestAnnotations(foo.Operator):
             **kwargs,
         )
 
-        return {
-            "anno_key": anno_key,
-            "label_schema": label_schema,
-            "kwargs": kwargs,
-        }
-
     def resolve_output(self, ctx):
         outputs = types.Object()
-
-        # @todo remove these outputs, just for debugging
-        outputs.str("anno_key", label="Annotation key")
-        outputs.obj(
-            "label_schema",
-            label="Label schema",
-            view=types.JSONView(),
-        )
-        outputs.obj(
-            "kwargs",
-            label="kwargs",
-            view=types.JSONView(),
-        )
-
         view = types.View(label="Request complete")
         return types.Property(outputs, view=view)
 
