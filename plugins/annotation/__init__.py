@@ -23,7 +23,12 @@ class RequestAnnotations(foo.Operator):
         )
 
     def resolve_input(self, ctx):
-        return build_annotation_request(ctx)
+        inputs = types.Object()
+
+        request_annotations(ctx, inputs)
+
+        view = types.View(label="Request annotations")
+        return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -80,115 +85,22 @@ class RequestAnnotations(foo.Operator):
         return types.Property(outputs, view=view)
 
 
-class LoadAnnotations(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="load_annotations",
-            label="Load annotations",
-            dynamic=True,
-        )
-
-    def resolve_input(self, ctx):
-        inputs = types.Object()
-
-        anno_key_choices = types.DropdownView()
-        for anno_key in ctx.dataset.list_annotation_runs():
-            anno_key_choices.add_choice(anno_key, label=anno_key)
-
-        inputs.define_property(
-            "anno_key",
-            types.String(),
-            required=True,
-            label="Annotation key",
-            description="The annotation key for which to load annotations",
-            view=anno_key_choices,
-        )
-
-        unexpected_choices = types.DropdownView()
-        unexpected_choices.add_choice(
-            "keep",
-            label="keep",
-            description=(
-                "Automatically keep all unexpected annotations in a field "
-                "whose name matches the the label type"
-            ),
-        )
-        unexpected_choices.add_choice(
-            "ignore",
-            label="ignore",
-            description="Automatically ignore any unexpected annotations",
-        )
-
-        inputs.define_property(
-            "unexpected",
-            types.String(),
-            required=True,
-            default="keep",
-            label="Unexpected",
-            description="Choose how to handle unexpected annotations",
-            view=unexpected_choices,
-        )
-
-        inputs.define_property(
-            "cleanup",
-            types.Boolean(),
-            required=True,
-            default=False,
-            label="Cleanup",
-            description=(
-                "Whether to delete any informtation regarding this run from "
-                "the annotation backend after loading the annotations"
-            ),
-        )
-
-        view = types.View(label="Load annotations")
-        return types.Property(inputs, view=view)
-
-    def execute(self, ctx):
-        anno_key = ctx.params["anno_key"]
-        unexpected = ctx.params["unexpected"]
-        cleanup = ctx.params["cleanup"]
-
-        ctx.dataset.load_annotations(
-            anno_key, unexpected=unexpected, cleanup=cleanup
-        )
-        ctx.trigger("reload_dataset")
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
-
-
-def register(p):
-    p.register(RequestAnnotations)
-    p.register(LoadAnnotations)
-
-
-def build_annotation_request(ctx):
-    inputs = types.Object()
-    inputs_style = types.View(label="Request annotations")
-
-    # Target view
+def request_annotations(ctx, inputs):
     target_view = get_target_view(ctx, inputs)
 
-    # Annotation backend
     backend = get_annotation_backend(ctx, inputs)
     if backend is None:
-        return types.Property(inputs, view=inputs_style)
+        return
 
-    # Annotation key
-    anno_key = get_anno_key(ctx, inputs)
+    anno_key = get_new_anno_key(ctx, inputs)
     if anno_key is None:
-        return types.Property(inputs, view=inputs_style)
+        return
 
-    # Media field
     media_fields = ctx.dataset.app_config.media_fields
     if len(media_fields) > 1:
-        inputs.define_property(
+        inputs.enum(
             "media_field",
-            types.Enum(media_fields),
+            media_fields,
             required=True,
             default="filepath",
             label="Media field",
@@ -198,23 +110,18 @@ def build_annotation_request(ctx):
             ),
         )
 
-    # Label schema
     label_schema = get_label_schema(ctx, inputs, backend, target_view)
     if not label_schema:
-        return types.Property(inputs, view=inputs_style)
+        return
 
-    # Backend-independent parameters
     get_generic_parameters(ctx, inputs)
-
-    # Backend-specific parameters
     backend.get_parameters(ctx, inputs)
 
-    return types.Property(inputs, view=inputs_style)
 
+def get_new_anno_key(ctx, inputs, name="anno_key", label="Annotation key"):
+    prop = inputs.str(name, label=label, required=True)
 
-def get_anno_key(ctx, inputs):
-    prop = inputs.str("anno_key", label="Annotation key", required=True)
-    anno_key = ctx.params.get("anno_key", None)
+    anno_key = ctx.params.get(name, None)
     if anno_key is not None and anno_key in ctx.dataset.list_annotation_runs():
         prop.invalid = True
         prop.error_message = "Annotation key already exists"
@@ -298,9 +205,9 @@ def get_annotation_backend(ctx, inputs):
             backend, label=label, description=description
         )
 
-    inputs.define_property(
+    inputs.enum(
         "backend",
-        types.Enum(backend_choices.values()),
+        backend_choices.values(),
         default=default_backend,
         label="Annotation backend",
         description="The annotation backend to use",
@@ -314,8 +221,8 @@ def get_annotation_backend(ctx, inputs):
             label="You have no annotation backends configured",
             description="https://docs.voxel51.com/user_guide/annotation.html",
         )
-        warning_prop = inputs.view("warning", warning)
-        warning_prop.invalid = True
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
 
         return None
 
@@ -352,9 +259,8 @@ def get_label_schema(ctx, inputs, backend, view):
 
     if schema_type == "JSON":
         # @todo switch to editable JSON viewer
-        prop = inputs.define_property(
+        prop = inputs.str(
             "label_schema",
-            types.String(),
             required=True,
             label="Paste your label schema JSON",
             description="https://docs.voxel51.com/user_guide/annotation.html#label-schema",
@@ -376,9 +282,9 @@ def get_label_schema(ctx, inputs, backend, view):
 
         return label_schema
     else:
-        prop = inputs.define_property(
+        prop = inputs.list(
             "label_schema_fields",
-            types.List(build_label_schema_field(ctx, backend, view)),
+            build_label_schema_field(ctx, backend, view),
             required=True,
             label="Label fields",
             description="Configure the field(s) in your label schema",
@@ -412,9 +318,8 @@ def build_label_schema_field(ctx, backend, view):
     for field in fields:
         field_choices.add_choice(field, label=field)
 
-    field_schema.define_property(
+    field_schema.str(
         "field_name",
-        types.String(),
         required=True,
         label="Field name",
         description="The new or existing field name",
@@ -426,9 +331,9 @@ def build_label_schema_field(ctx, backend, view):
         field_type_choices.add_choice(field_type, label=field_type)
 
     # @todo set default for existing fields
-    field_schema.define_property(
+    field_schema.enum(
         "type",
-        types.Enum(field_type_choices.values()),
+        field_type_choices.values(),
         required=True,
         label="Field type",
         description="The type of the field",
@@ -436,16 +341,16 @@ def build_label_schema_field(ctx, backend, view):
     )
 
     # @todo support per-class attributes
-    field_schema.define_property(
+    field_schema.list(
         "classes",
-        types.List(types.String()),
+        types.String(),
         label="Classes",
         description="The classes for the field (required for new fields)",
     )
 
-    field_schema.define_property(
+    field_schema.list(
         "attributes",
-        types.List(create_attribute_schema(ctx, backend)),
+        create_attribute_schema(ctx, backend),
         label="Attributes",
         description="The label attributes for the field",
     )
@@ -480,14 +385,10 @@ def _build_label_schema(label_schema_fields):
 
 def create_class_schema(ctx, backend):
     class_schema = types.Object()
-    class_schema.define_property(
-        "classes",
-        types.List(types.String()),
-        label="Classes",
-    )
-    class_schema.define_property(
+    class_schema.list("classes", types.String(), label="Classes")
+    class_schema.list(
         "attributes",
-        types.List(create_attribute_schema(ctx, backend)),
+        create_attribute_schema(ctx, backend),
         label="Attributes",
     )
     return class_schema
@@ -495,47 +396,43 @@ def create_class_schema(ctx, backend):
 
 def create_attribute_schema(ctx, backend):
     attribute_schema = types.Object()
-    attribute_schema.define_property(
+    attribute_schema.str(
         "name",
-        types.String(),
         label="Name",
         description="The attribute name",
         required=True,
         view=types.View(space=6),
     )
-    attribute_schema.define_property(
+    attribute_schema.enum(
         "type",
-        types.Enum(backend.backend.supported_attr_types),
+        backend.backend.supported_attr_types,
         label="Type",
         description="The attribute type",
         view=types.View(space=6),
     )
-    attribute_schema.define_property(
+    attribute_schema.list(
         "values",
-        types.List(types.String()),
+        types.String(),
         label="Values",
         description="The attribute values",
     )
 
     # @todo set property type based on `type` above
-    attribute_schema.define_property(
+    attribute_schema.str(
         "default",
-        types.String(),
         label="Default",
         description="An optional default value for the attribute",
     )
 
-    attribute_schema.define_property(
+    attribute_schema.bool(
         "mutable",
-        types.Boolean(),
         default=True,
         label="Mutable",
         description="Whether the attribute should be mutable",
         view=types.View(space=6),
     )
-    attribute_schema.define_property(
+    attribute_schema.bool(
         "read_only",
-        types.Boolean(),
         default=False,
         label="Read-only",
         description="Whether the attribute should be read-only",
@@ -548,17 +445,15 @@ def create_attribute_schema(ctx, backend):
 def get_generic_parameters(ctx, inputs):
     checkbox_style = types.View(space=20)
 
-    inputs.define_property(
+    inputs.str(
         "options",
-        types.String(),
         view=types.Header(
             label="General options",
             description="https://docs.voxel51.com/user_guide/annotation.html#requesting-annotations",
         ),
     )
-    inputs.define_property(
+    inputs.bool(
         "launch_editor",
-        types.Boolean(),
         default=False,
         label="Launch editor",
         description=(
@@ -567,9 +462,8 @@ def get_generic_parameters(ctx, inputs):
         ),
         view=checkbox_style,
     )
-    inputs.define_property(
+    inputs.bool(
         "allow_additions",
-        types.Boolean(),
         default=True,
         label="Allow additions",
         description=(
@@ -578,9 +472,8 @@ def get_generic_parameters(ctx, inputs):
         ),
         view=checkbox_style,
     )
-    inputs.define_property(
+    inputs.bool(
         "allow_deletions",
-        types.Boolean(),
         default=True,
         label="Allow deletions",
         description=(
@@ -589,9 +482,8 @@ def get_generic_parameters(ctx, inputs):
         ),
         view=checkbox_style,
     )
-    inputs.define_property(
+    inputs.bool(
         "allow_label_edits",
-        types.Boolean(),
         default=True,
         label="Allow label edits",
         description=(
@@ -601,9 +493,8 @@ def get_generic_parameters(ctx, inputs):
         ),
         view=checkbox_style,
     )
-    inputs.define_property(
+    inputs.bool(
         "allow_index_edits",
-        types.Boolean(),
         default=True,
         label="Allow index edits",
         description=(
@@ -613,9 +504,8 @@ def get_generic_parameters(ctx, inputs):
         ),
         view=checkbox_style,
     )
-    inputs.define_property(
+    inputs.bool(
         "allow_spatial_edits",
-        types.Boolean(),
         default=True,
         label="Allow spatial edits",
         description=(
@@ -668,17 +558,16 @@ class AnnotationBackend(object):
 
 class CVATBackend(AnnotationBackend):
     def get_parameters(self, ctx, inputs):
-        inputs.define_property(
+        inputs.str(
             "cvat_header",
-            types.String(),
             view=types.Header(
                 label="CVAT options",
                 description="https://docs.voxel51.com/integrations/cvat.html#requesting-annotations",
             ),
         )
-        inputs.define_property(
+        inputs.int(
             "task_size",
-            types.Number(min=1),
+            min=1,
             default=None,
             label="Task size",
             description=(
@@ -686,9 +575,9 @@ class CVATBackend(AnnotationBackend):
                 "applicable to image tasks"
             ),
         )
-        inputs.define_property(
+        inputs.int(
             "segment_size",
-            types.Number(min=1),
+            min=1,
             default=None,
             label="Segment size",
             description=(
@@ -696,9 +585,10 @@ class CVATBackend(AnnotationBackend):
                 "applicable to image tasks"
             ),
         )
-        inputs.define_property(
+        inputs.int(
             "image_quality",
-            types.Number(min=0, max=100, int=True),
+            min=0,
+            max=100,
             default=None,
             label="Image quality",
             description=(
@@ -706,9 +596,8 @@ class CVATBackend(AnnotationBackend):
                 "to CVAT. The default is 75"
             ),
         )
-        inputs.define_property(
+        inputs.bool(
             "use_cache",
-            types.Boolean(),
             default=True,
             label="Use cache",
             description=(
@@ -717,9 +606,8 @@ class CVATBackend(AnnotationBackend):
                 "on-the-fly and stored in the cache when requested"
             ),
         )
-        inputs.define_property(
+        inputs.bool(
             "use_zip_chunks",
-            types.Boolean(),
             default=True,
             label="Use zip chunks",
             description=(
@@ -729,16 +617,15 @@ class CVATBackend(AnnotationBackend):
                 "files that can be uploaded to CVAT"
             ),
         )
-        inputs.define_property(
+        inputs.int(
             "chunk_size",
-            types.Number(min=1),
+            min=1,
             default=None,
             label="Chunk size",
             description="The number of frames to upload per ZIP chunk",
         )
-        inputs.define_property(
+        inputs.str(
             "job_assignee",
-            types.String(),
             default=None,
             label="Assignee",
             description=(
@@ -747,9 +634,9 @@ class CVATBackend(AnnotationBackend):
                 "video is uploaded to a separate task"
             ),
         )
-        inputs.define_property(
+        inputs.list(
             "job_reviewers",
-            types.List(types.String()),
+            types.String(),
             default=None,
             label="Reviewers",
             description=(
@@ -759,9 +646,8 @@ class CVATBackend(AnnotationBackend):
                 "task",
             ),
         )
-        inputs.define_property(
+        inputs.str(
             "task_name",
-            types.String(),
             default=None,
             label="Task name",
             description=(
@@ -770,16 +656,14 @@ class CVATBackend(AnnotationBackend):
                 "uploaded to a separate task"
             ),
         )
-        inputs.define_property(
+        inputs.str(
             "project_name",
-            types.String(),
             default=None,
             label="Project name",
             description="The name to assign to the generated project",
         )
-        inputs.define_property(
+        inputs.str(
             "project_id",
-            types.String(),
             default=None,
             label="Project ID",
             description=(
@@ -787,37 +671,33 @@ class CVATBackend(AnnotationBackend):
                 "upload the annotation tasks"
             ),
         )
-        inputs.define_property(
+        inputs.str(
             "occluded_attr",
-            types.String(),
             default=None,
             label="Occluded attribute",
             description="An attribute to use for occluded labels",
         )
-        inputs.define_property(
+        inputs.str(
             "group_id_attr",
-            types.String(),
             default=None,
             label="Group ID attribute",
             description="An attribute to use for grouping labels",
         )
-        inputs.define_property(
+        inputs.str(
             "issue_tracker",
-            types.String(),
             default=None,
             label="Issue tracker",
             description="An issue tracker to use for the generated tasks",
         )
-        inputs.define_property(
+        inputs.str(
             "organization",
-            types.String(),
             default=None,
             label="Organization",
             description="An organization to use for the generated tasks",
         )
-        inputs.define_property(
+        inputs.int(
             "frame_start",
-            types.Number(min=0, int=True),
+            min=0,
             default=None,
             label="Frame start",
             description=(
@@ -825,9 +705,9 @@ class CVATBackend(AnnotationBackend):
                 "creating video tasks"
             ),
         )
-        inputs.define_property(
+        inputs.int(
             "frame_stop",
-            types.Number(min=1, int=True),
+            min=1,
             default=None,
             label="Frame stop",
             description=(
@@ -835,9 +715,9 @@ class CVATBackend(AnnotationBackend):
                 "creating video tasks"
             ),
         )
-        inputs.define_property(
+        inputs.int(
             "frame_step",
-            types.Number(min=1, int=True),
+            min=1,
             default=None,
             label="Frame step",
             description=(
@@ -850,33 +730,30 @@ class CVATBackend(AnnotationBackend):
 
 class LabelboxBackend(AnnotationBackend):
     def get_parameters(self, ctx, inputs):
-        inputs.define_property(
+        inputs.str(
             "labelbox_header",
-            types.String(),
             view=types.Header(
                 label="Labelbox options",
                 description="https://docs.voxel51.com/integrations/labelbox.html#requesting-annotations",
             ),
         )
-        inputs.define_property(
+        inputs.str(
             "project_name",
-            types.String(),
             default=None,
             label="Project name",
             description="A name to assign to the generated project",
         )
-        inputs.define_property(
+        inputs.list(
             "member",
-            types.List(self.create_member()),
+            self.build_member(),
             default=None,
             label="Members",
             description=(
                 "An optional list of users to add or invite to the project"
             ),
         )
-        inputs.define_property(
+        inputs.bool(
             "classes_as_attrs",
-            types.Boolean(),
             default=True,
             label="Annotate classes as attributes",
             description=(
@@ -891,11 +768,10 @@ class LabelboxBackend(AnnotationBackend):
                 (m["email"], m["role"]) for m in params["member"]
             ]
 
-    def create_member(self):
+    def build_member(self):
         member_schema = types.Object()
-        member_schema.define_property(
+        member_schema.str(
             "email",
-            types.String(),
             required=True,
             label="Email",
             description="Email address",
@@ -908,9 +784,8 @@ class LabelboxBackend(AnnotationBackend):
         role_choices.add_choice("TEAM_MANAGER", label="Team manager")
         role_choices.add_choice("ADMIN", label="Admin")
 
-        member_schema.define_property(
+        member_schema.str(
             "role",
-            types.String(),
             required=True,
             label="Role",
             description="The role to assign",
@@ -922,18 +797,254 @@ class LabelboxBackend(AnnotationBackend):
 
 class LabelStudioBackend(AnnotationBackend):
     def get_parameters(self, ctx, inputs):
-        inputs.define_property(
+        inputs.str(
             "labelstudio_header",
-            types.String(),
             view=types.Header(
                 label="Label Studio options",
                 description="https://docs.voxel51.com/integrations/labelstudio.html#requesting-annotations",
             ),
         )
-        inputs.define_property(
+        inputs.str(
             "project_name",
-            types.String(),
             default=None,
             label="Project name",
             description="A name to assign to the generated project",
         )
+
+
+class LoadAnnotations(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="load_annotations",
+            label="Load annotations",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        load_annotations(ctx, inputs)
+
+        view = types.View(label="Load annotations")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        anno_key = ctx.params["anno_key"]
+        unexpected = ctx.params["unexpected"]
+        cleanup = ctx.params["cleanup"]
+
+        ctx.dataset.load_annotations(
+            anno_key, unexpected=unexpected, cleanup=cleanup
+        )
+        ctx.trigger("reload_dataset")
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Request complete")
+        return types.Property(outputs, view=view)
+
+
+def load_annotations(ctx, inputs):
+    anno_keys = ctx.dataset.list_annotation_runs()
+
+    if not anno_keys:
+        warning = types.Warning(
+            label="This dataset has no annotation runs",
+            description="https://docs.voxel51.com/user_guide/annotation.html",
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+
+        return
+
+    anno_key_choices = types.DropdownView()
+    for anno_key in anno_keys:
+        anno_key_choices.add_choice(anno_key, label=anno_key)
+
+    inputs.str(
+        "anno_key",
+        default=anno_keys[0],
+        required=True,
+        label="Annotation key",
+        description="The annotation key for which to load annotations",
+        view=anno_key_choices,
+    )
+
+    unexpected_choices = types.DropdownView()
+    unexpected_choices.add_choice(
+        "keep",
+        label="keep",
+        description=(
+            "Automatically keep all unexpected annotations in a field "
+            "whose name matches the the label type"
+        ),
+    )
+    unexpected_choices.add_choice(
+        "ignore",
+        label="ignore",
+        description="Automatically ignore any unexpected annotations",
+    )
+
+    inputs.str(
+        "unexpected",
+        required=True,
+        default="keep",
+        label="Unexpected",
+        description="Choose how to handle unexpected annotations",
+        view=unexpected_choices,
+    )
+
+    inputs.bool(
+        "cleanup",
+        required=True,
+        default=False,
+        label="Cleanup",
+        description=(
+            "Whether to delete any informtation regarding this run from "
+            "the annotation backend after loading the annotations"
+        ),
+    )
+
+
+class GetAnnotationInfo(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="get_annotation_info",
+            label="Get annotation info",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        get_anno_key(ctx, inputs)
+
+        view = types.View(label="Get annotation info")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        anno_key = ctx.params["anno_key"]
+        info = ctx.dataset.get_annotation_info(anno_key)
+
+        timestamp = info.timestamp.strftime("%Y-%M-%d %H:%M:%S")
+        config = info.config.serialize()
+        config = {k: v for k, v in config.items() if v is not None}
+
+        return {
+            "anno_key": anno_key,
+            "timestamp": timestamp,
+            "version": info.version,
+            "config": config,
+        }
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("anno_key", label="Annotation key")
+        outputs.str("timestamp", label="Creation time")
+        outputs.str("version", label="FiftyOne version")
+        outputs.obj("config", label="Annotation config", view=types.JSONView())
+        view = types.View(label="Annotation run info")
+        return types.Property(outputs, view=view)
+
+
+class RenameAnnotationRun(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="rename_annotation_run",
+            label="Rename annotation run",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        get_anno_key(ctx, inputs)
+        get_new_anno_key(
+            ctx, inputs, name="new_anno_key", label="New annotation key"
+        )
+
+        view = types.View(label="Rename annotation run")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        anno_key = ctx.params["anno_key"]
+        new_anno_key = ctx.params["new_anno_key"]
+        ctx.dataset.rename_annotation_run(anno_key, new_anno_key)
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Rename successful")
+        return types.Property(outputs, view=view)
+
+
+class DeleteAnnotationRun(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delete_annotation_run",
+            label="Delete annotation run",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        anno_key = get_anno_key(ctx, inputs, show_default=False)
+
+        if anno_key is not None:
+            warning = types.Warning(
+                label=f"You are about to delete annotation run '{anno_key}'"
+            )
+            inputs.view("warning", warning)
+
+        view = types.View(label="Delete annotation run")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        anno_key = ctx.params["anno_key"]
+        ctx.dataset.delete_annotation_run(anno_key)
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Deletion successful")
+        return types.Property(outputs, view=view)
+
+
+def get_anno_key(ctx, inputs, show_default=True):
+    anno_keys = ctx.dataset.list_annotation_runs()
+
+    if not anno_keys:
+        warning = types.Warning(
+            label="This dataset has no annotation runs",
+            description="https://docs.voxel51.com/user_guide/annotation.html",
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+
+        return
+
+    choices = types.DropdownView()
+    for anno_key in anno_keys:
+        choices.add_choice(anno_key, label=anno_key)
+
+    default = anno_keys[0] if show_default else None
+    inputs.str(
+        "anno_key",
+        default=default,
+        required=True,
+        label="Annotation key",
+        view=choices,
+    )
+
+    return ctx.params.get("anno_key", None)
+
+
+def register(p):
+    p.register(RequestAnnotations)
+    p.register(LoadAnnotations)
+    p.register(GetAnnotationInfo)
+    p.register(RenameAnnotationRun)
+    p.register(DeleteAnnotationRun)
