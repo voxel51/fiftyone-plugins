@@ -8,3 +8,6 @@ license: Apache 2.0
 operators:
   - request_annotations
   - load_annotations
+  - get_annotation_info
+  - rename_annotation_run
+  - delete_annotation_run
