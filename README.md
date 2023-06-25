@@ -42,8 +42,29 @@ Want to showcase your own plugin here? See the
 
 <table>
     <tr>
+<<<<<<< HEAD
         <th>Name</th>
         <th>Description</th>
+=======
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">@voxel51/examples</a></b></td>
+        <td>Examples of how to use the operator type system to build custom FiftyOne operations</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#operators">Operators</a>
+        </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">@voxel51/hello-world</a></b></td>
+        <td>An example of JavaScript and Python components and operators in a single plugin</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#operators">Operators</a>
+        </td>
+>>>>>>> c37e269 (alphabetizing plugins)
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/voxelgpt">@voxel51/voxelgpt</a></b></td>
