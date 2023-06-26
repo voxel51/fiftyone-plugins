@@ -6,6 +6,7 @@ Index operators.
 |
 """
 import fiftyone as fo
+import fiftyone.core.media as fom
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 
@@ -31,24 +32,23 @@ class ManageIndexes(foo.Operator):
         create = ctx.params.get("create", [])
         drop = ctx.params.get("drop", [])
 
-        """
         for obj in create:
-            ctx.dataset.create_index(obj["field_name"], unique=obj["unique"])
-            pass
+            field_name = obj["field_name"]
+            unique = obj["unique"]
+
+            if ctx.dataset.media_type == fom.GROUP:
+                index_spec = [(ctx.dataset.group_field, 1), (field_name, 1)]
+            else:
+                index_spec = field_name
+
+            ctx.dataset.create_index(index_spec, unique=unique)
 
         for obj in drop:
-            ctx.dataset.drop_index(obj["index_name"])
-            pass
-        """
-
-        return {"params": {"create": create, "drop": drop}}
+            index_name = obj["index_name"]
+            ctx.dataset.drop_index(index_name)
 
     def resolve_output(self, ctx):
         outputs = types.Object()
-
-        # @todo remove
-        outputs.obj("params", label="params", view=types.JSONView())
-
         view = types.View(label="Request complete")
         return types.Property(outputs, view=view)
 
@@ -57,43 +57,33 @@ def manage_indexes(ctx, inputs):
     indexes = _get_existing_indexes(ctx)
     default_indexes = set(_get_default_indexes(ctx))
 
-    inputs.str("existing", view=types.Header(label="Existing indexes"))
+    inputs.str(
+        "existing",
+        view=types.Header(
+            label="Existing indexes",
+            description=(
+                "This dataset currently has the following indexes. Note that "
+                "you cannot delete default indexes."
+            ),
+            divider=True,
+        ),
+    )
+
     for name in sorted(indexes):
-        unique = indexes[name].get("unique", False)
+        prop_name = name.replace(".", "_")  # prop names can't contain "."
         default = name in default_indexes
+        unique = indexes[name].get("unique", False)
+        if name in ("id", "frames.id"):
+            # The `id` index is unique, but backend doesn't report it
+            # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/dataset.py#L7116
+            unique = True
 
         obj = types.Object()
-
-        choices = types.DropdownView(space=4, read_only=True)
-        choices.add_choice(name, label=name)
         obj.str(
-            "name",
+            "field_name",
             default=name,
-            label="Index name",
-            view=choices,
+            view=types.LabelValueView(label="Field name", space=4),
         )
-
-        """
-        obj.view(name, types.Notice(label=name, space=6, read_only=True))
-        """
-
-        """
-        obj.str(
-            "name",
-            default=name,
-            label="Index name",
-            view=types.View(space=6, read_only=True),
-        )
-        """
-
-        obj.bool(
-            "unique",
-            label="unique",
-            description="Whether the index has a uniqueness constraint",
-            default=unique,
-            view=types.View(space=4, read_only=True),
-        )
-
         obj.bool(
             "default",
             label="Default",
@@ -101,8 +91,14 @@ def manage_indexes(ctx, inputs):
             default=default,
             view=types.View(space=4, read_only=True),
         )
-
-        inputs.define_property(name, obj, view=types.View(read_only=True))
+        obj.bool(
+            "unique",
+            label="unique",
+            description="Whether the index has a uniqueness constraint",
+            default=unique,
+            view=types.View(space=4, read_only=True),
+        )
+        inputs.define_property(prop_name, obj)
 
     inputs.list(
         "create",
@@ -111,7 +107,6 @@ def manage_indexes(ctx, inputs):
         label="Create indexes",
         description="New indexes to create",
     )
-
     inputs.list(
         "drop",
         drop_index(ctx),
@@ -179,37 +174,97 @@ def create_index(ctx):
     return obj
 
 
-def _get_indexable_paths(ctx):
-    paths = set(
-        path
-        for path, field in ctx.view.get_field_schema(flat=True).items()
-        if not isinstance(
-            field, (fo.ListField, fo.DictField, fo.EmbeddedDocumentField)
-        )
-    )
-    paths -= set(ctx.dataset.list_indexes())
+_INDEXABLE_FIELDS = (
+    fo.IntField,
+    fo.ObjectIdField,
+    fo.BooleanField,
+    fo.DateField,
+    fo.DateTimeField,
+    fo.FloatField,
+    fo.StringField,
+    fo.ListField,
+)
 
+
+def _get_indexable_paths(ctx):
+    schema = ctx.view.get_field_schema(flat=True)
+    if ctx.view._has_frame_fields():
+        schema.update(
+            {
+                "frames." + k: v
+                for k, v in ctx.view.get_frame_field_schema(flat=True).items()
+            }
+        )
+
+    paths = set()
+    for path, field in schema.items():
+        # Skip non-leaf paths
+        if any(p.startswith(path + ".") for p in schema.keys()):
+            continue
+
+        if isinstance(field, _INDEXABLE_FIELDS):
+            paths.add(path)
+
+    # Discard paths within dicts
+    for path, field in schema.items():
+        if isinstance(field, fo.DictField):
+            for p in list(paths):
+                if p.startswith(path + "."):
+                    paths.discard(p)
+
+    # Discard fields that are already indexed
+    for index_name in ctx.dataset.list_indexes():
+        path = _get_field_name(ctx, index_name)
+        paths.discard(path)
+
+    # Discard fields that are already being newly indexed
     for obj in ctx.params.get("create", []):
         paths.discard(obj.get("field_name", None))
 
     return sorted(paths)
 
 
+def _get_index_name(ctx, field_name):
+    if ctx.dataset.media_type == fom.GROUP:
+        return f"{ctx.dataset.group_field}.name_1_{field_name}_1"
+
+    return field_name
+
+
+def _get_field_name(ctx, index_name):
+    if ctx.dataset.media_type == fom.GROUP:
+        prefix = f"{ctx.dataset.group_field}.name_1_"
+        if index_name.startswith(prefix):
+            # Extract $FIELD from "$GROUP_1_$FIELD_1"
+            return index_name[len(prefix) : -2]
+        else:
+            return index_name
+
+    return index_name
+
+
 def drop_index(ctx):
+    index_names = _get_droppable_indexes(ctx)
+
     obj = types.Object()
 
-    choices = types.DropdownView()
-    for name in _get_droppable_indexes(ctx):
-        choices.add_choice(name, label=name)
+    if index_names:
+        choices = types.DropdownView()
+        for name in index_names:
+            choices.add_choice(name, label=name)
 
-    obj.enum(
-        "index_name",
-        choices.values(),
-        required=True,
-        label="Index name",
-        description="The index to drop",
-        view=choices,
-    )
+        obj.enum(
+            "index_name",
+            choices.values(),
+            required=True,
+            label="Index name",
+            description="The index to drop",
+            view=choices,
+        )
+    else:
+        warning = types.Warning(label="There are no indexes to drop")
+        prop = obj.view("warning", warning)
+        prop.invalid = True
 
     return obj
 
