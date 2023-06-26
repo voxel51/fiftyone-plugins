@@ -429,6 +429,7 @@ def get_generic_parameters(ctx, inputs):
         view=types.Header(
             label="General options",
             description="https://docs.voxel51.com/user_guide/annotation.html#requesting-annotations",
+            divider=True,
         ),
     )
     inputs.bool(
@@ -542,6 +543,7 @@ class CVATBackend(AnnotationBackend):
             view=types.Header(
                 label="CVAT options",
                 description="https://docs.voxel51.com/integrations/cvat.html#requesting-annotations",
+                divider=True,
             ),
         )
         inputs.int(
@@ -714,6 +716,7 @@ class LabelboxBackend(AnnotationBackend):
             view=types.Header(
                 label="Labelbox options",
                 description="https://docs.voxel51.com/integrations/labelbox.html#requesting-annotations",
+                divider=True,
             ),
         )
         inputs.str(
@@ -781,6 +784,7 @@ class LabelStudioBackend(AnnotationBackend):
             view=types.Header(
                 label="Label Studio options",
                 description="https://docs.voxel51.com/integrations/labelstudio.html#requesting-annotations",
+                divider=True,
             ),
         )
         inputs.str(
