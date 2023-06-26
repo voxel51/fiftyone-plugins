@@ -166,7 +166,7 @@ def get_annotation_backend(ctx, inputs):
     default_backend = fo.annotation_config.default_backend
     backends = fo.annotation_config.backends
 
-    backend_choices = types.RadioGroup()
+    backend_choices = types.RadioGroup(orientation="vertical")
     for backend in backends.keys():
         if backend == "cvat":
             label = "CVAT"
@@ -190,7 +190,6 @@ def get_annotation_backend(ctx, inputs):
         backend_choices.values(),
         default=default_backend,
         label="Annotation backend",
-        description="The annotation backend to use",
         view=backend_choices,
     )
 
