@@ -47,6 +47,16 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment.
         </td>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/indexes/README.md">@voxel51/indexes</a></b></td>
+        <td>Utilities working with FiftyOne database indexes</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/indexes/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/indexes/README.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/indexes/README.md#operators">Operators</a>
+        </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>A collection of import/export utilities</td>
         <td><code>1.0.0</code></td>
