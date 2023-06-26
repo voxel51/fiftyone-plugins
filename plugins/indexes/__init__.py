@@ -75,7 +75,7 @@ def manage_indexes(ctx, inputs):
         unique = indexes[name].get("unique", False)
         if name in ("id", "frames.id"):
             # The `id` index is unique, but backend doesn't report it
-            # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/dataset.py#L7116
+            # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/collections.py#L8552
             unique = True
 
         obj = types.Object()
