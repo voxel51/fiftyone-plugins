@@ -86,7 +86,7 @@ info = dataset_or_view.get_annotation_info(anno_key)
 print(info)
 ```
 
-### rename_annotation_info
+### rename_annotation_run
 
 You can use this operator to rename annotation runs.
 
