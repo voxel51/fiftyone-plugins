@@ -116,18 +116,18 @@ def get_target_view(ctx, inputs):
     default_target = None
 
     if has_view or has_selected:
-        target_choices = types.RadioGroup()
+        target_choices = types.RadioGroup(orientation="horizontal")
         target_choices.add_choice(
             "DATASET",
             label="Entire dataset",
-            description="Request annotations for the entire dataset",
+            description="Process the entire dataset",
         )
 
         if has_view:
             target_choices.add_choice(
                 "CURRENT_VIEW",
                 label="Current view",
-                description="Request annotations for the current view",
+                description="Process the current view",
             )
             default_target = "CURRENT_VIEW"
 
@@ -135,7 +135,7 @@ def get_target_view(ctx, inputs):
             target_choices.add_choice(
                 "SELECTED_SAMPLES",
                 label="Selected samples",
-                description="Export only the selected samples",
+                description="Process only the selected samples",
             )
             default_target = "SELECTED_SAMPLES"
 
@@ -144,6 +144,7 @@ def get_target_view(ctx, inputs):
             target_choices.values(),
             required=True,
             default=default_target,
+            label="Target view",
             view=target_choices,
         )
 
@@ -166,7 +167,7 @@ def get_annotation_backend(ctx, inputs):
     default_backend = fo.annotation_config.default_backend
     backends = fo.annotation_config.backends
 
-    backend_choices = types.RadioGroup(orientation="vertical")
+    backend_choices = types.RadioGroup(orientation="horizontal")
     for backend in backends.keys():
         if backend == "cvat":
             label = "CVAT"
