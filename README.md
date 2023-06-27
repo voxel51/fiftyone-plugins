@@ -17,16 +17,6 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment.
         <th colspan="3" >Links</th>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">@voxel51/examples</a></b></td>
-        <td>Examples of how to use the operator type system to build custom FiftyOne operations</td>
-        <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#installation">Install</a></td>
-        <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#operators">Operators</a>
-        </td>
-    </tr>
-    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/annotation/README.md">@voxel51/annotation</a></b></td>
         <td>Utilities for integrating FiftyOne with annotation tools</td>
         <td><code>1.0.0</code></td>
