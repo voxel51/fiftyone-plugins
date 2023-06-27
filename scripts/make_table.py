@@ -77,7 +77,7 @@ def _make_table():
             )
 
     plugin_list = []
-    for name in plugin_info.keys():
+    for name in sorted(plugin_info.keys()):
         plugin = plugin_info[name]["plugin"]
         operators = plugin_info[name]["operators"]
 
