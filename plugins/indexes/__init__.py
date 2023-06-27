@@ -37,7 +37,10 @@ class ManageIndexes(foo.Operator):
             unique = obj["unique"]
 
             if ctx.dataset.media_type == fom.GROUP:
-                index_spec = [(ctx.dataset.group_field, 1), (field_name, 1)]
+                index_spec = [
+                    (ctx.dataset.group_field + ".name", 1),
+                    (field_name, 1),
+                ]
             else:
                 index_spec = field_name
 
