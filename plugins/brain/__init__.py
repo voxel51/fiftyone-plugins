@@ -19,6 +19,47 @@ import fiftyone.operators.types as types
 import fiftyone.zoo.models as fozm
 
 
+class ComputeSimilarity(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="compute_similarity",
+            label="Compute similarity",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        compute_similarity(ctx, inputs)
+
+        view = types.View(label="Compute similarity")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        patches_field = ctx.params.get("patches_field", None)
+        embeddings = ctx.params.get("embeddings", None)
+        brain_key = ctx.params["brain_key"]
+        model = ctx.params.get("model", None)
+        backend = ctx.params.get("backend", None)
+
+        target_view = _get_target_view(ctx, target)
+        fob.compute_similarity(
+            target_view,
+            patches_field=patches_field,
+            embeddings=embeddings,
+            brain_key=brain_key,
+            model=model,
+            backend=backend,
+        )
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Request complete")
+        return types.Property(outputs, view=view)
+
+
 class ComputeVisualization(foo.Operator):
     @property
     def config(self):
@@ -60,7 +101,51 @@ class ComputeVisualization(foo.Operator):
         return types.Property(outputs, view=view)
 
 
+def compute_similarity(ctx, inputs):
+    brain_init(ctx, inputs)
+
+    default_backend = fob.brain_config.default_similarity_backend
+    backends = fob.brain_config.similarity_backends
+
+    backend_choices = types.DropdownView()
+    for backend in sorted(backends.keys()):
+        backend_choices.add_choice(backend, label=backend)
+
+    inputs.enum(
+        "backend",
+        backend_choices.values(),
+        default=default_backend,
+        required=True,
+        label="backend",
+        description="The similarity backend to use",
+        view=backend_choices,
+    )
+
+    # @todo add `backend`-specific parameters
+
+
 def compute_visualization(ctx, inputs):
+    brain_init(ctx, inputs)
+
+    method_choices = types.DropdownView()
+    method_choices.add_choice("umap", label="UMAP")
+    method_choices.add_choice("tsne", label="t-SNE")
+    method_choices.add_choice("pca", label="PCA")
+
+    inputs.enum(
+        "method",
+        method_choices.values(),
+        default="umap",
+        required=True,
+        label="method",
+        description="The dimensionality-reduction method to use",
+        view=method_choices,
+    )
+
+    # @todo add `method`-specific parameters
+
+
+def brain_init(ctx, inputs):
     target_view = get_target_view(ctx, inputs)
 
     brain_key = get_new_brain_key(ctx, inputs)
@@ -123,23 +208,6 @@ def compute_visualization(ctx, inputs):
             ),
             view=model_choices,
         )
-
-    method_choices = types.DropdownView()
-    method_choices.add_choice("umap", label="UMAP")
-    method_choices.add_choice("tsne", label="t-SNE")
-    method_choices.add_choice("pca", label="PCA")
-
-    inputs.enum(
-        "method",
-        method_choices.values(),
-        default="umap",
-        required=True,
-        label="method",
-        description="The dimensionality-reduction method to use",
-        view=method_choices,
-    )
-
-    # @todo add `method`-specific parameters?
 
 
 _PATCHES_TYPES = (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines)
@@ -415,6 +483,7 @@ def get_brain_key(ctx, inputs, run_type=None, show_default=True):
 
 
 def register(p):
+    p.register(ComputeSimilarity)
     p.register(ComputeVisualization)
     p.register(GetBrainInfo)
     p.register(RenameBrainRun)

@@ -6,6 +6,7 @@ fiftyone:
 url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/brain/README.md
 license: Apache 2.0
 operators:
+  - compute_similarity
   - compute_visualization
   - get_brain_info
   - rename_brain_run

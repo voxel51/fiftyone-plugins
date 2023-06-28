@@ -34,6 +34,22 @@ session = fo.launch_app(dataset)
 
 ## Operators
 
+### compute_similarity
+
+You can use this operator to create similarity indexes for your datasets.
+
+This operator is essentially a wrapper around
+[compute_similarity()](https://docs.voxel51.com/user_guide/brain.html#similarity):
+
+```py
+import fiftyone.brain as fob
+
+fob.compute_similarity(dataset_or_view, brain_key=brain_key, ...)
+```
+
+where the operator's form allows you to configure the brain key and all other
+applicable fields for your brain run.
+
 ### compute_visualization
 
 You can use this operator to create embeddings visualuzations for your
