@@ -34,22 +34,6 @@ session = fo.launch_app(dataset)
 
 ## Operators
 
-### compute_similarity
-
-You can use this operator to create similarity indexes for your datasets.
-
-This operator is essentially a wrapper around
-[compute_similarity()](https://docs.voxel51.com/user_guide/brain.html#similarity):
-
-```py
-import fiftyone.brain as fob
-
-fob.compute_similarity(dataset_or_view, brain_key=brain_key, ...)
-```
-
-where the operator's form allows you to configure the brain key and all other
-applicable fields for your brain run.
-
 ### compute_visualization
 
 You can use this operator to create embeddings visualuzations for your
@@ -65,7 +49,68 @@ fob.compute_visualization(dataset_or_view, brain_key=brain_key, ...)
 ```
 
 where the operator's form allows you to configure the brain key and all other
-applicable fields for your brain run.
+relevant parameters.
+
+### compute_similarity
+
+You can use this operator to create similarity indexes for your datasets.
+
+This operator is essentially a wrapper around
+[compute_similarity()](https://docs.voxel51.com/user_guide/brain.html#similarity):
+
+```py
+import fiftyone.brain as fob
+
+fob.compute_similarity(dataset_or_view, brain_key=brain_key, ...)
+```
+
+where the operator's form allows you to configure the brain key and all other
+relevant parameters.
+
+### compute_uniqueness
+
+You can use this operator to compute uniqueness for your datasets.
+
+This operator is essentially a wrapper around
+[compute_uniqueness()](https://docs.voxel51.com/user_guide/brain.html#image-uniqueness):
+
+```py
+import fiftyone.brain as fob
+
+fob.compute_uniqueness(dataset_or_view, uniqueness_field, ...)
+```
+
+where the operator's form allows you to configure all relevant parameters.
+
+### compute_mistakenness
+
+You can use this operator to compute mistakenness for your datasets.
+
+This operator is essentially a wrapper around
+[compute_mistakenness()](https://docs.voxel51.com/user_guide/brain.html#label-mistakes):
+
+```py
+import fiftyone.brain as fob
+
+fob.compute_mistakenness(dataset_or_view, pred_field, label_field, ...)
+```
+
+where the operator's form allows you to configure all relevant parameters.
+
+### compute_hardness
+
+You can use this operator to compute hardness for your datasets.
+
+This operator is essentially a wrapper around
+[compute_hardness()](https://docs.voxel51.com/user_guide/brain.html#sample-hardness):
+
+```py
+import fiftyone.brain as fob
+
+fob.compute_hardness(dataset_or_view, label_field, ...)
+```
+
+where the operator's form allows you to configure all relevant parameters.
 
 ### get_brain_info
 

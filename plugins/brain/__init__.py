@@ -19,6 +19,94 @@ import fiftyone.operators.types as types
 import fiftyone.zoo.models as fozm
 
 
+class ComputeVisualization(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="compute_visualization",
+            label="Compute visualization",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        compute_visualization(ctx, inputs)
+
+        view = types.View(label="Compute visualization")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        patches_field = ctx.params.get("patches_field", None)
+        embeddings = ctx.params.get("embeddings", None)
+        brain_key = ctx.params.get("brain_key")
+        model = ctx.params.get("model", None)
+        method = ctx.params.get("method", None)
+
+        target_view = _get_target_view(ctx, target)
+        fob.compute_visualization(
+            target_view,
+            patches_field=patches_field,
+            embeddings=embeddings,
+            brain_key=brain_key,
+            model=model,
+            method=method,
+        )
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Request complete")
+        return types.Property(outputs, view=view)
+
+
+def compute_visualization(ctx, inputs):
+    complete = brain_init(ctx, inputs)
+    if not complete:
+        return
+
+    method_choices = types.DropdownView()
+    method_choices.add_choice(
+        "umap",
+        label="UMAP",
+        description="Uniform Manifold Approximation and Projection",
+    )
+    method_choices.add_choice(
+        "tsne",
+        label="t-SNE",
+        description="t-distributed Stochastic Neighbor Embedding",
+    )
+    method_choices.add_choice(
+        "pca",
+        label="PCA",
+        description="Principal Component Analysis",
+    )
+
+    inputs.enum(
+        "method",
+        method_choices.values(),
+        default="umap",
+        required=True,
+        label="method",
+        description="The dimensionality reduction method to use",
+        view=method_choices,
+    )
+
+    inputs.int(
+        "num_dims",
+        default=2,
+        required=True,
+        label="Number of dimensions",
+        description="The dimension of the visualization space",
+    )
+
+    inputs.int(
+        "seed",
+        label="Random seed",
+        description="An optional random seed to use",
+    )
+
+
 class ComputeSimilarity(foo.Operator):
     @property
     def config(self):
@@ -65,8 +153,8 @@ class ComputeSimilarity(foo.Operator):
 
 
 def compute_similarity(ctx, inputs):
-    brain_key = brain_init(ctx, inputs)
-    if brain_key is None:
+    complete = brain_init(ctx, inputs)
+    if not complete:
         return
 
     default_backend = fob.brain_config.default_similarity_backend
@@ -273,39 +361,37 @@ class QdrantBackend(SimilarityBackend):
         )
 
 
-class ComputeVisualization(foo.Operator):
+class ComputeUniqueness(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="compute_visualization",
-            label="Compute visualization",
+            name="compute_uniqueness",
+            label="Compute uniqueness",
             dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        compute_visualization(ctx, inputs)
+        compute_uniqueness(ctx, inputs)
 
-        view = types.View(label="Compute visualization")
+        view = types.View(label="Compute uniqueness")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
-        patches_field = ctx.params.get("patches_field", None)
+        uniqueness_field = ctx.params.get("uniqueness_field")
+        roi_field = ctx.params.get("roi_field", None)
         embeddings = ctx.params.get("embeddings", None)
-        brain_key = ctx.params.get("brain_key")
         model = ctx.params.get("model", None)
-        method = ctx.params.get("method", None)
 
         target_view = _get_target_view(ctx, target)
-        fob.compute_visualization(
+        fob.compute_uniqueness(
             target_view,
-            patches_field=patches_field,
+            uniqueness_field=uniqueness_field,
+            roi_field=roi_field,
             embeddings=embeddings,
-            brain_key=brain_key,
             model=model,
-            method=method,
         )
 
     def resolve_output(self, ctx):
@@ -314,50 +400,301 @@ class ComputeVisualization(foo.Operator):
         return types.Property(outputs, view=view)
 
 
-def compute_visualization(ctx, inputs):
-    brain_key = brain_init(ctx, inputs)
-    if brain_key is None:
+def compute_uniqueness(ctx, inputs):
+    target_view = get_target_view(ctx, inputs)
+
+    uniqueness_field = get_new_brain_key(
+        ctx,
+        inputs,
+        name="uniqueness_field",
+        label="Uniqueness field",
+        description=(
+            "The field name to use to store the uniqueness value for each "
+            "sample. This value serves as the brain key for uniqueness runs"
+        ),
+    )
+    if uniqueness_field is None:
         return
 
-    method_choices = types.DropdownView()
-    method_choices.add_choice(
-        "umap",
-        label="UMAP",
-        description="Uniform Manifold Approximation and Projection",
+    roi_fields = _get_label_fields(
+        target_view,
+        (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines),
     )
-    method_choices.add_choice(
-        "tsne",
-        label="t-SNE",
-        description="t-distributed Stochastic Neighbor Embedding",
+
+    roi_field_choices = types.DropdownView()
+    for field_name in sorted(roi_fields):
+        roi_field_choices.add_choice(field_name, label=field_name)
+
+    inputs.str(
+        "roi_field",
+        label="ROI field",
+        description=(
+            "An optional sample field defining a region of interest within "
+            "each image to use to compute uniqueness"
+        ),
+        view=roi_field_choices,
     )
-    method_choices.add_choice(
-        "pca",
-        label="PCA",
-        description="Principal Component Analysis",
+
+    roi_field = ctx.params.get("roi_field", None)
+
+    get_embeddings(ctx, inputs, target_view, roi_field)
+
+
+class ComputeMistakenness(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="compute_mistakenness",
+            label="Compute mistakenness",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        compute_mistakenness(ctx, inputs)
+
+        view = types.View(label="Compute mistakenness")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        kwargs = ctx.params.copy()
+        target = kwargs.pop("target", None)
+        pred_field = kwargs.pop("pred_field")
+        label_field = kwargs.pop("label_field")
+        mistakenness_field = kwargs.pop("mistakenness_field")
+
+        target_view = _get_target_view(ctx, target)
+        fob.compute_mistakenness(
+            target_view,
+            pred_field,
+            label_field,
+            mistakenness_field=mistakenness_field,
+            **kwargs,
+        )
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Request complete")
+        return types.Property(outputs, view=view)
+
+
+def compute_mistakenness(ctx, inputs):
+    target_view = get_target_view(ctx, inputs)
+
+    label_fields = _get_label_fields(
+        target_view,
+        (
+            fo.Classification,
+            fo.Classifications,
+            fo.Detections,
+            fo.Polylines,
+            fo.Keypoints,
+            fo.TemporalDetections,
+        ),
     )
+
+    if not label_fields:
+        warning = types.Warning(
+            label="This dataset has no suitable label fields",
+            description="https://docs.voxel51.com/user_guide/brain.html#label-mistakes",
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+
+        return
+
+    mistakenness_field = get_new_brain_key(
+        ctx,
+        inputs,
+        name="mistakenness_field",
+        label="Mistakenness field",
+        description=(
+            "The field name to use to store the mistakenness value for each "
+            "sample. This value serves as the brain key for mistakenness runs"
+        ),
+    )
+    if mistakenness_field is None:
+        return
+
+    label_field_choices = types.DropdownView()
+    for field_name in sorted(label_fields):
+        label_field_choices.add_choice(field_name, label=field_name)
 
     inputs.enum(
-        "method",
-        method_choices.values(),
-        default="umap",
+        "label_field",
+        label_field_choices.values(),
         required=True,
-        label="method",
-        description="The dimensionality reduction method to use",
-        view=method_choices,
+        label="Label field",
+        description="The ground truth label field that you want to test for mistakes",
+        view=label_field_choices,
     )
 
-    inputs.int(
-        "num_dims",
-        default=2,
+    label_field = ctx.params.get("label_field", None)
+    if label_field is None:
+        return
+
+    label_type = target_view._get_label_field_type(label_field)
+    pred_fields = set(
+        target_view.get_field_schema(embedded_doc_type=label_type).keys()
+    )
+    pred_fields.discard(label_field)
+
+    if not pred_fields:
+        warning = types.Warning(
+            label="This dataset has no suitable prediction fields",
+            description="https://docs.voxel51.com/user_guide/brain.html#label-mistakes",
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+
+        return
+
+    pred_field_choices = types.DropdownView()
+    for field_name in sorted(pred_fields):
+        pred_field_choices.add_choice(field_name, label=field_name)
+
+    inputs.enum(
+        "pred_field",
+        pred_field_choices.values(),
         required=True,
-        label="Number of dimensions",
-        description="The dimension of the visualization space",
+        label="Predictions field",
+        description="The predicted label field to use from each sample",
+        view=pred_field_choices,
     )
 
-    inputs.int(
-        "seed",
-        label="Random seed",
-        description="An optional random seed to use",
+    pred_field = ctx.params.get("pred_field", None)
+    if pred_field is None:
+        return
+
+    inputs.bool(
+        "use_logits",
+        default=False,
+        label="Use logits",
+        description=(
+            "Whether to use logits (True) or confidence (False) to compute "
+            "mistakenness. Logits typically yield better results, when they "
+            "are available"
+        ),
+    )
+
+    if label_type not in (fo.Detections, fo.Polylines, fo.Keypoints):
+        return
+
+    inputs.str(
+        "missing_field",
+        default="possible_missing",
+        required=True,
+        label="Missing field",
+        description=(
+            "A field in which to store per-sample counts of potential missing "
+            "objects"
+        ),
+    )
+
+    inputs.str(
+        "spurious_field",
+        default="possible_spurious",
+        required=True,
+        label="Spurious field",
+        description=(
+            "A field in which to store per-sample counts of potential "
+            "spurious objects"
+        ),
+    )
+
+    inputs.bool(
+        "copy_missing",
+        default=False,
+        label="Copy missing",
+        description=(
+            "Whether to copy predicted objects that were deemed to be missing "
+            "into the label field"
+        ),
+    )
+
+
+def _get_label_fields(sample_collection, label_types):
+    schema = sample_collection.get_field_schema(embedded_doc_type=label_types)
+    return list(schema.keys())
+
+
+class ComputeHardness(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="compute_hardness",
+            label="Compute hardness",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        compute_hardness(ctx, inputs)
+
+        view = types.View(label="Compute hardness")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        label_field = ctx.params.get("label_field")
+        hardness_field = ctx.params.get("hardness_field")
+
+        target_view = _get_target_view(ctx, target)
+        fob.compute_hardness(
+            target_view,
+            label_field,
+            hardness_field=hardness_field,
+        )
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        view = types.View(label="Request complete")
+        return types.Property(outputs, view=view)
+
+
+def compute_hardness(ctx, inputs):
+    target_view = get_target_view(ctx, inputs)
+
+    label_fields = _get_label_fields(
+        target_view, (fo.Classification, fo.Classifications)
+    )
+
+    if not label_fields:
+        warning = types.Warning(
+            label="This dataset has no classification fields",
+            description="https://docs.voxel51.com/user_guide/brain.html#sample-hardness",
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+
+        return
+
+    hardnesss_field = get_new_brain_key(
+        ctx,
+        inputs,
+        name="hardnesss_field",
+        label="Hardness field",
+        description=(
+            "The field name to use to store the hardness value for each "
+            "sample. This value serves as the brain key for hardness runs"
+        ),
+    )
+    if hardnesss_field is None:
+        return
+
+    label_field_choices = types.DropdownView()
+    for field_name in sorted(label_fields):
+        label_field_choices.add_choice(field_name, label=field_name)
+
+    inputs.enum(
+        "label_field",
+        label_field_choices.values(),
+        required=True,
+        label="Label field",
+        description="The classification field to use from each sample",
+        view=label_field_choices,
     )
 
 
@@ -366,10 +703,15 @@ def brain_init(ctx, inputs):
 
     brain_key = get_new_brain_key(ctx, inputs)
     if brain_key is None:
-        return
+        return False
+
+    patches_fields = _get_label_fields(
+        target_view,
+        (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines),
+    )
 
     patches_field_choices = types.DropdownView()
-    for field_name in sorted(_get_patches_fields(target_view)):
+    for field_name in sorted(patches_fields):
         patches_field_choices.add_choice(field_name, label=field_name)
 
     inputs.str(
@@ -384,13 +726,19 @@ def brain_init(ctx, inputs):
 
     patches_field = ctx.params.get("patches_field", None)
 
+    get_embeddings(ctx, inputs, target_view, patches_field)
+
+    return True
+
+
+def get_embeddings(ctx, inputs, view, patches_field):
     if patches_field is not None:
-        root, _ = target_view._get_label_field_root(patches_field)
-        field = target_view.get_field(root, leaf=True)
+        root, _ = view._get_label_field_root(patches_field)
+        field = view.get_field(root, leaf=True)
         schema = field.get_field_schema(ftype=fo.VectorField)
         embeddings_fields = set(root + "." + k for k in schema.keys())
     else:
-        schema = target_view.get_field_schema(ftype=fo.VectorField)
+        schema = view.get_field_schema(ftype=fo.VectorField)
         embeddings_fields = set(schema.keys())
 
     embeddings_choices = types.AutocompleteView()
@@ -425,17 +773,35 @@ def brain_init(ctx, inputs):
             view=model_choices,
         )
 
-    return brain_key
+        model = ctx.params.get("model", None)
 
+        if model is not None:
+            inputs.int(
+                "batch_size",
+                label="Batch size",
+                description=(
+                    "A batch size to use when computing embeddings. Some "
+                    "models may not support batching"
+                ),
+            )
 
-_PATCHES_TYPES = (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines)
+            inputs.int(
+                "num_workers",
+                label="Num workers",
+                description=(
+                    "The number of workers to use for Torch data loaders"
+                ),
+            )
 
-
-def _get_patches_fields(sample_collection):
-    schema = sample_collection.get_field_schema(
-        embedded_doc_type=_PATCHES_TYPES
-    )
-    return list(schema.keys())
+            inputs.bool(
+                "skip_failures",
+                default=True,
+                label="Skip failures",
+                description=(
+                    "Whether to gracefully continue without raising an error "
+                    "if embeddings cannot be generated for a sample"
+                ),
+            )
 
 
 def _get_zoo_models():
@@ -456,9 +822,9 @@ def get_new_brain_key(
 ):
     prop = inputs.str(
         name,
+        required=True,
         label=label,
         description=description,
-        required=True,
     )
 
     brain_key = ctx.params.get(name, None)
@@ -502,8 +868,8 @@ def get_target_view(ctx, inputs):
         inputs.enum(
             "target",
             target_choices.values(),
-            required=True,
             default=default_target,
+            required=True,
             label="Target view",
             view=target_choices,
         )
@@ -725,8 +1091,11 @@ def get_brain_key(
 
 
 def register(p):
-    p.register(ComputeSimilarity)
     p.register(ComputeVisualization)
+    p.register(ComputeSimilarity)
+    p.register(ComputeUniqueness)
+    p.register(ComputeMistakenness)
+    p.register(ComputeHardness)
     p.register(GetBrainInfo)
     p.register(RenameBrainRun)
     p.register(DeleteBrainRun)
