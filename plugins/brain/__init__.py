@@ -37,12 +37,15 @@ class ComputeSimilarity(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        target = ctx.params.get("target", None)
-        patches_field = ctx.params.get("patches_field", None)
-        embeddings = ctx.params.get("embeddings", None)
-        brain_key = ctx.params["brain_key"]
-        model = ctx.params.get("model", None)
-        backend = ctx.params.get("backend", None)
+        kwargs = ctx.params.copy()
+        target = kwargs.pop("target", None)
+        patches_field = kwargs.pop("patches_field", None)
+        embeddings = kwargs.pop("embeddings", None)
+        brain_key = kwargs.pop("brain_key")
+        model = kwargs.pop("model", None)
+        backend = kwargs.pop("backend", None)
+
+        _get_similarity_backend(backend).parse_parameters(ctx, kwargs)
 
         target_view = _get_target_view(ctx, target)
         fob.compute_similarity(
@@ -52,12 +55,222 @@ class ComputeSimilarity(foo.Operator):
             brain_key=brain_key,
             model=model,
             backend=backend,
+            **kwargs,
         )
 
     def resolve_output(self, ctx):
         outputs = types.Object()
         view = types.View(label="Request complete")
         return types.Property(outputs, view=view)
+
+
+def compute_similarity(ctx, inputs):
+    brain_key = brain_init(ctx, inputs)
+    if brain_key is None:
+        return
+
+    default_backend = fob.brain_config.default_similarity_backend
+    backends = fob.brain_config.similarity_backends
+
+    backend_choices = types.DropdownView()
+    for backend in sorted(backends.keys()):
+        backend_choices.add_choice(backend, label=backend)
+
+    inputs.enum(
+        "backend",
+        backend_choices.values(),
+        default=default_backend,
+        required=True,
+        label="Backend",
+        description="The similarity backend to use",
+        view=backend_choices,
+    )
+
+    backend = ctx.params.get("backend", default_backend)
+
+    _get_similarity_backend(backend).get_parameters(ctx, inputs)
+
+
+def _get_similarity_backend(backend):
+    if backend == "sklearn":
+        return SklearnBackend(backend)
+
+    if backend == "pinecone":
+        return PineconeBackend(backend)
+
+    if backend == "qdrant":
+        return QdrantBackend(backend)
+
+    return SimilarityBackend(backend)
+
+
+class SimilarityBackend(object):
+    def __init__(self, name):
+        self.name = name
+
+    def get_parameters(self, ctx, inputs):
+        pass
+
+    def parse_parameters(self, ctx, params):
+        pass
+
+
+class SklearnBackend(SimilarityBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.view(
+            "sklearn",
+            types.Header(
+                label="Sklearn options",
+                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                divider=True,
+            ),
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("cosine", label="cosine")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="cosine",
+            required=True,
+            label="Metric",
+            description="The embedding distance metric to use",
+            view=metric_choices,
+        )
+
+
+class PineconeBackend(SimilarityBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.view(
+            "pinecone",
+            types.Header(
+                label="Pinecone options",
+                description="https://docs.voxel51.com/integrations/pinecone.html#pinecone-config-parameters",
+                divider=True,
+            ),
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("cosine", label="cosine")
+        metric_choices.add_choice("dotproduct", label="dotproduct")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="cosine",
+            required=True,
+            label="Metric",
+            description="The embedding distance metric to use",
+            view=metric_choices,
+        )
+
+        inputs.str(
+            "index_name",
+            label="Index name",
+            description=(
+                "An optional name of a Pinecone index to use or create"
+            ),
+        )
+        inputs.str(
+            "index_type",
+            label="Index type",
+            description=(
+                "An optional index type to use when creating a new index"
+            ),
+        )
+        inputs.str(
+            "namespace",
+            label="Namespace",
+            description=(
+                "An optional namespace under which to store vectors added to "
+                "the index"
+            ),
+        )
+        inputs.int(
+            "replicas",
+            label="Replicas",
+            description=(
+                "An optional number of replicas when creating a new index"
+            ),
+        )
+        inputs.int(
+            "shards",
+            label="Shards",
+            description=(
+                "An optional number of shards when creating a new index"
+            ),
+        )
+        inputs.int(
+            "pods",
+            label="Pods",
+            description="An optional number of pods when creating a new index",
+        )
+        inputs.str(
+            "pod_type",
+            label="Pod type",
+            description="An optional pod type when creating a new index",
+        )
+
+
+class QdrantBackend(SimilarityBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.view(
+            "qdrant",
+            types.Header(
+                label="Qdrant options",
+                description="https://docs.voxel51.com/integrations/qdrant.html#qdrant-config-parameters",
+                divider=True,
+            ),
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("cosine", label="cosine")
+        metric_choices.add_choice("dotproduct", label="dotproduct")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="cosine",
+            required=True,
+            label="Metric",
+            description="The embedding distance metric to use",
+            view=metric_choices,
+        )
+
+        inputs.str(
+            "collection_name",
+            label="Collection name",
+            description=(
+                "An optional name of a Qdrant collection to use or create"
+            ),
+        )
+        inputs.str(
+            "replication_factor",
+            label="Replication factor",
+            description=(
+                "An optional replication factor to use when creating a new "
+                "index"
+            ),
+        )
+        inputs.int(
+            "shard_number",
+            label="Shard number",
+            description=(
+                "An optional number of shards to use when creating a new index"
+            ),
+        )
+        inputs.int(
+            "write_consistency_factor",
+            label="Write consistency factor",
+            description=(
+                "An optional write consistency factor to use when creating a "
+                "new index"
+            ),
+        )
 
 
 class ComputeVisualization(foo.Operator):
@@ -81,7 +294,7 @@ class ComputeVisualization(foo.Operator):
         target = ctx.params.get("target", None)
         patches_field = ctx.params.get("patches_field", None)
         embeddings = ctx.params.get("embeddings", None)
-        brain_key = ctx.params["brain_key"]
+        brain_key = ctx.params.get("brain_key")
         model = ctx.params.get("model", None)
         method = ctx.params.get("method", None)
 
@@ -101,36 +314,27 @@ class ComputeVisualization(foo.Operator):
         return types.Property(outputs, view=view)
 
 
-def compute_similarity(ctx, inputs):
-    brain_init(ctx, inputs)
-
-    default_backend = fob.brain_config.default_similarity_backend
-    backends = fob.brain_config.similarity_backends
-
-    backend_choices = types.DropdownView()
-    for backend in sorted(backends.keys()):
-        backend_choices.add_choice(backend, label=backend)
-
-    inputs.enum(
-        "backend",
-        backend_choices.values(),
-        default=default_backend,
-        required=True,
-        label="backend",
-        description="The similarity backend to use",
-        view=backend_choices,
-    )
-
-    # @todo add `backend`-specific parameters
-
-
 def compute_visualization(ctx, inputs):
-    brain_init(ctx, inputs)
+    brain_key = brain_init(ctx, inputs)
+    if brain_key is None:
+        return
 
     method_choices = types.DropdownView()
-    method_choices.add_choice("umap", label="UMAP")
-    method_choices.add_choice("tsne", label="t-SNE")
-    method_choices.add_choice("pca", label="PCA")
+    method_choices.add_choice(
+        "umap",
+        label="UMAP",
+        description="Uniform Manifold Approximation and Projection",
+    )
+    method_choices.add_choice(
+        "tsne",
+        label="t-SNE",
+        description="t-distributed Stochastic Neighbor Embedding",
+    )
+    method_choices.add_choice(
+        "pca",
+        label="PCA",
+        description="Principal Component Analysis",
+    )
 
     inputs.enum(
         "method",
@@ -138,11 +342,23 @@ def compute_visualization(ctx, inputs):
         default="umap",
         required=True,
         label="method",
-        description="The dimensionality-reduction method to use",
+        description="The dimensionality reduction method to use",
         view=method_choices,
     )
 
-    # @todo add `method`-specific parameters
+    inputs.int(
+        "num_dims",
+        default=2,
+        required=True,
+        label="Number of dimensions",
+        description="The dimension of the visualization space",
+    )
+
+    inputs.int(
+        "seed",
+        label="Random seed",
+        description="An optional random seed to use",
+    )
 
 
 def brain_init(ctx, inputs):
@@ -158,7 +374,7 @@ def brain_init(ctx, inputs):
 
     inputs.str(
         "patches_field",
-        label="patches_field",
+        label="Patches field",
         description=(
             "An optional sample field defining the image patches in each "
             "sample that have been/will be embedded"
@@ -183,7 +399,7 @@ def brain_init(ctx, inputs):
 
     inputs.str(
         "embeddings",
-        label="embeddings",
+        label="Embeddings",
         description=(
             "An optional sample field containing pre-computed embeddings to "
             "use. Or when a model is provided, a new field in which to store "
@@ -201,13 +417,15 @@ def brain_init(ctx, inputs):
 
         inputs.str(
             "model",
-            label="model",
+            label="Model",
             description=(
-                "The name of a model from the FiftyOne Model Zoo to use to "
-                "generate embeddings"
+                "An optional name of a model from the FiftyOne Model Zoo to "
+                "use to generate embeddings"
             ),
             view=model_choices,
         )
+
+    return brain_key
 
 
 _PATCHES_TYPES = (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines)
@@ -229,8 +447,19 @@ def _get_zoo_models():
     return available_models
 
 
-def get_new_brain_key(ctx, inputs, name="brain_key", label="Brain key"):
-    prop = inputs.str(name, label=label, required=True)
+def get_new_brain_key(
+    ctx,
+    inputs,
+    name="brain_key",
+    label="Brain key",
+    description="Provide a brain key for this run",
+):
+    prop = inputs.str(
+        name,
+        label=label,
+        description=description,
+        required=True,
+    )
 
     brain_key = ctx.params.get(name, None)
     if brain_key is not None and brain_key in ctx.dataset.list_brain_runs():
@@ -355,7 +584,11 @@ class RenameBrainRun(foo.Operator):
         run_type = get_brain_run_type(ctx, inputs)
         get_brain_key(ctx, inputs, run_type=run_type)
         get_new_brain_key(
-            ctx, inputs, name="new_brain_key", label="New brain key"
+            ctx,
+            inputs,
+            name="new_brain_key",
+            label="New brain key",
+            description="Provide a new brain key for this run",
         )
 
         view = types.View(label="Rename brain run")
@@ -423,7 +656,8 @@ def get_brain_run_type(ctx, inputs):
         "run_type",
         label="Run type",
         description=(
-            "You can optionally choose a specific brain run type of interest"
+            "You can optionally choose a specific brain run type of interest "
+            "to narrow your search"
         ),
         view=choices,
     )
@@ -448,17 +682,24 @@ _BRAIN_RUN_TYPES = {
 }
 
 
-def get_brain_key(ctx, inputs, run_type=None, show_default=True):
+def get_brain_key(
+    ctx,
+    inputs,
+    label="Brain key",
+    description="Select a brain key",
+    run_type=None,
+    show_default=True,
+):
     type = _BRAIN_RUN_TYPES.get(run_type, None)
     brain_keys = ctx.dataset.list_brain_runs(type=type)
 
     if not brain_keys:
-        label = "This dataset has no brain runs"
+        message = "This dataset has no brain runs"
         if run_type is not None:
-            label += f" of type {run_type}"
+            message += f" of type {run_type}"
 
         warning = types.Warning(
-            label=label,
+            label=message,
             description="https://docs.voxel51.com/user_guide/brain.html",
         )
         prop = inputs.view("warning", warning)
@@ -475,7 +716,8 @@ def get_brain_key(ctx, inputs, run_type=None, show_default=True):
         "brain_key",
         default=default,
         required=True,
-        label="Brain key",
+        label=label,
+        description=description,
         view=choices,
     )
 
