@@ -323,7 +323,8 @@ class Classification(EvaluationMethod):
 
     def parse_parameters(self, ctx, params):
         classes = params.pop("classes", None)
-        return _parse_classes(ctx, classes)
+        if classes is not None:
+            params["classes"] = _parse_classes(ctx, classes)
 
 
 class SimpleClassification(Classification):
@@ -689,7 +690,8 @@ class Segmentation(EvaluationMethod):
 
     def parse_parameters(self, ctx, params):
         mask_targets = params.pop("mask_targets", None)
-        return _parse_mask_targets(ctx, mask_targets)
+        if mask_targets is not None:
+            params["mask_targets"] = _parse_mask_targets(ctx, mask_targets)
 
 
 class SimpleSegmentation(Segmentation):
