@@ -57,7 +57,7 @@ You can use this operator to export your current dataset or view to disk in any
 supported format.
 
 This operator is essentially a wrapper around the following
-[export receipe](https://docs.voxel51.com/user_guide/export_datasets.html#basic-recipe):
+[export recipe](https://docs.voxel51.com/user_guide/export_datasets.html#basic-recipe):
 
 ```py
 # The directory to which to write the export
