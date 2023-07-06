@@ -42,7 +42,7 @@ class RequestAnnotations(foo.Operator):
         label_schema_fields = kwargs.pop("label_schema_fields", None)
         if label_schema:
             label_schema = json.loads(label_schema)
-        else:
+        elif label_schema_fields:
             label_schema = _build_label_schema(label_schema_fields)
 
         # Parse backend-specific parameters
@@ -226,6 +226,9 @@ def get_label_schema(ctx, inputs, backend, view):
     schema_choices = types.TabsView()
     schema_choices.add_choice("BUILD", label="Build")
     schema_choices.add_choice("JSON", label="JSON")
+    if backend.name == "cvat":
+        schema_choices.add_choice("PROJECT", label="Existing project")
+
     inputs.enum(
         "schema_type",
         schema_choices.values(),
@@ -237,7 +240,21 @@ def get_label_schema(ctx, inputs, backend, view):
     )
     schema_type = ctx.params.get("schema_type", "BUILD")
 
-    if schema_type == "JSON":
+    if schema_type == "PROJECT":
+        inputs.str(
+            "project_name",
+            required=True,
+            label="Existing project",
+            description=(
+                "Provide the name of an existing CVAT project to which to "
+                "upload new tasks"
+            ),
+        )
+
+        project_name = ctx.params.get("project_name", None)
+
+        return project_name
+    elif schema_type == "JSON":
         # @todo switch to editable JSON viewer
         prop = inputs.str(
             "label_schema",
@@ -612,8 +629,8 @@ class CVATBackend(AnnotationBackend):
             label="Assignee",
             description=(
                 "The username to assign the generated tasks. This argument "
-                "can be a list of usernames when annotating videos as each "
-                "video is uploaded to a separate task"
+                "can be a comma-separated list of usernames when annotating "
+                "videos as each video is uploaded to a separate task"
             ),
         )
         inputs.list(
@@ -623,9 +640,9 @@ class CVATBackend(AnnotationBackend):
             label="Reviewers",
             description=(
                 "The usernames to assign as reviewers to the generated tasks. "
-                "This argument can be a list of lists of usernames when "
-                "annotating videos as each video is uploaded to a separate "
-                "task",
+                "This argument can contain comma-separated lists of usernames "
+                "when annotating videos as each video is uploaded to a "
+                "separate task",
             ),
         )
         inputs.str(
@@ -634,25 +651,24 @@ class CVATBackend(AnnotationBackend):
             label="Task name",
             description=(
                 "The name to assign to the generated tasks. This argument can "
-                "be a list of strings when annotating videos as each video is "
-                "uploaded to a separate task"
+                "be a comma-separated list of strings when annotating videos "
+                "as each video is uploaded to a separate task"
             ),
         )
-        inputs.str(
-            "project_name",
-            default=None,
-            label="Project name",
-            description="The name to assign to the generated project",
-        )
-        inputs.str(
-            "project_id",
-            default=None,
-            label="Project ID",
-            description=(
-                "An ID of an existing CVAT project to which to "
-                "upload the annotation tasks"
-            ),
-        )
+
+        if ctx.params.get("schema_type", None) != "PROJECT":
+            inputs.str(
+                "project_name",
+                default=None,
+                label="Project name",
+                description=(
+                    "An optional project name to which to upload the created "
+                    "tasks. If a project with this name exists, it will be "
+                    "used, otherwise a new project is created. By default, no "
+                    "project is used"
+                ),
+            )
+
         inputs.str(
             "occluded_attr",
             default=None,
@@ -708,6 +724,21 @@ class CVATBackend(AnnotationBackend):
                 "provided when uploading existing tracks"
             ),
         )
+
+    def parse_parameters(self, ctx, params):
+        if "," in (params.get("job_assignee", None) or ""):
+            params["job_assignee"] = params["job_assignee"].split(",")
+
+        if any(
+            "," in usernames
+            for usernames in (params.get("job_reviewers", None) or [])
+        ):
+            params["job_reviewers"] = [
+                usernames.split(",") for usernames in params["job_reviewers"]
+            ]
+
+        if "," in (params.get("task_name", None) or ""):
+            params["task_name"] = params["task_name"].split(",")
 
 
 class LabelboxBackend(AnnotationBackend):
