@@ -1035,7 +1035,8 @@ class DeleteAnnotationRun(foo.Operator):
 
         if cleanup:
             results = ctx.dataset.load_annotation_results(anno_key)
-            results.cleanup()
+            if results:
+                results.cleanup()
 
         ctx.dataset.delete_annotation_run(anno_key)
 
