@@ -1010,6 +1010,17 @@ class DeleteAnnotationRun(foo.Operator):
         anno_key = get_anno_key(ctx, inputs, show_default=False)
 
         if anno_key is not None:
+            inputs.bool(
+                "cleanup",
+                required=True,
+                default=False,
+                label="Cleanup",
+                description=(
+                    "Whether to delete any informtation regarding this run "
+                    "from the annotation backend"
+                ),
+            )
+
             warning = types.Warning(
                 label=f"You are about to delete annotation run '{anno_key}'"
             )
@@ -1020,6 +1031,12 @@ class DeleteAnnotationRun(foo.Operator):
 
     def execute(self, ctx):
         anno_key = ctx.params["anno_key"]
+        cleanup = ctx.params.get("cleanup", False)
+
+        if cleanup:
+            results = ctx.dataset.load_annotation_results(anno_key)
+            results.cleanup()
+
         ctx.dataset.delete_annotation_run(anno_key)
 
     def resolve_output(self, ctx):
