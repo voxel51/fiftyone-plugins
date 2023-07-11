@@ -8,15 +8,17 @@ FiftyOne Brain operators.
 from collections import defaultdict
 
 import fiftyone as fo
+import fiftyone.operators as foo
+import fiftyone.operators.types as types
+import fiftyone.zoo.models as fozm
+
+# pylint:disable=import-error,no-name-in-module
 import fiftyone.brain as fob
 from fiftyone.brain import Similarity
 from fiftyone.brain.internal.core.hardness import Hardness
 from fiftyone.brain.internal.core.mistakenness import MistakennessMethod
 from fiftyone.brain.internal.core.uniqueness import Uniqueness
 from fiftyone.brain.internal.core.visualization import Visualization
-import fiftyone.operators as foo
-import fiftyone.operators.types as types
-import fiftyone.zoo.models as fozm
 
 
 class ComputeVisualization(foo.Operator):
@@ -911,7 +913,7 @@ class GetBrainInfo(foo.Operator):
         brain_key = ctx.params["brain_key"]
         info = ctx.dataset.get_brain_info(brain_key)
 
-        run_type = _get_brain_run_type(info.config)
+        run_type = _get_brain_run_type(ctx.dataset, brain_key)
         timestamp = info.timestamp.strftime("%Y-%M-%d %H:%M:%S")
         config = info.config.serialize()
         config = {k: v for k, v in config.items() if v is not None}
@@ -989,6 +991,20 @@ class DeleteBrainRun(foo.Operator):
         )
 
         if brain_key is not None:
+            run_type = _get_brain_run_type(ctx.dataset, brain_key)
+
+            if run_type == "similarity":
+                inputs.bool(
+                    "cleanup",
+                    required=True,
+                    default=False,
+                    label="Cleanup",
+                    description=(
+                        "Whether to delete the underlying index from the "
+                        "external vector database (if any)"
+                    ),
+                )
+
             warning = types.Warning(
                 label=f"You are about to delete brain run '{brain_key}'"
             )
@@ -999,6 +1015,13 @@ class DeleteBrainRun(foo.Operator):
 
     def execute(self, ctx):
         brain_key = ctx.params["brain_key"]
+        cleanup = ctx.params.get("cleanup", False)
+
+        if cleanup:
+            results = ctx.dataset.load_brain_results(brain_key)
+            if results is not None:
+                results.cleanup()
+
         ctx.dataset.delete_brain_run(brain_key)
 
     def resolve_output(self, ctx):
@@ -1010,8 +1033,7 @@ class DeleteBrainRun(foo.Operator):
 def get_brain_run_type(ctx, inputs):
     run_types = defaultdict(list)
     for brain_key in ctx.dataset.list_brain_runs():
-        info = ctx.dataset.get_brain_info(brain_key)
-        run_type = _get_brain_run_type(info.config)
+        run_type = _get_brain_run_type(ctx.dataset, brain_key)
         run_types[run_type].append(brain_key)
 
     choices = types.DropdownView()
@@ -1031,7 +1053,9 @@ def get_brain_run_type(ctx, inputs):
     return ctx.params.get("run_type", None)
 
 
-def _get_brain_run_type(config):
+def _get_brain_run_type(dataset, brain_key):
+    info = dataset.get_brain_info(brain_key)
+    config = info.config
     for type_str, cls in _BRAIN_RUN_TYPES.items():
         if issubclass(config.run_cls, cls):
             return type_str
