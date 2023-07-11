@@ -36,15 +36,14 @@ class ManageIndexes(foo.Operator):
             field_name = obj["field_name"]
             unique = obj["unique"]
 
+            ctx.dataset.create_index(field_name, unique=unique)
+
             if ctx.dataset.media_type == fom.GROUP:
                 index_spec = [
                     (ctx.dataset.group_field + ".name", 1),
                     (field_name, 1),
                 ]
-            else:
-                index_spec = field_name
-
-            ctx.dataset.create_index(index_spec, unique=unique)
+                ctx.dataset.create_index(index_spec, unique=unique)
 
         for obj in drop:
             index_name = obj["index_name"]
@@ -217,8 +216,7 @@ def _get_indexable_paths(ctx):
 
     # Discard fields that are already indexed
     for index_name in ctx.dataset.list_indexes():
-        path = _get_field_name(ctx, index_name)
-        paths.discard(path)
+        paths.discard(index_name)
 
     # Discard fields that are already being newly indexed
     for obj in ctx.params.get("create", []):
