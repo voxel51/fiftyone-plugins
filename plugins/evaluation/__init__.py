@@ -917,7 +917,7 @@ class GetEvaluationInfo(foo.Operator):
             label="Load view",
             description=(
                 "Whether to load the view on which this evaluation was "
-                "computed"
+                "performed"
             ),
         )
 
