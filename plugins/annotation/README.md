@@ -86,6 +86,18 @@ info = dataset_or_view.get_annotation_info(anno_key)
 print(info)
 ```
 
+### load_annotation_view
+
+You can use this operator to load the view on which an annotation run was
+performed.
+
+This operator is essentially a wrapper around
+[load_annotation_view()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.load_annotation_view):
+
+```py
+view = dataset.load_annotation_view(anno_key)
+```
+
 ### rename_annotation_run
 
 You can use this operator to rename annotation runs.

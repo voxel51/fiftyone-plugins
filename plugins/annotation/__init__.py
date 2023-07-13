@@ -7,6 +7,8 @@ Annotation operators.
 """
 import json
 
+from bson import json_util
+
 import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -854,11 +856,6 @@ class LoadAnnotations(foo.Operator):
         )
         ctx.trigger("reload_dataset")
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
-
 
 def load_annotations(ctx, inputs):
     anno_keys = ctx.dataset.list_annotation_runs()
@@ -936,11 +933,29 @@ class GetAnnotationInfo(foo.Operator):
 
         get_anno_key(ctx, inputs)
 
+        inputs.bool(
+            "load_view",
+            default=False,
+            label="Load view",
+            description=(
+                "Whether to load the view on which this annotation run was "
+                "performed"
+            ),
+        )
+
         view = types.View(label="Get annotation info")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         anno_key = ctx.params["anno_key"]
+
+        if ctx.params.get("load_view", False):
+            ctx.trigger(
+                "@voxel51/annotation/load_annotation_view",
+                params={"anno_key": anno_key},
+            )
+            return
+
         info = ctx.dataset.get_annotation_info(anno_key)
 
         timestamp = info.timestamp.strftime("%Y-%M-%d %H:%M:%S")
@@ -955,6 +970,9 @@ class GetAnnotationInfo(foo.Operator):
         }
 
     def resolve_output(self, ctx):
+        if ctx.params.get("load_view", False):
+            return
+
         outputs = types.Object()
         outputs.str("anno_key", label="Annotation key")
         outputs.str("timestamp", label="Creation time")
@@ -962,6 +980,33 @@ class GetAnnotationInfo(foo.Operator):
         outputs.obj("config", label="Annotation config", view=types.JSONView())
         view = types.View(label="Annotation run info")
         return types.Property(outputs, view=view)
+
+
+class LoadAnnotationView(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="load_annotation_view",
+            label="Load annotation view",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        get_anno_key(ctx, inputs)
+
+        view = types.View(label="Load annotation view")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        anno_key = ctx.params["anno_key"]
+        anno_view = ctx.dataset.load_annotation_view(anno_key)
+        ctx.trigger("set_view", params={"view": serialize_view(anno_view)})
+
+
+def serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
 
 
 class RenameAnnotationRun(foo.Operator):
@@ -1039,11 +1084,7 @@ class DeleteAnnotationRun(foo.Operator):
                 results.cleanup()
 
         ctx.dataset.delete_annotation_run(anno_key)
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Deletion successful")
-        return types.Property(outputs, view=view)
+        ctx.trigger("reload_dataset")
 
 
 def get_anno_key(ctx, inputs, show_default=True):
@@ -1079,5 +1120,6 @@ def register(p):
     p.register(RequestAnnotations)
     p.register(LoadAnnotations)
     p.register(GetAnnotationInfo)
+    p.register(LoadAnnotationView)
     p.register(RenameAnnotationRun)
     p.register(DeleteAnnotationRun)
