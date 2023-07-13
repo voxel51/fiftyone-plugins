@@ -62,11 +62,6 @@ class EvaluateModel(foo.Operator):
 
         ctx.trigger("reload_dataset")
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
-
 
 def evaluate_model(ctx, inputs):
     target_view = get_target_view(ctx, inputs)
@@ -968,11 +963,7 @@ class RenameEvaluation(foo.Operator):
         eval_key = ctx.params["eval_key"]
         new_eval_key = ctx.params["new_eval_key"]
         ctx.dataset.rename_evaluation(eval_key, new_eval_key)
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Rename successful")
-        return types.Property(outputs, view=view)
+        ctx.trigger("reload_dataset")
 
 
 class DeleteEvaluation(foo.Operator):
@@ -1002,11 +993,6 @@ class DeleteEvaluation(foo.Operator):
         eval_key = ctx.params["eval_key"]
         ctx.dataset.delete_evaluation(eval_key)
         ctx.trigger("reload_dataset")
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Deletion successful")
-        return types.Property(outputs, view=view)
 
 
 def get_eval_key(
