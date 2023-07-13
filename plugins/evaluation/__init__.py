@@ -911,11 +911,29 @@ class GetEvaluationInfo(foo.Operator):
 
         get_eval_key(ctx, inputs)
 
+        inputs.bool(
+            "load_view",
+            default=False,
+            label="Load view",
+            description=(
+                "Whether to load the view on which this evaluation was "
+                "computed"
+            ),
+        )
+
         view = types.View(label="Get evaluation info")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         eval_key = ctx.params["eval_key"]
+
+        if ctx.params.get("load_view", False):
+            ctx.trigger(
+                "@voxel51/evaluation/load_evaluation_view",
+                params={"eval_key": eval_key},
+            )
+            return
+
         info = ctx.dataset.get_evaluation_info(eval_key)
 
         timestamp = info.timestamp.strftime("%Y-%M-%d %H:%M:%S")
@@ -930,6 +948,9 @@ class GetEvaluationInfo(foo.Operator):
         }
 
     def resolve_output(self, ctx):
+        if ctx.params.get("load_view", False):
+            return
+
         outputs = types.Object()
         outputs.str("eval_key", label="Evaluation key")
         outputs.str("timestamp", label="Creation time")
@@ -959,7 +980,7 @@ class LoadEvaluationView(foo.Operator):
     def execute(self, ctx):
         eval_key = ctx.params["eval_key"]
         eval_view = ctx.dataset.load_evaluation_view(eval_key)
-        ctx.trigger("set_view", params=dict(view=serialize_view(eval_view)))
+        ctx.trigger("set_view", params={"view": serialize_view(eval_view)})
 
 
 def serialize_view(view):
