@@ -92,6 +92,18 @@ info = dataset_or_view.get_evaluation_info(eval_key)
 print(info)
 ```
 
+### load_evaluation_view
+
+You can use this operator to load the view on which an evaluation was
+performed.
+
+This operator is essentially a wrapper around
+[load_evaluation_view()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.load_evaluation_view):
+
+```py
+view = dataset.load_evaluation_view(eval_key)
+```
+
 ### rename_evaluation
 
 You can use this operator to rename evaluation runs.

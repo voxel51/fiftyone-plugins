@@ -8,5 +8,6 @@ license: Apache 2.0
 operators:
   - evaluate_model
   - get_evaluation_info
+  - load_evaluation_view
   - rename_evaluation
   - delete_evaluation

@@ -5,6 +5,10 @@ Evaluation operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import json
+
+from bson import json_util
+
 import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -935,6 +939,33 @@ class GetEvaluationInfo(foo.Operator):
         return types.Property(outputs, view=view)
 
 
+class LoadEvaluationView(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="load_evaluation_view",
+            label="Load evaluation view",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        get_eval_key(ctx, inputs)
+
+        view = types.View(label="Load evaluation view")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        eval_key = ctx.params["eval_key"]
+        eval_view = ctx.dataset.load_evaluation_view(eval_key)
+        ctx.trigger("set_view", params=dict(view=serialize_view(eval_view)))
+
+
+def serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
+
+
 class RenameEvaluation(foo.Operator):
     @property
     def config(self):
@@ -1057,5 +1088,6 @@ def get_new_eval_key(
 def register(p):
     p.register(EvaluateModel)
     p.register(GetEvaluationInfo)
+    p.register(LoadEvaluationView)
     p.register(RenameEvaluation)
     p.register(DeleteEvaluation)
