@@ -40,6 +40,9 @@ class EvaluateModel(foo.Operator):
 
         _get_evaluation_method(eval_type, method).parse_parameters(ctx, kwargs)
 
+        # Remove None values
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
         if eval_type == "regression":
             eval_fcn = target_view.evaluate_regressions
         elif eval_type == "classification":
@@ -49,7 +52,6 @@ class EvaluateModel(foo.Operator):
         elif eval_type == "segmentation":
             eval_fcn = target_view.evaluate_segmentations
 
-        """
         eval_fcn(
             pred_field,
             gt_field=gt_field,
@@ -57,24 +59,11 @@ class EvaluateModel(foo.Operator):
             method=method,
             **kwargs,
         )
-        """
 
-        return {
-            "params": {
-                "pred_field": pred_field,
-                "gt_field": gt_field,
-                "eval_key": eval_key,
-                "method": method,
-                **kwargs,
-            }
-        }
+        ctx.trigger("reload_dataset")
 
     def resolve_output(self, ctx):
         outputs = types.Object()
-
-        # @todo remove
-        outputs.obj("params", view=types.JSONView())
-
         view = types.View(label="Request complete")
         return types.Property(outputs, view=view)
 
@@ -463,7 +452,7 @@ class COCODetection(Detection):
 
         super().get_parameters(ctx, inputs)
 
-        _get_iscrowd(ctx, inputs, default="iscrowd")
+        _get_iscrowd(ctx, inputs)
 
         inputs.bool(
             "compute_mAP",
@@ -519,7 +508,7 @@ class OpenImagesDetection(Detection):
 
         super().get_parameters(ctx, inputs)
 
-        _get_iscrowd(ctx, inputs, default="IsGroupOf")
+        _get_iscrowd(ctx, inputs)
 
         inputs.int(
             "max_preds",
@@ -623,9 +612,13 @@ def _get_iscrowd(ctx, inputs, default=None):
     root, _ = target_view._get_label_field_root(gt_field)
 
     field = target_view.get_field(root, leaf=True)
-    schema = field.get_field_schema(ftype=(fo.IntField, fo.BooleanField))
+    schema = field.get_field_schema(
+        ftype=(fo.BooleanField, fo.IntField, fo.FloatField)
+    )
 
-    crowd_attrs = sorted(k for k, v in schema.items() if k != "index")
+    crowd_attrs = sorted(
+        k for k, v in schema.items() if k not in ("confidence", "index")
+    )
 
     if crowd_attrs:
         default = crowd_attrs[0]
@@ -639,9 +632,8 @@ def _get_iscrowd(ctx, inputs, default=None):
     inputs.str(
         "iscrowd",
         default=default,
-        required=True,
         label="Crowd attribute",
-        description="The name of the crowd attribute",
+        description="The name of the crowd attribute (if any)",
         view=crowd_attr_choices,
     )
 
@@ -1009,6 +1001,7 @@ class DeleteEvaluation(foo.Operator):
     def execute(self, ctx):
         eval_key = ctx.params["eval_key"]
         ctx.dataset.delete_evaluation(eval_key)
+        ctx.trigger("reload_dataset")
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -1024,6 +1017,16 @@ def get_eval_key(
     show_default=True,
 ):
     eval_keys = ctx.dataset.list_evaluations()
+
+    if not eval_keys:
+        warning = types.Warning(
+            label="This dataset has no evaluation runs",
+            description="https://docs.voxel51.com/user_guide/evaluation.html",
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+
+        return
 
     choices = types.DropdownView()
     for eval_key in eval_keys:
