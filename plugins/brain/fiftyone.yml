@@ -12,5 +12,6 @@ operators:
   - compute_mistakenness
   - compute_hardness
   - get_brain_info
+  - load_brain_view
   - rename_brain_run
   - delete_brain_run

@@ -6,6 +6,9 @@ FiftyOne Brain operators.
 |
 """
 from collections import defaultdict
+import json
+
+from bson import json_util
 
 import fiftyone as fo
 import fiftyone.operators as foo
@@ -395,11 +398,7 @@ class ComputeUniqueness(foo.Operator):
             embeddings=embeddings,
             model=model,
         )
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
+        ctx.trigger("reload_dataset")
 
 
 def compute_uniqueness(ctx, inputs):
@@ -474,11 +473,7 @@ class ComputeMistakenness(foo.Operator):
             mistakenness_field=mistakenness_field,
             **kwargs,
         )
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
+        ctx.trigger("reload_dataset")
 
 
 def compute_mistakenness(ctx, inputs):
@@ -649,11 +644,7 @@ class ComputeHardness(foo.Operator):
             label_field,
             hardness_field=hardness_field,
         )
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
+        ctx.trigger("reload_dataset")
 
 
 def compute_hardness(ctx, inputs):
@@ -906,11 +897,29 @@ class GetBrainInfo(foo.Operator):
         run_type = get_brain_run_type(ctx, inputs)
         get_brain_key(ctx, inputs, run_type=run_type)
 
+        inputs.bool(
+            "load_view",
+            default=False,
+            label="Load view",
+            description=(
+                "Whether to load the view on which this brain run was "
+                "performed"
+            ),
+        )
+
         view = types.View(label="Get brain info")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         brain_key = ctx.params["brain_key"]
+
+        if ctx.params.get("load_view", False):
+            ctx.trigger(
+                "@voxel51/brain/load_brain_view",
+                params={"brain_key": brain_key},
+            )
+            return
+
         info = ctx.dataset.get_brain_info(brain_key)
 
         run_type = _get_brain_run_type(ctx.dataset, brain_key)
@@ -927,6 +936,9 @@ class GetBrainInfo(foo.Operator):
         }
 
     def resolve_output(self, ctx):
+        if ctx.params.get("load_view", False):
+            return
+
         outputs = types.Object()
         outputs.str("brain_key", label="Brain key")
         outputs.str("run_type", label="Run type")
@@ -935,6 +947,34 @@ class GetBrainInfo(foo.Operator):
         outputs.obj("config", label="Brain config", view=types.JSONView())
         view = types.View(label="Brain run info")
         return types.Property(outputs, view=view)
+
+
+class LoadBrainView(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="load_brain_view",
+            label="Load brain view",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        run_type = get_brain_run_type(ctx, inputs)
+        get_brain_key(ctx, inputs, run_type=run_type)
+
+        view = types.View(label="Load brain view")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        brain_key = ctx.params["brain_key"]
+        view = ctx.dataset.load_brain_view(brain_key)
+        ctx.trigger("set_view", params={"view": serialize_view(view)})
+
+
+def serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
 
 
 class RenameBrainRun(foo.Operator):
@@ -965,7 +1005,12 @@ class RenameBrainRun(foo.Operator):
     def execute(self, ctx):
         brain_key = ctx.params["brain_key"]
         new_brain_key = ctx.params["new_brain_key"]
+        run_type = _get_brain_run_type(ctx.dataset, brain_key)
+
         ctx.dataset.rename_brain_run(brain_key, new_brain_key)
+
+        if run_type in ("uniqueness", "mistakenness", "hardness"):
+            ctx.trigger("reload_dataset")
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -1022,7 +1067,12 @@ class DeleteBrainRun(foo.Operator):
             if results is not None:
                 results.cleanup()
 
+        run_type = _get_brain_run_type(ctx.dataset, brain_key)
+
         ctx.dataset.delete_brain_run(brain_key)
+
+        if run_type in ("uniqueness", "mistakenness", "hardness"):
+            ctx.trigger("reload_dataset")
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -1121,5 +1171,6 @@ def register(p):
     p.register(ComputeMistakenness)
     p.register(ComputeHardness)
     p.register(GetBrainInfo)
+    p.register(LoadBrainView)
     p.register(RenameBrainRun)
     p.register(DeleteBrainRun)

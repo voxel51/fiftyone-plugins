@@ -124,6 +124,17 @@ info = dataset_or_view.get_brain_info(brain_key)
 print(info)
 ```
 
+### load_brain_view
+
+You can use this operator to load the view on which a brain run was performed.
+
+This operator is essentially a wrapper around
+[load_brain_view()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.load_brain_view):
+
+```py
+view = dataset.load_brain_view(brain_key)
+```
+
 ### rename_brain_run
 
 You can use this operator to rename brain runs.
