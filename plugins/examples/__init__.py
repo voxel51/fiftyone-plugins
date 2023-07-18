@@ -515,10 +515,11 @@ class OpenHistogramsPanel(foo.Operator):
         )
 
     def execute(self, ctx):
-        return ctx.trigger(
+        ctx.trigger(
             "open_panel",
             params=dict(name="Histograms", isActive=True, layout="horizontal"),
         )
+        return {}
 
 
 def register(p):
