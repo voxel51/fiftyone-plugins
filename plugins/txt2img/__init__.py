@@ -118,7 +118,7 @@ class Txt2Image(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="model_choices",
+            name="txt2img",
             label="Txt2Img: Generate Images from Text",
             dynamic=True,
         )
