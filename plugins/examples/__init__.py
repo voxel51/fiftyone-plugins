@@ -521,6 +521,53 @@ class OpenHistogramsPanel(foo.Operator):
         )
 
 
+###
+# Secrets
+###
+
+
+class ShowSecret(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_show_secret",
+            label="Examples: show a secret",
+        )
+
+    def execute(self, ctx):
+        return {"secret":  ctx.secrets["EXAMPLE_SECRET"]}
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("secret", label="Secret", view=types.CodeView(language="text"))
+        return types.Property(outputs)
+
+
+class ShowSelectedLabels(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_show_selected_labels",
+            label="Examples: show selected labels",
+        )
+
+    def execute(self, ctx):
+        return {"labels":  ctx.selected_labels}
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        label_object = types.Object()
+        label_object.str("label_id", label="Label ID")
+        label_object.str("field", label="Field")
+        label_object.str("sample_id", label="Sample ID")
+        columns = [
+            types.Column("label_id", label="Label ID"),
+            types.Column("field", label="Field"),
+            types.Column("sample_id", label="Sample ID"),
+        ]
+        outputs.list("labels", label_object, label="Selected Labels", view=types.TableView(columns=columns))
+        return types.Property(outputs)
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -536,3 +583,5 @@ def register(p):
     p.register(MarkdownExample)
     p.register(CustomViewExample)
     p.register(OpenHistogramsPanel)
+    p.register(ShowSecret)
+    p.register(ShowSelectedLabels)

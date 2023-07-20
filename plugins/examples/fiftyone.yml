@@ -20,4 +20,6 @@ operators:
   - example_markdown
   - example_custom_view
   - example_open_embeddings_panel
+  - example_show_secret
   - example_open_histograms_panel
+  - example_show_selected_labels
