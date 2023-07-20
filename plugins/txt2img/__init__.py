@@ -124,6 +124,7 @@ class Txt2Image(foo.Operator):
             name="txt2img",
             label="Txt2Img: Generate Images from Text",
             dynamic=True,
+            execute_as_generator=True,
         )
 
     def resolve_input(self, ctx):
@@ -218,11 +219,8 @@ class Txt2Image(foo.Operator):
             prompt = prompt,
         )
         ctx.dataset.add_sample(sample)
+        ctx.trigger("reload_samples")
 
-        return {
-            "model_choice": ctx.params.get("model_choices", "None provided"),
-            "prompt": ctx.params.get("prompt", "None provided"),
-        }
 
     def resolve_output(self, ctx):
         outputs = types.Object()
