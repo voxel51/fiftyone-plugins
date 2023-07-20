@@ -223,7 +223,7 @@ class Txt2Image(foo.Operator):
 
     def resolve_output(self, ctx):
         outputs = types.Object()
-        outputs.str("model_choice", label="Model Choice")
+        outputs.str("prompt", label="Successfully generated image with prompt:")
         return types.Property(outputs)
 
 
