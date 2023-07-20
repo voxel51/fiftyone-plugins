@@ -108,8 +108,11 @@ def get_model(model_name):
 
 
 def generate_filepath(dataset):
-    path = dataset.first().filepath
-    base_dir = "/".join(path.split("/")[:-1])
+    if dataset.count() == 0:
+        base_dir = "/tmp"
+    else:
+        path = dataset.first().filepath
+        base_dir = "/".join(path.split("/")[:-1])
     filename = str(uuid.uuid4())[:13].replace("-", "") + ".png"
     return os.path.join(base_dir, filename)
 
