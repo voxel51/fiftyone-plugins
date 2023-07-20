@@ -162,7 +162,10 @@ class Txt2Image(foo.Operator):
                 view=height_choices,
             )
 
-            inference_steps_slider = types.SliderView(label="Num Inference Steps")
+            inference_steps_slider = types.SliderView(
+                label="Num Inference Steps",
+                componentsProps={"slider": {"min": 1, "max": 500, "step": 1}}
+            )
             inputs.int(
                 "inference_steps",
                 default = 50,
