@@ -1,0 +1,9 @@
+name: "@voxel51/interpolation"
+description: Find images that best interpolate between two text-based extremes!
+version: 1.0.0
+fiftyone:
+  version: "*"
+license: Apache 2.0
+operators:
+  - interpolator
+  - open_interpolation_panel
