@@ -141,12 +141,17 @@ class Txt2Image(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
+        replicate_flag = allows_replicate_models()
+        openai_flag = allows_openai_models()
+        if not replicate_flag and not openai_flag:
+            inputs.message("message", label="No models available. Please set up your environment variables.")
+            return types.Property(inputs)
+        
         radio_choices = types.RadioGroup()
-
-        if allows_replicate_models():
+        if replicate_flag:
             radio_choices.add_choice("sd", label="Stable Diffusion")
             radio_choices.add_choice("vqgan-clip", label="VQGAN-CLIP")
-        if allows_openai_models():
+        if openai_flag:
             radio_choices.add_choice("dalle2", label="DALL-E2")
         inputs.enum(
             "model_choices",
