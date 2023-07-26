@@ -1,6 +1,6 @@
 fiftyone:
     version: '~0.21.0'
-name: "txt2img"
+name: "@voxel51/txt2img"
 version: "1.0.0"
 description: "Run a Text-to-image model"
 operators:
