@@ -11,10 +11,11 @@ import uuid
 import fiftyone.operators as foo
 from fiftyone.operators import types
 import fiftyone as fo
+import fiftyone.core.utils as fou
 
 import requests
-import openai
-import replicate
+openai = fou.lazy_import("openai")
+replicate = fou.lazy_import("replicate")
 
 SD_MODEL_URL = "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478"
 SD_SCHEDULER_CHOICES = ("DDIM", "K_EULER", "DPMSolverMultiStep", "K_EULER_ANCESTRAL", "PNDM", "KLMS")
