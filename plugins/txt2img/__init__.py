@@ -7,6 +7,7 @@
 
 import os
 import uuid
+from importlib.util import find_spec
 
 import fiftyone.operators as foo
 from fiftyone.operators import types
@@ -24,6 +25,16 @@ SD_SIZE_CHOICES = ("64", "128", "192", "256", "320", "384", "448", "512", "576",
 VQGAN_MODEL_URL = "mehdidc/feed_forward_vqgan_clip:28b5242dadb5503688e17738aaee48f5f7f5c0b6e56493d7cf55f74d02f144d8"
 
 DALLE2_SIZE_CHOICES = ("256x256", "512x512", "1024x1024")
+
+
+def allows_replicate_models():
+    """Returns whether the current environment allows replicate models."""
+    return find_spec("replicate") is not None and 'REPLICATE_API_TOKEN' in os.environ
+
+
+def allows_openai_models():
+    """Returns whether the current environment allows openai models."""
+    return find_spec("openai") is not None and 'OPENAI_API_KEY' in os.environ
 
 
 def download_image(image_url, filename):
@@ -131,9 +142,12 @@ class Txt2Image(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
         radio_choices = types.RadioGroup()
-        radio_choices.add_choice("sd", label="Stable Diffusion")
-        radio_choices.add_choice("dalle2", label="DALL-E2")
-        radio_choices.add_choice("vqgan-clip", label="VQGAN-CLIP")
+
+        if allows_replicate_models():
+            radio_choices.add_choice("sd", label="Stable Diffusion")
+            radio_choices.add_choice("vqgan-clip", label="VQGAN-CLIP")
+        if allows_openai_models():
+            radio_choices.add_choice("dalle2", label="DALL-E2")
         inputs.enum(
             "model_choices",
             radio_choices.values(),
