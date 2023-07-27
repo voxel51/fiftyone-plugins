@@ -520,6 +520,26 @@ class OpenHistogramsPanel(foo.Operator):
             params=dict(name="Histograms", isActive=True, layout="horizontal"),
         )
 
+###
+### File Explorer
+###
+class FileExplorerExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_file_explorer",
+            label="Examples: File Explorer",
+        )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        default_file = {} # fofs.get_file_for_path(os.environ.get("HOME"))
+        explorer = types.FileExplorerView(choose_file=True, default=default_file)
+        inputs.define_property("file", types.File(), label="Choose a file", view=explorer)
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        return {"path": ctx.params.get('file', {}).get('path')}
 
 def register(p):
     p.register(MessageExamples)
@@ -536,3 +556,4 @@ def register(p):
     p.register(MarkdownExample)
     p.register(CustomViewExample)
     p.register(OpenHistogramsPanel)
+    p.register(FileExplorerExample)

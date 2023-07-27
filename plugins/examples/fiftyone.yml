@@ -21,3 +21,4 @@ operators:
   - example_custom_view
   - example_open_embeddings_panel
   - example_open_histograms_panel
+  # - example_file_explorer
