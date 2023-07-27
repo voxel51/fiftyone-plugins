@@ -158,7 +158,6 @@ class ExportSamples(foo.Operator):
             inputs.enum(
                 "target",
                 target_choices.values(),
-                required=True,
                 view=target_choices,
                 default=default_target,
             )
