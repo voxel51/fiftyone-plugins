@@ -522,6 +522,48 @@ class OpenHistogramsPanel(foo.Operator):
         return {}
 
 
+execution_choices = types.Dropdown(label="Choose how to run this operation")
+execution_choices.add_choice("execute", label="Execute immediately")
+execution_choices.add_choice("delegate", label="Delegate to an orchestrator")
+
+class DelegatedExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_delegated_operator",
+            label="Examples: Delegated Operator",
+            dynamic=True,
+        )
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("style", "execute") == "delegate"
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.enum("style", execution_choices.values(), view=execution_choices)
+        inputs.str("message", label="Message")
+        return types.Property(inputs)
+    
+    def execute(self, ctx):
+        print("executing...")
+        style = ctx.params.get("style", None)
+        style_labels = [choice.label for choice in execution_choices.choices if choice.value == style]
+        style_label = style_labels[0] if len(style_labels) > 0 else "Unknown"
+        markdown = f"""
+        **Delegated Operator Example**
+        - `Style`: {style_label}
+        - `Message`: {ctx.params.get("message", None)}
+        """
+        # trim the leading whitespace from every line
+        markdown = "\n".join([line.strip() for line in markdown.split("\n")])
+        return {"markdown": markdown, "hello": "world"}
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("markdown", view=types.MarkdownView())
+        return types.Property(outputs)
+
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -537,3 +579,4 @@ def register(p):
     p.register(MarkdownExample)
     p.register(CustomViewExample)
     p.register(OpenHistogramsPanel)
+    p.register(DelegatedExample)
