@@ -1,0 +1,10 @@
+fiftyone:
+    version: '~0.21.0'
+name: "@voxel51/common_issues"
+version: "1.0.0"
+description: "Find common issues in your image datasets"
+operators:
+    - compute_brightness
+    - compute_aspect_ratio
+    - compute_entropy
+    - find_issues
