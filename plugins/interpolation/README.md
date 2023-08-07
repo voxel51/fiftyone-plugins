@@ -16,6 +16,22 @@ It demonstrates how to do the following:
 -   query dataset properties from JS
 -   add an SVG icon to the UI
 
+**Note:** This plugin requires a similarity index that supports prompts (i.e.
+embeds text and images) to be present on the dataset. You can create one with:
+
+```py
+import fiftyone as fo
+import fiftyone.brain as fob
+
+dataset = fo.load_dataset("my_dataset")
+fob.compute_similarity(
+    dataset,
+    brain_key="my_brain_key",
+    model_name="clip-vit-base32-torch",
+    metric="cosine",
+    )
+```
+
 ## Installation
 
 ```shell
@@ -30,11 +46,11 @@ locally.
 
 ## Operators
 
-### open_interpolation_panel
+### `open_interpolation_panel`
 
 -   Opens the interpolation panel on click
 -   Only activated when the dataset has a similarity index
 
-### interpolator
+### `interpolator`
 
 -   Runs the interpolation
