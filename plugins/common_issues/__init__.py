@@ -12,7 +12,6 @@ from PIL import Image, ImageStat
 import fiftyone.operators as foo
 from fiftyone.operators import types
 import fiftyone as fo
-import fiftyone.core.utils as fou
 from fiftyone import ViewField as F
 
 
