@@ -38,5 +38,5 @@ Computes the entropy of all images in the dataset.
 
 ### `find_issues`
 
-Finds images with brightness, aspect ratio, or entropy issues. You can specicy
+Finds images with brightness, aspect ratio, or entropy issues. You can specify
 the threshold for each issue type, and which issue types to check for.
