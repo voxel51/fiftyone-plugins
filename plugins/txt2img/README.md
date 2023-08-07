@@ -17,9 +17,9 @@ work for remote datasets.
 
 This version of the plugin supports the following models:
 
--   DALL-E2
--   Stable Diffusion
--   VQGAN-CLIP
+-   [DALL-E2](https://openai.com/dall-e-2)
+-   [Stable Diffusion](https://replicate.com/stability-ai/stable-diffusion)
+-   [VQGAN-CLIP](https://replicate.com/mehdidc/feed_forward_vqgan_clip)
 
 It is straightforward to add support for other models!
 
