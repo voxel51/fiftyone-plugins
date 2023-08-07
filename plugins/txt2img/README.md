@@ -1,6 +1,6 @@
 ## Text2Image Plugin
 
-![txt2img](https://github.com/voxel51/fiftyone-plugins/assets/12500356/35dbf890-51bc-4bb9-aa46-6f0a8059a001)
+![txt2img](https://github.com/voxel51/fiftyone-plugins/assets/12500356/7634a6f8-717c-4435-b034-58b50766199b)
 
 This plugin is a Python plugin that allows you to generate images from text
 prompts and add them directly into your dataset.
