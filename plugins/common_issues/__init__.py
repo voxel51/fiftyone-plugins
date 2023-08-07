@@ -16,8 +16,12 @@ import fiftyone.core.utils as fou
 from fiftyone import ViewField as F
 
 
+def get_filepath(sample):
+    return sample.local_path if hasattr(sample, "local_path") else sample.filepath
+
+
 def compute_sample_brightness(sample):
-    image = Image.open(sample.filepath)
+    image = Image.open(get_filepath(sample))
     stat = ImageStat.Stat(image)
     try:
         r, g, b = stat.mean
@@ -102,7 +106,7 @@ class ComputeAspectRatio(foo.Operator):
 
 
 def compute_sample_entropy(sample):
-    image = Image.open(sample.filepath)
+    image = Image.open(get_filepath(sample))
     return image.entropy()
 
 
