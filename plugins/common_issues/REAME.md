@@ -1,6 +1,8 @@
 ## Common Issues Plugin
 
-This plugin is a Python plugin that allows you to find common issues in your image datasets.
+This plugin is a Python plugin that allows you to find common issues in your
+image datasets. It is adapted from Cleanlab's
+[CleanVision library](https://github.com/cleanlab/cleanvision/tree/72a1535019fe7b4636d43a9ef4e8e0060b8d66ec).
 
 With this plugin, you can:
 
@@ -8,7 +10,6 @@ With this plugin, you can:
 -   Find dark images
 -   Find weird aspect ratios
 -   Find low entropy images
-
 
 It is straightforward to add support for other types of issues!
 
@@ -22,15 +23,19 @@ fiftyone plugins download \
 
 ## Operators
 
-### compute_brightness
+### `compute_brightness`
+
 Computes the brightness of all images in the dataset.
 
-### compute_aspect_ratio
+### `compute_aspect_ratio`
+
 Computes the aspect ratio of all images in the dataset.
 
-### compute_entropy
+### `compute_entropy`
+
 Computes the entropy of all images in the dataset.
 
-### find_issues
-Finds images with brightness, aspect ratio, or entropy issues. 
-You can specicy the threshold for each issue type, and which issue types to check for.
+### `find_issues`
+
+Finds images with brightness, aspect ratio, or entropy issues. You can specicy
+the threshold for each issue type, and which issue types to check for.
