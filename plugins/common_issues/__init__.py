@@ -16,7 +16,9 @@ from fiftyone import ViewField as F
 
 
 def get_filepath(sample):
-    return sample.local_path if hasattr(sample, "local_path") else sample.filepath
+    return (
+        sample.local_path if hasattr(sample, "local_path") else sample.filepath
+    )
 
 
 def compute_sample_brightness(sample):
@@ -35,7 +37,9 @@ def compute_sample_brightness(sample):
     ## https://www.nbdtech.com/Blog/archive/2008/04/27/calculating-the-perceived-brightness-of-a-color.aspx
     ## and here:
     ## https://github.com/cleanlab/cleanvision/blob/72a1535019fe7b4636d43a9ef4e8e0060b8d66ec/src/cleanvision/issue_managers/image_property.py#L95
-    brightness = np.sqrt(0.241 * r ** 2 + 0.691 * g ** 2 + 0.068 * b ** 2)/255
+    brightness = (
+        np.sqrt(0.241 * r**2 + 0.691 * g**2 + 0.068 * b**2) / 255
+    )
     return brightness
 
 
@@ -57,10 +61,7 @@ class ComputeBrightness(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.message(
-            "compute brightness", 
-            label="compute brightness"
-            )
+        inputs.message("compute brightness", label="compute brightness")
         return types.Property(inputs)
 
     def execute(self, ctx):
@@ -93,10 +94,7 @@ class ComputeAspectRatio(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.message(
-            "compute aspect ratio", 
-            label="compute aspect ratio"
-            )
+        inputs.message("compute aspect ratio", label="compute aspect ratio")
         return types.Property(inputs)
 
     def execute(self, ctx):
@@ -127,10 +125,7 @@ class ComputeEntropy(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.message(
-            "compute entropy", 
-            label="compute entropy"
-            )
+        inputs.message("compute entropy", label="compute entropy")
         return types.Property(inputs)
 
     def execute(self, ctx):
@@ -138,13 +133,11 @@ class ComputeEntropy(foo.Operator):
         ctx.trigger("reload_dataset")
 
 
-
 def _need_to_compute(dataset, field_name):
     if field_name in list(dataset.get_field_schema().keys()):
         return False
     else:
         return field_name not in dataset.first()
-    
 
 
 def _run_computation(dataset, field_name):
@@ -159,12 +152,12 @@ def _run_computation(dataset, field_name):
 
 
 def find_issue_images(
-        dataset, 
-        threshold, 
-        field_name,
-        issue_name,
-        lt=True,
-        ):
+    dataset,
+    threshold,
+    field_name,
+    issue_name,
+    lt=True,
+):
     dataset.add_sample_field(issue_name, fo.BooleanField)
     if _need_to_compute(dataset, field_name):
         _run_computation(dataset, field_name)
@@ -190,13 +183,9 @@ def find_bright_images(dataset, threshold=0.55):
 
 def find_weird_aspect_ratio_images(dataset, threshold=0.5):
     find_issue_images(
-        dataset, 
-        threshold, 
-        "aspect_ratio", 
-        "weird_aspect_ratio", 
-        lt=True
-        )
-    
+        dataset, threshold, "aspect_ratio", "weird_aspect_ratio", lt=True
+    )
+
 
 def find_low_entropy_images(dataset, threshold=5.0):
     find_issue_images(dataset, threshold, "entropy", "low_entropy", lt=True)
@@ -224,13 +213,13 @@ class FindIssues(foo.Operator):
         threshold_view = types.TextFieldView(
             componentsProps={
                 "textField": {
-                    "step": "0.01", 
-                    "inputMode": 'numeric', 
-                    "pattern": '[0-9]*'
-                    },
-                }
-            )
-        
+                    "step": "0.01",
+                    "inputMode": "numeric",
+                    "pattern": "[0-9]*",
+                },
+            }
+        )
+
         #### DARK IMAGES ####
         inputs.bool(
             "dark",
@@ -238,13 +227,13 @@ class FindIssues(foo.Operator):
             label="Find dark images in the dataset",
             view=types.CheckboxView(),
         )
-        
+
         if ctx.params.get("dark", False) == True:
             inputs.float(
                 "dark_threshold",
                 default=0.1,
                 label="darkness threshold",
-                view=threshold_view
+                view=threshold_view,
             )
 
         #### BRIGHT IMAGES ####
@@ -260,10 +249,9 @@ class FindIssues(foo.Operator):
                 "bright_threshold",
                 default=0.55,
                 label="brightness threshold",
-                view=threshold_view
+                view=threshold_view,
             )
 
-        
         #### WEIRD ASPECT RATIO IMAGES ####
         inputs.bool(
             "weird_aspect_ratio",
@@ -277,10 +265,9 @@ class FindIssues(foo.Operator):
                 "weird_aspect_ratio_threshold",
                 default=0.5,
                 label="weird aspect ratio threshold",
-                view=threshold_view
+                view=threshold_view,
             )
 
-        
         #### LOW ENTROPY IMAGES ####
         inputs.bool(
             "low_entropy",
@@ -294,7 +281,7 @@ class FindIssues(foo.Operator):
                 "low_entropy_threshold",
                 default=5.0,
                 label="low entropy threshold",
-                view=threshold_view
+                view=threshold_view,
             )
 
         return types.Property(inputs, view=form_view)
@@ -308,18 +295,17 @@ class FindIssues(foo.Operator):
             find_bright_images(ctx.dataset, bright_threshold)
         if ctx.params.get("weird_aspect_ratio", False) == True:
             weird_aspect_ratio_threshold = ctx.params.get(
-                "weird_aspect_ratio_threshold", 
-                2.5
-                )
+                "weird_aspect_ratio_threshold", 2.5
+            )
             find_weird_aspect_ratio_images(
-                ctx.dataset, 
-                weird_aspect_ratio_threshold
-                )
+                ctx.dataset, weird_aspect_ratio_threshold
+            )
         if ctx.params.get("low_entropy", False) == True:
-            low_entropy_threshold = ctx.params.get("low_entropy_threshold", 5.0)
+            low_entropy_threshold = ctx.params.get(
+                "low_entropy_threshold", 5.0
+            )
             find_low_entropy_images(ctx.dataset, low_entropy_threshold)
         ctx.trigger("reload_dataset")
-
 
 
 def register(plugin):
