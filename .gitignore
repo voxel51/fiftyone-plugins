@@ -2,7 +2,11 @@
 .vscode
 
 __pycache__
+*/__pycache__
 *.py[cod]
+yarn.lock
+.yarn/
+.pnp.cjs
 
 *.egg-info
 .project
