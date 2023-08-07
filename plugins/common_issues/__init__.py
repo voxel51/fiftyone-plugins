@@ -35,8 +35,6 @@ def compute_sample_brightness(sample):
 
     ## equation from here:
     ## https://www.nbdtech.com/Blog/archive/2008/04/27/calculating-the-perceived-brightness-of-a-color.aspx
-    ## and here:
-    ## https://github.com/cleanlab/cleanvision/blob/72a1535019fe7b4636d43a9ef4e8e0060b8d66ec/src/cleanvision/issue_managers/image_property.py#L95
     brightness = (
         np.sqrt(0.241 * r**2 + 0.691 * g**2 + 0.068 * b**2) / 255
     )
