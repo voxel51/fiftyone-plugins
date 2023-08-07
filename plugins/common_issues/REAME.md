@@ -3,8 +3,7 @@
 ![2023-08-07 15 56 33](https://github.com/voxel51/fiftyone-plugins/assets/12500356/ff2302b3-e1ab-4aa0-b599-dd11c27952bb)
 
 This plugin is a Python plugin that allows you to find common issues in your
-image datasets. It is adapted from Cleanlab's
-[CleanVision library](https://github.com/cleanlab/cleanvision/tree/72a1535019fe7b4636d43a9ef4e8e0060b8d66ec).
+image datasets.
 
 With this plugin, you can:
 
