@@ -1,5 +1,7 @@
 ## Interpolation
 
+![interpolation](https://github.com/voxel51/fiftyone-plugins/assets/12500356/602e1049-75d7-4b54-bc5d-9e651d39b9c3)
+
 This plugin allows you to "interpolate" between two text prompts and see the
 results in the UI.
 
