@@ -1,10 +1,11 @@
 fiftyone:
-    version: '~0.21.0'
+  version: "~0.21.0"
 name: "@voxel51/common_issues"
 version: "1.0.0"
 description: "Find common issues in your image datasets"
+url: "https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/common_issues/REAME.md"
 operators:
-    - compute_brightness
-    - compute_aspect_ratio
-    - compute_entropy
-    - find_issues
+  - compute_brightness
+  - compute_aspect_ratio
+  - compute_entropy
+  - find_issues

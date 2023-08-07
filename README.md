@@ -17,6 +17,16 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment.
         <th colspan="3" >Links</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/common_issues/REAME.md">@voxel51/common_issues</a></b></td>
+        <td>Find common issues in your image datasets</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/common_issues/REAME.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/common_issues/REAME.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/common_issues/REAME.md#operators">Operators</a>
+        </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">@voxel51/examples</a></b></td>
         <td>Examples of how to use the operator type system to build custom FiftyOne operations</td>
         <td><code>1.0.0</code></td>
@@ -37,6 +47,16 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment.
         </td>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md">@voxel51/interpolation</a></b></td>
+        <td>Find images that best interpolate between two text-based extremes!</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md#operators">Operators</a>
+        </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>A collection of import/export utilities</td>
         <td><code>1.0.0</code></td>
@@ -54,6 +74,16 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment.
         <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md#installation">Install</a></td>
         <td>
             <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md#operators">Operators</a>
+        </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/txt2img/REAME.md">@voxel51/txt2img</a></b></td>
+        <td>Run a Text-to-image model</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/txt2img/REAME.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/txt2img/REAME.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/txt2img/REAME.md#operators">Operators</a>
         </td>
     </tr>
     <tr>

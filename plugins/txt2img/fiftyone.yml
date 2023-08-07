@@ -1,7 +1,8 @@
 fiftyone:
-    version: '~0.21.0'
+  version: "~0.21.0"
 name: "@voxel51/txt2img"
 version: "1.0.0"
 description: "Run a Text-to-image model"
+url: "https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/txt2img/REAME.md"
 operators:
-    - txt2img
+  - txt2img
