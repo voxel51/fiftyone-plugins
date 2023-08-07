@@ -1,11 +1,10 @@
+from bson import json_util
+import json
+from scipy import linalg
+
+
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-from time import sleep
-from scipy import linalg
-import json
-import numpy as np
-
-from bson import json_util
 
 
 def get_valid_indexes(dataset):
