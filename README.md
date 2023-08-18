@@ -94,13 +94,13 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment:
         </td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md">@voxel51/interpolation</a></b></td>
+        <td><b><a href="https://github.com/jacobmarks/concept-interpolation/blob/main/README.md">concept_interpolation</a></b></td>
         <td>Find images that best interpolate between two text-based extremes!</td>
         <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md#installation">Install</a></td>
+        <td><a href="https://github.com/jacobmarks/concept-interpolation/blob/main/README.md">About</a></td>
+        <td><a href="https://github.com/jacobmarks/concept-interpolation/blob/main/README.md#installation">Install</a></td>
         <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/interpolation/README.md#operators">Operators</a>
+            <a href="https://github.com/jacobmarks/concept-interpolation/blob/main/README.md#operators">Operators</a>
         </td>
     </tr>
 </table>
