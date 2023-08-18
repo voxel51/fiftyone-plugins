@@ -20,6 +20,26 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment:
         <th colspan="3" >Links</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">@voxel51/examples</a></b></td>
+        <td>Examples of how to use the operator type system to build custom FiftyOne operations</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#operators">Operators</a>
+        </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">@voxel51/hello-world</a></b></td>
+        <td>An example of JavaScript and Python components and operators in a single plugin</td>
+        <td><code>1.0.0</code></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">About</a></td>
+        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#installation">Install</a></td>
+        <td>
+            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#operators">Operators</a>
+        </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>A collection of import/export utilities</td>
         <td><code>1.0.0</code></td>
@@ -74,26 +94,6 @@ your [FiftyOne Teams](https://voxel51.com/fiftyone-teams) deployment:
         </td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">@voxel51/examples</a></b></td>
-        <td>Examples of how to use the operator type system to build custom FiftyOne operations</td>
-        <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#installation">Install</a></td>
-        <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/README.md#operators">Operators</a>
-        </td>
-    </tr>
-    <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">@voxel51/hello-world</a></b></td>
-        <td>An example of JavaScript and Python components and operators in a single plugin</td>
-        <td><code>1.0.0</code></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md">About</a></td>
-        <td><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#installation">Install</a></td>
-        <td>
-            <a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world/README.md#operators">Operators</a>
-        </td>
-    </tr>
-    <tr>
         <td><b><a href="https://github.com/jacobmarks/concept-interpolation/blob/main/README.md">concept_interpolation</a></b></td>
         <td>Find images that best interpolate between two text-based extremes!</td>
         <td><code>1.0.0</code></td>
@@ -130,13 +130,18 @@ pip install fiftyone
 
 ### Installing a plugin
 
-To install the latest version of a plugin listed above, simply run:
+To install the latest version of a plugin in the `Core Plugins` table above,
+simply run:
 
 ```shell
 fiftyone plugins download \
     https://github.com/voxel51/fiftyone-plugins \
     --plugin-names <name>
 ```
+
+To install the latest version of a plugin in the `Example Plugins` table above,
+click on the `Install` link for that plugin and run the command in the
+corresponding README.
 
 ### Plugin management
 
