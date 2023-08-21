@@ -33,3 +33,5 @@ node_modules/
 
 packages/fiftyone-docs-search
 packages/watch_importer
+
+.yarn/cache/*
