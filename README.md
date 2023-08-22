@@ -30,7 +30,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
-        <td>A collection of import/export utilities</td>
+        <td>📁 A collection of import/export utilities</td>
     </tr>
 </table>
 
@@ -43,7 +43,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/voxelgpt">@voxel51/voxelgpt</a></b></td>
-        <td>An AI assistant that can query visual datasets, search the FiftyOne docs, and answer general computer vision questions</td>
+        <td>🤖 An AI assistant that can query visual datasets, search the FiftyOne docs, and answer general computer vision questions</td>
     </tr>
 </table>
 
@@ -60,7 +60,7 @@ Want to showcase your own plugin here? See the
     </tr>
         <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md">@voxel51/python-view</a></b></td>
-        <td>Create views in the FiftyOne App with Python</td>
+        <td>🔎 Create views in the FiftyOne App with Python</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/">@voxel51/examples</a></b></td>
