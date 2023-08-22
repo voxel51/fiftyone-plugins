@@ -91,6 +91,10 @@ the following categories:
         <td><b><a href="https://github.com/jacobmarks/concept-interpolation">@jacobmarks/concept_interpolation</a></b></td>
         <td>📈 Find images that best interpolate between two text-based extremes!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/ai-art-gallery">@jacobmarks/ai_art_gallery</a></b></td>
+        <td>🎨 Create your own AI Art Gallery with Text-to-image models and FiftyOne!</td>
+    </tr>
 </table>
 
 ## Usage
