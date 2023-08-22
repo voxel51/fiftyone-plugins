@@ -1,23 +1,25 @@
-# FiftyOne Plugins 🧩
+# FiftyOne Plugins 🔌🚀
 
-This repository contains multiple collections of
+A curated collection of
 [FiftyOne Plugins](https://docs.voxel51.com/plugins/index.html), organized into
 the following categories:
 
-1. [Core Plugins](#core-plugins): These are "built-in" plugins housing core
-   functionality. They are maintained by the FiftyOne team.
-2. [1st Party Plugins](#1st-party-plugins): These are plugins that are
-   maintained by the FiftyOne team, but are not core functionality.
-3. [Example Plugins](#example-plugins): These are example plugins that are here
-   to inspire you to create your own plugins! Each emphasizes a different
-   aspect of the plugin system.
-4. [3rd Party Plugins](#3rd-party-plugins): These are plugins that are
-   maintained by the community. They are not officially supported by the
-   FiftyOne team.
+-   [Core Plugins](#core-plugins): core functionality that all FiftyOne users
+    will likely want to install. These plugins are maintained by the FiftyOne
+    team
+-   [Voxel51 Plugins](#voxel51-plugins): non-core plugins that are officially
+    maintained by the FiftyOne team
+-   [Example Plugins](#example-plugins): these plugins exist to inspire and
+    educate you to create your own plugins! Each emphasizes a different aspect
+    of the plugin system
+-   [Community Plugins](#community-plugins): third-party plugins that are
+    contributed and maintained by the community. These plugins are not
+    officially supported by the FiftyOne team, but they're likely awesome!
 
-> 🔌 ➕ 🤝 **Contribute Your Own Plugin 🚀🚀:** Want to showcase your own
-> plugin here? See the [contributing](#contributing) section below for
-> instructions!
+🔌🤝 **Contribute Your Own Plugin** 🚀🚀
+
+Want to showcase your own plugin here? See the
+[contributing section](#contributing) for instructions!
 
 ## Core Plugins
 
@@ -25,32 +27,23 @@ the following categories:
     <tr>
         <th>Name</th>
         <th>Description</th>
-        <th>Version</th>
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>A collection of import/export utilities</td>
-        <td><code>1.0.0</code></td>
-    </tr>
-    <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md">@voxel51/python-view</a></b></td>
-        <td>Create views in the FiftyOne App with Python</td>
-        <td><code>1.0.0</code></td>
     </tr>
 </table>
 
-## 1st Party Plugins
+## Voxel51 Plugins
 
 <table>
     <tr>
         <th>Name</th>
         <th>Description</th>
-        <th>Version</th>
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/voxelgpt">@voxel51/voxelgpt</a></b></td>
         <td>An AI assistant that can query visual datasets, search the FiftyOne docs, and answer general computer vision questions</td>
-        <td><code>1.0.0</code></td>
     </tr>
 </table>
 
@@ -62,21 +55,26 @@ the following categories:
         <th>Description</th>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world">Hello world</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world">@voxel51/hello-world</a></b></td>
         <td>👋 An example of JavaScript and Python components and operators in a single plugin</td>
     </tr>
+        <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md">@voxel51/python-view</a></b></td>
+        <td>Create views in the FiftyOne App with Python</td>
+    </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/">Python Examples</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/">@voxel51/examples</a></b></td>
         <td>📋 Examples of how to use the operator type system to build custom FiftyOne operations</td>
     </tr>
     
 </table>
 
-## 3rd Party Plugins
+## Community Plugins
 
-> 🔌 ➕ 🤝 **Contribute Your Own Plugin 🚀🚀:** Want to showcase your own
-> plugin here? See the [contributing](#contributing) section below for
-> instructions!
+🔌🤝 **Contribute Your Own Plugin** 🚀🚀
+
+Want to showcase your own plugin here? See the
+[contributing section](#contributing) for instructions!
 
 <table>
     <tr>
@@ -97,18 +95,7 @@ the following categories:
     </tr>
 </table>
 
-## Usage
-
-There are a few ways to use this repository:
-
-1.  **User:** download and use the plugins! Click on the links in the table
-    above for more details about using each one
-2.  **Reference:** use these plugins as inspiration/starter skeletons for
-    building your own plugins
-3.  **Contributor:** dive in and [contribute](CONTRIBUTING.md) to a new or
-    existing plugin in this repository!
-
-## Installation
+## Using Plugins
 
 ### Install FiftyOne
 
@@ -121,24 +108,19 @@ pip install fiftyone
 
 ### Installing a plugin
 
-To install one of the plugins listed above, click on the link for that plugin
-and navigate to the `Installation` section of the project's README.
-
-In general, you can install all of the plugins in a GitHub repository by
-running:
+In general, you can install all plugin(s) in a GitHub repository by running:
 
 ```shell
 fiftyone plugins download https://github.com/path/to/repo
 ```
 
-For instance, to install all of the plugins in this repository, you can run:
+For instance, to install all plugins in this repository, you can run:
 
 ```shell
 fiftyone plugins download https://github.com/voxel51/fiftyone-plugins
 ```
 
-To install a specific plugin in a repository, you can use the `--plugin-names`
-flag:
+You can also install a specific plugin using the `--plugin-names` flag:
 
 ```shell
 fiftyone plugins download \
@@ -146,9 +128,14 @@ fiftyone plugins download \
     --plugin-names <name>
 ```
 
+**💡 Pro tip:** Some plugins require additional setup. Click the plugin's link
+and navigate to the project's README for instructions.
+
 ### Plugin management
 
-You can use the CLI commands below to manage your downloaded plugins:
+You can use the
+[CLI commands](https://docs.voxel51.com/cli/index.html#fiftyone-plugins) below
+to manage your downloaded plugins:
 
 ```shell
 # List all plugins you've downloaded
@@ -174,24 +161,34 @@ cd /path/to/fiftyone-plugins
 ln -s "$(pwd)" "$(fiftyone config plugins_dir)/fiftyone-plugins"
 ```
 
-## 🤝 Contributing
+## Contributing
 
-### Contributing a new plugin
+### Showcasing your plugin 🤝
 
 Have a plugin you'd like to share with the community? Awesome! 🎉🎉🎉
 
-To contribute a new plugin, please follow these steps:
+Just follow these steps to add your plugin to this repository:
 
-1. Make sure your plugin repo has a `README.md` file that describes the plugin,
-   with an `Installation` section that describes how to install the plugin.
-2. Fork this repository
-3. Add an entry for your plugin to the [3rd Party Plugins](#3rd-party-plugins)
-   table above
-4. Submit a pull request!
+1.  Make sure your plugin repo has a `README.md` file that describes the plugin
+    and how to install it
+2.  Fork this repository
+3.  Add an entry for your plugin to the [Community Plugins](#community-plugins)
+    table above
+4.  Submit a pull request into this repository
 
-### Contributing to this repository
+### Contributing to this repository 🙌
 
-Check out the [contributions guide](CONTRIBUTING.md) for instructions.
+You're also welcome to contribue to the plugins that live natively in this
+repository. Check out the [contributions guide](CONTRIBUTING.md) for
+instructions.
+
+## Join the Community
+
+If you want join a fast-growing community of engineers, researchers, and
+practitioners who love computer vision, join the
+[FiftyOne Slack community](https://slack.voxel51.com/) 🚀🚀🚀
+
+**💡 Pro tip:** the `#plugins` channel is a great place to discuss plugins!
 
 ## About FiftyOne
 
@@ -202,11 +199,3 @@ FiftyOne is an open source library for building high-quality datasets and
 computer vision models. It's the engine that powers this project.
 
 Thanks for visiting! 😊
-
-## Join the Community
-
-If you want join a fast-growing community of engineers, researchers, and
-practitioners who love computer vision, join the
-[FiftyOne Slack community](https://slack.voxel51.com/)! 🚀🚀🚀
-
-> 💡 **Pro Tip:** The `#plugins` channel is a great place to discuss plugins!
