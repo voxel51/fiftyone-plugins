@@ -315,21 +315,11 @@ class SendToCVAT(foo.Operator):
             )
             task_name = ctx.params.get("task_name", None)
 
-        # Estimate export size
-        if export_dir is not None:
-            label_field = ctx.params.get("label_field", None)
-            size_bytes = _estimate_export_size(
-                target_view, export_type, label_field
-            )
-            size_str = etau.to_human_bytes_str(size_bytes)
-            label = f"Estimated export size: {size_str}"
-            inputs.view("estimate", types.Notice(label=label))
-
         return types.Property(inputs, view=types.View(label="Export samples"))
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
-        export_dir = ctx.params["export_dir"]
+        task_name = ctx.params["task_name"]
         export_type = ctx.params["export_type"]
         dataset_type = ctx.params.get("dataset_type", None)
         label_field = ctx.params.get("label_field", None)
@@ -349,7 +339,8 @@ class SendToCVAT(foo.Operator):
             export_media = False
         else:
             dataset_type = _DATASET_TYPES[dataset_type]
-
+    
+        target_view.name = task_name
         batched_send_to_cvat(
             target_view,
             ['Desktop Monitor', 'Printer'],
