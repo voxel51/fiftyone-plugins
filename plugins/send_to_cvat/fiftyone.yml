@@ -1,4 +1,4 @@
-name: "@voxel51/io"
+name: "@voxel51/send_to_cvat"
 description: A collection of import/export utilities
 version: 1.0.0
 fiftyone:
