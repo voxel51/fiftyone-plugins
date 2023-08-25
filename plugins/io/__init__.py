@@ -15,7 +15,8 @@ import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.types as fot
-
+import logging
+from vision.tools.config import CLASS_LISTS
 
 class AddSamples(foo.Operator):
     @property
@@ -156,8 +157,6 @@ def batched_send_to_cvat(
         dataset_chunk.name = dataset_name + f'_{counter}'
         # size limit of ~ 200 images (1920 * 1080)
         
-        print(dataset.name)
-        
         try:
             dataset_chunk.annotate(
                 'NA',
@@ -233,77 +232,21 @@ class SendToCVAT(foo.Operator):
         else:
             target_str = "dataset"
 
-        # Choose whether to export media and/or labels
-        export_choices = types.Choices()
-        export_choices.add_choice(
-            "FILEPATHS_ONLY",
-            label="Filepaths only",
-            description=f"Export the filepaths of the {target_str}",
-        )
-        export_choices.add_choice(
-            "MEDIA_ONLY",
-            label="Media only",
-            description=f"Export media of the {target_str}",
-        )
-        export_choices.add_choice(
-            "LABELS_ONLY",
-            label="Labels only",
-            description=f"Export labels of the {target_str}",
-        )
-        export_choices.add_choice(
-            "MEDIA_AND_LABELS",
-            label="Media and labels",
-            description=f"Export media and labels of the {target_str}",
-        )
+        export_type =  'MEDIA AND LABELS'
+        dataset_type = 'COCO'
+
+        label_field_choices = types.Dropdown()
+        for field in _get_label_fields(target_view, dataset_type):
+            label_field_choices.add_choice(field, label=field)
 
         inputs.enum(
-            "export_type",
-            export_choices.values(),
+            "label_field",
+            label_field_choices.values(),
             required=True,
-            label="Export type",
-            description="Choose what to export",
-            view=export_choices,
+            label="Label field",
+            description="The field containing the labels to export",
+            view=label_field_choices,
         )
-        export_type = ctx.params.get("export_type", None)
-
-        # Choose the label field(s) to export, if applicable
-        if export_type in ("LABELS_ONLY", "MEDIA_AND_LABELS"):
-            dataset_type_choices = _get_labeled_dataset_types(target_view)
-            inputs.enum(
-                "dataset_type",
-                dataset_type_choices,
-                required=True,
-                label="Label format",
-                description="The label format in which to export",
-            )
-
-            dataset_type = ctx.params.get("dataset_type", None)
-            if dataset_type == "CSV Dataset":
-                field_choices = types.Dropdown(multiple=True)
-                for field in _get_csv_fields(target_view):
-                    field_choices.add_choice(field, label=field)
-
-                inputs.list(
-                    "label_field",
-                    types.String(),
-                    required=True,
-                    label="Fields",
-                    description="Field(s) to include as columns of the CSV",
-                    view=field_choices,
-                )
-            elif dataset_type not in ("FiftyOne Dataset", None):
-                label_field_choices = types.Dropdown()
-                for field in _get_label_fields(target_view, dataset_type):
-                    label_field_choices.add_choice(field, label=field)
-
-                inputs.enum(
-                    "label_field",
-                    label_field_choices.values(),
-                    required=True,
-                    label="Label field",
-                    description="The field containing the labels to export",
-                    view=label_field_choices,
-                )
 
         # Choose an export directory
         if export_type is not None:
@@ -315,40 +258,39 @@ class SendToCVAT(foo.Operator):
             )
             task_name = ctx.params.get("task_name", None)
 
+            model_name_prop = inputs.str(
+                "model_name",
+                required=True,
+                label="Model Name",
+                description="Selected Model Name to determine class list",
+            )
+            model_name = ctx.params.get("model_name", None)
+ 
         return types.Property(inputs, view=types.View(label="Export samples"))
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
         task_name = ctx.params["task_name"]
-        export_type = ctx.params["export_type"]
-        dataset_type = ctx.params.get("dataset_type", None)
+        model_name = ctx.params["model_name"]
+        export_type = 'MEDIA AND LABELS'
+        dataset_type = 'COCO' 
         label_field = ctx.params.get("label_field", None)
 
         target_view = _get_target_view(ctx, target)
         export_media = True
-
-        if export_type == "MEDIA_ONLY":
-            dataset_type = fot.MediaDirectory
-            label_field = None
-        elif export_type == "FILEPATHS_ONLY":
-            dataset_type = fot.CSVDataset
-            label_field = "filepath"
-            export_media = False
-        elif export_type == "LABELS_ONLY":
-            dataset_type = _DATASET_TYPES[dataset_type]
-            export_media = False
-        else:
-            dataset_type = _DATASET_TYPES[dataset_type]
-    
-        target_view.name = task_name
+        dataset_type = _DATASET_TYPES[dataset_type]
+        
+        class_list = CLASS_LISTS[model_name]
+        dataset = target_view.clone()
+        dataset.name = task_name
         batched_send_to_cvat(
-            target_view,
-            ['Desktop Monitor', 'Printer'],
+            dataset,
+            class_list,
             task_size=30,
-            label_field='detections',
+            label_field=label_field,
         )
 
-        return {"count": len(target_view), "task_name": task_name}
+        return {"count": len(dataset), "task_name": task_name}
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -359,12 +301,12 @@ class SendToCVAT(foo.Operator):
             description="The number of samples that were exported",
         )
         outputs.str(
-            "export_dir",
-            label="Export directory",
-            description="The directory that the data was exported to",
+            "task_name",
+            label="Task Name",
+            description="The name of the task created in CVAT",
         )
 
-        view = types.View(label="Export complete")
+        view = types.View(label="Successfully send to CVAT")
         return types.Property(outputs, view=view)
 
 
@@ -731,3 +673,4 @@ _OTHER_TYPES = [
     "FiftyOne Dataset",
     "CSV Dataset",
 ]
+

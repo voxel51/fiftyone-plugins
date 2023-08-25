@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-i4bv87-MuiSvgIcon-root"
-    style="height:1rem;margin-right:0.5rem;width:1rem" aria-hidden="true"
-    data-testid="ScatterPlotIcon" focusable="false" viewBox="0 0 24 24"
-    xmlns="http://www.w3.org/2000/svg" fill="#ffffff">
-    <circle cx="7" cy="14" r="3" />
-    <circle cx="11" cy="6" r="3" />
-    <circle cx="16.6" cy="17.6" r="3" />
-</svg>

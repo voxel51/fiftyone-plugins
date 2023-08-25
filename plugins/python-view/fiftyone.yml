@@ -1,9 +1,0 @@
-name: "@voxel51/python-view"
-description: Create views in the FiftyOne App with Python
-version: 1.0.0
-fiftyone:
-  version: "*"
-url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md
-license: Apache 2.0
-operators:
-  - create_view_with_python
