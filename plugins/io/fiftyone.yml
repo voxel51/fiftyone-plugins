@@ -1,4 +1,4 @@
-name: "@voxel51/send_to_cvat_new"
+name: "@voxel51/io"
 description: A collection of import/export utilities
 version: 1.0.0
 fiftyone:
@@ -8,4 +8,4 @@ license: Apache 2.0
 operators:
   - add_samples
   - export_samples
-  - send_to_cvat_new
+  - send_to_cvat
