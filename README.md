@@ -93,6 +93,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/ai-art-gallery">@jacobmarks/ai_art_gallery</a></b></td>
         <td>🎨 Create your own AI Art Gallery with Text-to-image models and FiftyOne!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/twilio-automation-plugin">@jacobmarks/twilio_automation</a></b></td>
+        <td>📲  Automate data ingestion with Twilio!</td>
+    </tr>
 </table>
 
 ## Using Plugins
