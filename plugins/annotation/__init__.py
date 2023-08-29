@@ -938,6 +938,78 @@ def load_annotations(ctx, inputs):
     return True
 
 
+class ListAnnotationRuns(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="list_annotation_runs",
+            label="List annotation runs",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs_style = types.View(label="List annotations")
+
+        anno_key = get_anno_key(ctx, inputs)
+
+        if anno_key:
+            annotation_run_actions(ctx, inputs, anno_key)
+
+        return types.Property(inputs, view=inputs_style)
+
+    def execute(self, ctx):
+        pass
+
+
+def annotation_run_actions(ctx, inputs, anno_key):
+    choices = types.TabsView()
+    choices.add_choice("INFO", label="Info")
+    choices.add_choice("RENAME", label="Rename")
+    choices.add_choice("DELETE", label="Delete")
+    inputs.enum(
+        "action",
+        choices.values(),
+        required=True,
+        default="INFO",
+        label="Actions",
+        view=choices,
+    )
+    action = ctx.params.get("action", "INFO")
+
+    if action == "INFO":
+        button = types.Button(
+            label="Show info",
+            operator="@voxel51/annotation/get_annotation_info",
+            params={"anno_key": anno_key},
+        )
+
+        inputs.view("info", button)
+    elif action == "RENAME":
+        new_anno_key = get_new_anno_key(
+            ctx, inputs, name="new_anno_key", label="New annotation key"
+        )
+
+        if not new_anno_key:
+            return
+
+        button = types.Button(
+            label="Rename run",
+            operator="@voxel51/annotation/rename_annotation_run",
+            params={"anno_key": anno_key, "new_anno_key": new_anno_key},
+        )
+
+        inputs.view("delete", button)
+    elif action == "DELETE":
+        button = types.Button(
+            label="Delete run",
+            operator="@voxel51/annotation/delete_annotation_run",
+            params={"anno_key": anno_key},
+        )
+
+        inputs.view("delete", button)
+
+
 class GetAnnotationInfo(foo.Operator):
     @property
     def config(self):
@@ -1190,6 +1262,7 @@ def _execution_mode(ctx, inputs):
 def register(p):
     p.register(RequestAnnotations)
     p.register(LoadAnnotations)
+    p.register(ListAnnotationRuns)
     p.register(GetAnnotationInfo)
     p.register(LoadAnnotationView)
     p.register(RenameAnnotationRun)
