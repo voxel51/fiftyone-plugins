@@ -29,10 +29,13 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+<<<<<<< HEAD
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>📁 A collection of import/export utilities</td>
     </tr>
     <tr>
+=======
+>>>>>>> a529d3b (regenerating table)
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/annotation/README.md">@voxel51/annotation</a></b></td>
         <td>✏️ Utilities for integrating FiftyOne with annotation tools</td>
     </tr>
