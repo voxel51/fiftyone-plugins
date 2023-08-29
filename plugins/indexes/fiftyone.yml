@@ -1,0 +1,9 @@
+name: "@voxel51/indexes"
+description: Utilities working with FiftyOne database indexes
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/indexes/README.md
+license: Apache 2.0
+operators:
+  - manage_indexes
