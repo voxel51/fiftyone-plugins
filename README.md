@@ -66,7 +66,6 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/">@voxel51/examples</a></b></td>
         <td>📋 Examples of how to use the operator type system to build custom FiftyOne operations</td>
     </tr>
-    
 </table>
 
 ## Community Plugins
