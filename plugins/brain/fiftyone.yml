@@ -1,0 +1,12 @@
+name: "@voxel51/brain"
+description: Utilities for working with the FiftyOne Brain
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/brain/README.md
+license: Apache 2.0
+operators:
+  - compute_visualization
+  - get_brain_info
+  - rename_brain_run
+  - delete_brain_run
