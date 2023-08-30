@@ -96,6 +96,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/twilio-automation-plugin">@jacobmarks/twilio_automation</a></b></td>
         <td>📲  Automate data ingestion with Twilio!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/wayofsamu/line2d">@wayofsamu/line2d</a></b></td>
+        <td>📉 Visualize x,y-Points as a line chart.</td>
+    </tr>
 </table>
 
 ## Using Plugins
