@@ -3,6 +3,7 @@ import fiftyone.operators.types as types
 import fiftyone as fo
 import asyncio
 import json
+import os
 
 ###
 # Messages
@@ -533,13 +534,23 @@ class FileExplorerExample(foo.Operator):
     
     def resolve_input(self, ctx):
         inputs = types.Object()
-        default_file = {} # fofs.get_file_for_path(os.environ.get("HOME"))
-        explorer = types.FileExplorerView(choose_file=True, default=default_file)
-        inputs.define_property("file", types.File(), label="Choose a file", view=explorer)
+        file_explorer = types.FileExplorerView(choose_file=True, default_path=os.environ.get("HOME"))
+        inputs.define_property("file", types.File(), label="Choose a file", view=file_explorer)
+        dir_explorer = types.FileExplorerView(choose_dir=True, default_path=os.environ.get("HOME"))
+        inputs.define_property("dir", types.File(), label="Choose a dir", view=dir_explorer)
         return types.Property(inputs)
 
     def execute(self, ctx):
-        return {"path": ctx.params.get('file', {}).get('path')}
+        return {
+            "file": ctx.params.get('file', {}).get('absolute_path', 'none'),
+            "dir": ctx.params.get('dir', {}).get('absolute_path', 'none')
+        }
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("file", label="File")
+        outputs.str("dir", label="Directory")
+        return types.Property(outputs)
 
 def register(p):
     p.register(MessageExamples)

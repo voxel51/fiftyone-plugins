@@ -247,13 +247,20 @@ class ExportSamples(foo.Operator):
 
         # Choose an export directory
         if export_type is not None:
-            export_prop = inputs.str(
+            export_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a directory...",
+                choose_button_label="Export",
+                default_path=os.environ.get("HOME")
+            )
+            export_prop = inputs.file(
                 "export_dir",
                 label="Export directory",
                 required=True,
                 description="The directory at which to write the export",
+                view=export_explorer
             )
-            export_dir = ctx.params.get("export_dir", None)
+            export_dir = ctx.params.get("export_dir", {}).get("absolute_path", None)
 
             if export_dir is not None and os.path.isdir(export_dir):
                 inputs.bool(
@@ -286,7 +293,7 @@ class ExportSamples(foo.Operator):
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
-        export_dir = ctx.params["export_dir"]
+        export_dir = ctx.params.get("export_dir", {}).get("absolute_path", None)
         export_type = ctx.params["export_type"]
         dataset_type = ctx.params.get("dataset_type", None)
         label_field = ctx.params.get("label_field", None)
