@@ -100,6 +100,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/wayofsamu/line2d">@wayofsamu/line2d</a></b></td>
         <td>📉 Visualize x,y-Points as a line chart.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/vqa-plugin">@jacobmarks/vqa-plugin</a></b></td>
+        <td>❔ Ask (and answer) open-ended visual questions about your images!</td>
+    </tr>
 </table>
 
 ## Using Plugins
