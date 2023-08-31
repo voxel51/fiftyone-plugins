@@ -44,18 +44,26 @@ class AddSamples(foo.Operator):
 
         if style == "DIRECTORY":
             # Choose a directory
-            dir_prop = inputs.str(
-                "directory",
-                required=True,
-                label="Directory",
+            import_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a directory...",
+                choose_button_label="Import",
+                default_path=os.environ.get("HOME")
             )
-            directory = ctx.params.get("directory", None)
+            dir_prop = inputs.file(
+                "directory",
+                label="Directory",
+                required=True,
+                description="The directory to import the samples from",
+                view=import_explorer
+            )
+            directory = ctx.params.get("directory", {}).get("absolute_path", None)
 
             # Validate
             if directory:
                 n = len(_glob_files(directory=directory))
                 if n > 0:
-                    dir_prop.view = types.View(caption=f"Found {n} files")
+                    dir_prop.view.caption = f"Found {n} files"
                 else:
                     dir_prop.invalid = True
                     dir_prop.error_message = "No matching files"
