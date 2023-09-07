@@ -104,6 +104,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/vqa-plugin">@jacobmarks/vqa-plugin</a></b></td>
         <td>❔ Ask (and answer) open-ended visual questions about your images!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/fiftyone-youtube-panel-plugin/">@jacobmarks/youtube_panel_plugin</a></b></td>
+        <td>📺 Play YouTube videos in the FiftyOne App!</td>
+    </tr>
 </table>
 
 ## Using Plugins
