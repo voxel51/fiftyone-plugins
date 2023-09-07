@@ -5,12 +5,10 @@ I/O operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-import os
-import glob
-
 import eta.core.utils as etau
 
 import fiftyone as fo
+import fiftyone.core.storage as fos
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -43,39 +41,59 @@ class AddSamples(foo.Operator):
         style = ctx.params.get("style", "DIRECTORY")
 
         if style == "DIRECTORY":
-            # Choose a directory
-            dir_prop = inputs.str(
+            file_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a directory...",
+            )
+            dir_prop = inputs.file(
                 "directory",
                 required=True,
                 label="Directory",
+                description=(
+                    "Choose a directory of media to add to this dataset"
+                ),
+                view=file_explorer,
             )
-            directory = ctx.params.get("directory", None)
+            directory = ctx.params.get("directory", {}).get(
+                "absolute_path", None
+            )
 
-            # Validate
             if directory:
                 n = len(_glob_files(directory=directory))
                 if n > 0:
-                    dir_prop.view = types.View(caption=f"Found {n} files")
+                    dir_prop.view.caption = f"Found {n} files"
                 else:
                     dir_prop.invalid = True
                     dir_prop.error_message = "No matching files"
+            else:
+                dir_prop.view.caption = None
         else:
-            # Choose a glob pattern
-            glob_prop = inputs.str(
+            file_explorer = types.FileExplorerView(
+                button_label="Provide a glob pattern...",
+            )
+            glob_prop = inputs.file(
                 "glob_patt",
                 required=True,
                 label="Glob pattern",
+                description=(
+                    "Provide a glob pattern of matching media to add to this "
+                    "dataset"
+                ),
+                view=file_explorer,
             )
-            glob_patt = ctx.params.get("glob_patt", None)
+            glob_patt = ctx.params.get("glob_patt", {}).get(
+                "absolute_path", None
+            )
 
-            # Validate
             if glob_patt:
                 n = len(_glob_files(glob_patt=glob_patt))
                 if n > 0:
-                    glob_prop.view = types.View(caption=f"Found {n} files")
+                    glob_prop.view.caption = f"Found {n} files"
                 else:
                     glob_prop.invalid = True
                     glob_prop.error_message = "No matching files"
+            else:
+                glob_prop.view.caption = None
 
         return types.Property(inputs, view=types.View(label="Add samples"))
 
@@ -246,15 +264,22 @@ class ExportSamples(foo.Operator):
 
         # Choose an export directory
         if export_type is not None:
-            export_prop = inputs.str(
-                "export_dir",
-                label="Export directory",
-                required=True,
-                description="The directory at which to write the export",
+            file_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a directory...",
             )
-            export_dir = ctx.params.get("export_dir", None)
+            export_prop = inputs.file(
+                "directory",
+                required=True,
+                label="Directory",
+                description="Choose a directory at which to write the export",
+                view=file_explorer,
+            )
+            export_dir = ctx.params.get("directory", {}).get(
+                "absolute_path", None
+            )
 
-            if export_dir is not None and os.path.isdir(export_dir):
+            if export_dir is not None and fos.isdir(export_dir):
                 inputs.bool(
                     "overwrite",
                     default=True,
@@ -342,10 +367,7 @@ def _glob_files(directory=None, glob_patt=None):
     if directory is not None:
         glob_patt = f"{directory}/*"
 
-    try:
-        return glob.glob(glob_patt, recursive=True)
-    except:
-        return []
+    return fos.get_glob_matches(glob_patt)
 
 
 def _get_target_view(ctx, target):
