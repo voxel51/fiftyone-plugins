@@ -7,7 +7,6 @@ Annotation operators.
 """
 import json
 import os
-
 from bson import json_util
 
 import fiftyone as fo
