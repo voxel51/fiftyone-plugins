@@ -108,6 +108,11 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/fiftyone-youtube-panel-plugin/">@jacobmarks/youtube_panel_plugin</a></b></td>
         <td>📺 Play YouTube videos in the FiftyOne App!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/image-deduplication-plugin/">@jacobmarks/image_deduplication</a></b></td>
+        <td>🪞 Find exact and approximate duplicates in your dataset!</td>
+    </tr>
+    
 </table>
 
 ## Using Plugins
