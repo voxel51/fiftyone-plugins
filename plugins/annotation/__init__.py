@@ -42,6 +42,7 @@ class RequestAnnotations(foo.Operator):
         target = kwargs.pop("target", None)
         anno_key = kwargs.pop("anno_key")
         backend = kwargs.pop("backend")
+        kwargs.pop("delegate")
 
         # Parse label schema
         kwargs.pop("schema_type")
