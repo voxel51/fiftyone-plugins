@@ -149,6 +149,7 @@ class ComputeSimilarity(foo.Operator):
         brain_key = kwargs.pop("brain_key")
         model = kwargs.pop("model", None)
         backend = kwargs.pop("backend", None)
+        kwargs.pop("delegate")
 
         _get_similarity_backend(backend).parse_parameters(ctx, kwargs)
 
@@ -490,6 +491,7 @@ class ComputeMistakenness(foo.Operator):
         pred_field = kwargs.pop("pred_field")
         label_field = kwargs.pop("label_field")
         mistakenness_field = kwargs.pop("mistakenness_field")
+        kwargs.pop("delegate")
 
         target_view = _get_target_view(ctx, target)
         fob.compute_mistakenness(
