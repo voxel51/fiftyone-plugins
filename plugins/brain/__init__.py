@@ -36,10 +36,15 @@ class ComputeVisualization(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        compute_visualization(ctx, inputs)
+        ready = compute_visualization(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Compute visualization")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -68,7 +73,7 @@ class ComputeVisualization(foo.Operator):
 def compute_visualization(ctx, inputs):
     complete = brain_init(ctx, inputs)
     if not complete:
-        return
+        return False
 
     method_choices = types.DropdownView()
     method_choices.add_choice(
@@ -111,6 +116,8 @@ def compute_visualization(ctx, inputs):
         description="An optional random seed to use",
     )
 
+    return True
+
 
 class ComputeSimilarity(foo.Operator):
     @property
@@ -124,10 +131,15 @@ class ComputeSimilarity(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        compute_similarity(ctx, inputs)
+        ready = compute_similarity(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Compute similarity")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -158,9 +170,9 @@ class ComputeSimilarity(foo.Operator):
 
 
 def compute_similarity(ctx, inputs):
-    complete = brain_init(ctx, inputs)
-    if not complete:
-        return
+    ready = brain_init(ctx, inputs)
+    if not ready:
+        return False
 
     default_backend = fob.brain_config.default_similarity_backend
     backends = fob.brain_config.similarity_backends
@@ -182,6 +194,8 @@ def compute_similarity(ctx, inputs):
     backend = ctx.params.get("backend", default_backend)
 
     _get_similarity_backend(backend).get_parameters(ctx, inputs)
+
+    return True
 
 
 def _get_similarity_backend(backend):
@@ -378,10 +392,15 @@ class ComputeUniqueness(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        compute_uniqueness(ctx, inputs)
+        ready = compute_uniqueness(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Compute uniqueness")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -415,7 +434,7 @@ def compute_uniqueness(ctx, inputs):
         ),
     )
     if uniqueness_field is None:
-        return
+        return False
 
     roi_fields = _get_label_fields(
         target_view,
@@ -440,6 +459,8 @@ def compute_uniqueness(ctx, inputs):
 
     get_embeddings(ctx, inputs, target_view, roi_field)
 
+    return True
+
 
 class ComputeMistakenness(foo.Operator):
     @property
@@ -453,10 +474,15 @@ class ComputeMistakenness(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        compute_mistakenness(ctx, inputs)
+        ready = compute_mistakenness(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Compute mistakenness")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -499,7 +525,7 @@ def compute_mistakenness(ctx, inputs):
         prop = inputs.view("warning", warning)
         prop.invalid = True
 
-        return
+        return False
 
     mistakenness_field = get_new_brain_key(
         ctx,
@@ -512,7 +538,7 @@ def compute_mistakenness(ctx, inputs):
         ),
     )
     if mistakenness_field is None:
-        return
+        return False
 
     label_field_choices = types.DropdownView()
     for field_name in sorted(label_fields):
@@ -529,7 +555,7 @@ def compute_mistakenness(ctx, inputs):
 
     label_field = ctx.params.get("label_field", None)
     if label_field is None:
-        return
+        return False
 
     label_type = target_view._get_label_field_type(label_field)
     pred_fields = set(
@@ -545,7 +571,7 @@ def compute_mistakenness(ctx, inputs):
         prop = inputs.view("warning", warning)
         prop.invalid = True
 
-        return
+        return False
 
     pred_field_choices = types.DropdownView()
     for field_name in sorted(pred_fields):
@@ -562,7 +588,7 @@ def compute_mistakenness(ctx, inputs):
 
     pred_field = ctx.params.get("pred_field", None)
     if pred_field is None:
-        return
+        return False
 
     inputs.bool(
         "use_logits",
@@ -576,7 +602,7 @@ def compute_mistakenness(ctx, inputs):
     )
 
     if label_type not in (fo.Detections, fo.Polylines, fo.Keypoints):
-        return
+        return False
 
     inputs.str(
         "missing_field",
@@ -610,6 +636,8 @@ def compute_mistakenness(ctx, inputs):
         ),
     )
 
+    return True
+
 
 def _get_label_fields(sample_collection, label_types):
     schema = sample_collection.get_field_schema(embedded_doc_type=label_types)
@@ -628,10 +656,15 @@ class ComputeHardness(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        compute_hardness(ctx, inputs)
+        ready = compute_hardness(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Compute hardness")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -662,7 +695,7 @@ def compute_hardness(ctx, inputs):
         prop = inputs.view("warning", warning)
         prop.invalid = True
 
-        return
+        return False
 
     hardnesss_field = get_new_brain_key(
         ctx,
@@ -675,7 +708,7 @@ def compute_hardness(ctx, inputs):
         ),
     )
     if hardnesss_field is None:
-        return
+        return False
 
     label_field_choices = types.DropdownView()
     for field_name in sorted(label_fields):
@@ -689,6 +722,12 @@ def compute_hardness(ctx, inputs):
         description="The classification field to use from each sample",
         view=label_field_choices,
     )
+
+    label_field = ctx.params.get("label_field", None)
+    if label_field is None:
+        return False
+
+    return True
 
 
 def brain_init(ctx, inputs):
@@ -1163,6 +1202,37 @@ def get_brain_key(
 
     return ctx.params.get("brain_key", None)
 
+
+def _execution_mode(ctx, inputs):
+    delegate = ctx.params.get("delegate", False)
+
+    if delegate:
+        description = "Uncheck this box to execute the operation immediately"
+    else:
+        description = "Check this box to delegate execution of this task"
+
+    inputs.bool(
+        "delegate",
+        default=False,
+        required=True,
+        label="Delegate execution?",
+        description=description,
+        view=types.CheckboxView(),
+    )
+
+    if delegate:
+        inputs.view(
+            "notice",
+            types.Notice(
+                label=(
+                    "You've chosen delegated execution. Note that you must "
+                    "have a delegated operation service running in order for "
+                    "this task to be processed. See "
+                    "https://docs.voxel51.com/plugins/index.html#operators "
+                    "for more information"
+                )
+            ),
+        )
 
 def register(p):
     p.register(ComputeVisualization)
