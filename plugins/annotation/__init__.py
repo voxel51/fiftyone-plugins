@@ -27,10 +27,15 @@ class RequestAnnotations(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        request_annotations(ctx, inputs)
+        ready = request_annotations(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Request annotations")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -72,11 +77,11 @@ def request_annotations(ctx, inputs):
 
     backend = get_annotation_backend(ctx, inputs)
     if backend is None:
-        return
+        return False
 
     anno_key = get_new_anno_key(ctx, inputs)
     if anno_key is None:
-        return
+        return False
 
     media_fields = ctx.dataset.app_config.media_fields
     if len(media_fields) > 1:
@@ -94,10 +99,12 @@ def request_annotations(ctx, inputs):
 
     label_schema = get_label_schema(ctx, inputs, backend, target_view)
     if not label_schema:
-        return
+        return False
 
     get_generic_parameters(ctx, inputs)
     backend.get_parameters(ctx, inputs)
+
+    return True
 
 
 def get_new_anno_key(ctx, inputs, name="anno_key", label="Annotation key"):
@@ -841,10 +848,15 @@ class LoadAnnotations(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        load_annotations(ctx, inputs)
+        ready = load_annotations(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Load annotations")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         anno_key = ctx.params["anno_key"]
@@ -868,7 +880,7 @@ def load_annotations(ctx, inputs):
         prop = inputs.view("warning", warning)
         prop.invalid = True
 
-        return
+        return False
 
     anno_key_choices = types.DropdownView()
     for anno_key in anno_keys:
@@ -917,6 +929,8 @@ def load_annotations(ctx, inputs):
             "the annotation backend after loading the annotations"
         ),
     )
+
+    return True
 
 
 class GetAnnotationInfo(foo.Operator):
@@ -1114,6 +1128,38 @@ def get_anno_key(ctx, inputs, show_default=True):
     )
 
     return ctx.params.get("anno_key", None)
+
+
+def _execution_mode(ctx, inputs):
+    delegate = ctx.params.get("delegate", False)
+
+    if delegate:
+        description = "Uncheck this box to execute the operation immediately"
+    else:
+        description = "Check this box to delegate execution of this task"
+
+    inputs.bool(
+        "delegate",
+        default=False,
+        required=True,
+        label="Delegate execution?",
+        description=description,
+        view=types.CheckboxView(),
+    )
+
+    if delegate:
+        inputs.view(
+            "notice",
+            types.Notice(
+                label=(
+                    "You've chosen delegated execution. Note that you must "
+                    "have a delegated operation service running in order for "
+                    "this task to be processed. See "
+                    "https://docs.voxel51.com/plugins/index.html#operators "
+                    "for more information"
+                )
+            ),
+        )
 
 
 def register(p):
