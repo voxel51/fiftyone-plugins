@@ -26,10 +26,15 @@ class EvaluateModel(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        evaluate_model(ctx, inputs)
+        ready = evaluate_model(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Evaluate model")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -38,6 +43,7 @@ class EvaluateModel(foo.Operator):
         gt_field = kwargs.pop("gt_field")
         eval_key = kwargs.pop("eval_key")
         method = kwargs.pop("method")
+        kwargs.pop("delegate")
 
         target_view = _get_target_view(ctx, target)
         _, eval_type, _ = _get_evaluation_type(target_view, pred_field)
@@ -91,7 +97,7 @@ def evaluate_model(ctx, inputs):
         prop = inputs.view("warning", warning)
         prop.invalid = True
 
-        return
+        return False
 
     eval_key = get_new_eval_key(ctx, inputs)
     if eval_key is None:
@@ -112,7 +118,7 @@ def evaluate_model(ctx, inputs):
 
     pred_field = ctx.params.get("pred_field", None)
     if pred_field is None:
-        return
+        return False
 
     label_type, eval_type, methods = _get_evaluation_type(
         target_view, pred_field
@@ -131,7 +137,7 @@ def evaluate_model(ctx, inputs):
         prop = inputs.view("warning", warning)
         prop.invalid = True
 
-        return
+        return False
 
     gt_field_choices = types.DropdownView()
     for field_name in sorted(gt_fields):
@@ -148,7 +154,7 @@ def evaluate_model(ctx, inputs):
 
     gt_field = ctx.params.get("gt_field", None)
     if gt_field is None:
-        return
+        return False
 
     method_choices = types.DropdownView()
     for method in methods:
@@ -167,6 +173,8 @@ def evaluate_model(ctx, inputs):
     method = ctx.params.get("method", None)
 
     _get_evaluation_method(eval_type, method).get_parameters(ctx, inputs)
+
+    return True
 
 
 def _get_label_fields(sample_collection, label_types):
@@ -1104,6 +1112,38 @@ def get_new_eval_key(
         eval_key = None
 
     return eval_key
+
+
+def _execution_mode(ctx, inputs):
+    delegate = ctx.params.get("delegate", False)
+
+    if delegate:
+        description = "Uncheck this box to execute the operation immediately"
+    else:
+        description = "Check this box to delegate execution of this task"
+
+    inputs.bool(
+        "delegate",
+        default=False,
+        required=True,
+        label="Delegate execution?",
+        description=description,
+        view=types.CheckboxView(),
+    )
+
+    if delegate:
+        inputs.view(
+            "notice",
+            types.Notice(
+                label=(
+                    "You've chosen delegated execution. Note that you must "
+                    "have a delegated operation service running in order for "
+                    "this task to be processed. See "
+                    "https://docs.voxel51.com/plugins/index.html#operators "
+                    "for more information"
+                )
+            ),
+        )
 
 
 def register(p):
