@@ -1234,6 +1234,7 @@ def _execution_mode(ctx, inputs):
             ),
         )
 
+
 def register(p):
     p.register(ComputeVisualization)
     p.register(ComputeSimilarity)
