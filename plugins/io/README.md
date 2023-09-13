@@ -33,23 +33,91 @@ session = fo.launch_app(dataset)
 
 ## Operators
 
-### add_samples
+### import_samples
 
-Use this operator to add samples to an existing dataset by specifying a
-directory or glob pattern of media paths for which you want to create new
-samples.
+Use this operator to import samples and/or labels to an existing dataset via
+any of the following methods:
 
-This operator is essentially a wrapper around the following import recipes:
+-   A directory of media for which you want to create new samples
+-   A glob pattern of media paths for which you want to create new samples
+-   A directory containing media and/or labels in any
+    [supported format](https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#supported-import-formats)
+    for which you want to create new samples
+-   One or more file(s) containing labels to add to the existing samples in
+    your dataset
+
+This operator is essentially a wrapper around the following
+[import recipes](https://docs.voxel51.com/user_guide/dataset_creation/index.html):
 
 ```py
-# Directories
+# Add a directory of media
 dataset.add_images_dir(input_dir)
 dataset.add_videos_dir(input_dir)
 
-# Glob patterns
+# Add a glob pattern of media
 dataset.add_images_patt(glob_patt)
 dataset.add_videos_patt(glob_patt)
+
+# Add a directory of media and/or labels in a supported format
+dataset.add_dir(
+    dataset_dir="/path/to/data",
+    dataset_type=fo.types.XXXX,
+    label_field=YYYYY,
+)
+
+# Add labels to existing samples in a supported format
+data_path = {os.path.basename(p): p for p in dataset.values("filepath")}
+dataset.merge_dir(
+    data_path=data_path,
+    labels_path="/path/to/labels.json",
+    dataset_types=fo.types.XXXX,
+    label_field=YYYYY,
+)
 ```
+
+### merge_samples
+
+You can use this operator to merge a dataset or view into another dataset.
+
+This operator is essentially a wrapper around the
+[merge_samples()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.merge_samples)
+method:
+
+```py
+dst_dataset.merge_samples(src_samples, ...)
+```
+
+where the operator's form allows you to configure the source collection, the
+destination dataset, and any applicable optional arguments for
+`merge_samples()`.
+
+### merge_labels
+
+You can use this operator to merge labels from one field of a collection into
+another field.
+
+This operator is essentially a wrapper around the
+[merge_labels()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.merge_labels)
+method:
+
+```py
+dataset_or_view.merge_labels(in_field, out_field)
+```
+
+### compute_metadata
+
+You can use this operator to populate the `metadata` field of a collection.
+
+This operator is essentially a wrapper around the
+[compute_metadata()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.compute_metadata)
+method:
+
+```py
+dataset_or_view.compute_metadata(...)
+```
+
+where the operator's form allows you to configure any applicable optional
+arguments for `compute_metadata()`.
 
 ### export_samples
 
@@ -82,3 +150,24 @@ dataset_or_view.export(
 
 where the operator's form allows you to configure the export location, dataset
 type, and necessary label field(s), if applicable.
+
+### draw_labels
+
+You can use this operator to render annotated versions of the media in a
+collection with the specified label data overlaid to a directory on disk.
+
+This operator is essentially a wrapper around the
+[draw_labels()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.draw_labels)
+method:
+
+```py
+dataset_or_view.draw_labels(
+    output_dir,
+    label_fields=label_fields,
+    ...
+)
+```
+
+where the operator's form allows you to configure the output directory on disk,
+the label field(s) to render, and any other optional arguments for
+`draw_labels()`.
