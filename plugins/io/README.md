@@ -119,6 +119,33 @@ dataset_or_view.compute_metadata(...)
 where the operator's form allows you to configure any applicable optional
 arguments for `compute_metadata()`.
 
+### generate_thumbnails
+
+You can use this operator to generate thumbnails for the media in a collection.
+
+This operator is essentially a wrapper around the
+[following pattern](https://docs.voxel51.com/user_guide/app.html#multiple-media-fields):
+
+```py
+import fiftyone.utils.image as foui
+
+foui.transform_images(
+    dataset_or_view,
+    size=(width, height),
+    output_field="thumbnail_path",
+    output_dir="/path/for/thumbnails",
+    skip_failures=True,
+)
+
+dataset.app_config.media_fields.append("thumbnail_path")
+dataset.app_config.grid_media_field = "thumbnail_path"
+dataset.save()
+```
+
+where the operator's form allows you to configure the `(width, height)` for the
+thumbnails, the field in which to store their paths, and the directory in which
+to store the thumbnail images.
+
 ### export_samples
 
 You can use this operator to export your current dataset or view to disk in any

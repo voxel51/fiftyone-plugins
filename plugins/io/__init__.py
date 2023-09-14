@@ -17,6 +17,7 @@ import fiftyone.core.storage as fos
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
+import fiftyone.utils.image as foui
 import fiftyone.types as fot
 
 
@@ -998,82 +999,9 @@ class ComputeMetadata(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        has_view = ctx.view != ctx.dataset.view()
-        has_selected = bool(ctx.selected)
-        default_target = None
-        if has_view or has_selected:
-            target_choices = types.RadioGroup()
-            target_choices.add_choice(
-                "DATASET",
-                label="Entire dataset",
-                description="Compute metadata for the entire dataset",
-            )
-
-            if has_view:
-                target_choices.add_choice(
-                    "CURRENT_VIEW",
-                    label="Current view",
-                    description="Compute metadata for the current view",
-                )
-                default_target = "CURRENT_VIEW"
-
-            if has_selected:
-                target_choices.add_choice(
-                    "SELECTED_SAMPLES",
-                    label="Selected samples",
-                    description="Compute metadata for the selected samples",
-                )
-                default_target = "SELECTED_SAMPLES"
-
-            inputs.enum(
-                "target",
-                target_choices.values(),
-                view=target_choices,
-                default=default_target,
-            )
-
-        target = ctx.params.get("target", default_target)
-        target_view = _get_target_view(ctx, target)
-
-        if target == "SELECTED_SAMPLES":
-            target_str = "selection"
-        elif target == "CURRENT_VIEW":
-            target_str = "current view"
-        else:
-            target_str = "dataset"
-
-        inputs.bool(
-            "overwrite",
-            default=False,
-            label="Recompute metadata for samples that already have it?",
-            view=types.CheckboxView(),
-        )
-
-        overwrite = ctx.params.get("overwrite", False)
-
-        if overwrite:
-            n = len(target_view)
-            if n > 0:
-                label = f"Found {n} samples to (re)compute metadata for"
-            else:
-                label = f"Your {target_str} is empty"
-        else:
-            n = len(target_view.exists("metadata", False))
-            if n > 0:
-                label = f"Found {n} samples that need metadata computed"
-            else:
-                label = (
-                    f"All samples in your {target_str} already have metadata "
-                    "computed"
-                )
-
-        if n > 0:
-            inputs.view("status", types.Notice(label=label))
-        else:
-            status = inputs.view("status", types.Warning(label=label))
-            status.invalid = True
-
-        _execution_mode(ctx, inputs)
+        ready = _compute_metadata_inputs(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         return types.Property(
             inputs, view=types.View(label="Compute metadata")
@@ -1096,6 +1024,86 @@ class ComputeMetadata(foo.Operator):
                 yield update
 
         yield ctx.trigger("reload_dataset")
+
+
+def _compute_metadata_inputs(ctx, inputs):
+    has_view = ctx.view != ctx.dataset.view()
+    has_selected = bool(ctx.selected)
+    default_target = None
+    if has_view or has_selected:
+        target_choices = types.RadioGroup()
+        target_choices.add_choice(
+            "DATASET",
+            label="Entire dataset",
+            description="Compute metadata for the entire dataset",
+        )
+
+        if has_view:
+            target_choices.add_choice(
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Compute metadata for the current view",
+            )
+            default_target = "CURRENT_VIEW"
+
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Compute metadata for the selected samples",
+            )
+            default_target = "SELECTED_SAMPLES"
+
+        inputs.enum(
+            "target",
+            target_choices.values(),
+            view=target_choices,
+            default=default_target,
+        )
+
+    target = ctx.params.get("target", default_target)
+    target_view = _get_target_view(ctx, target)
+
+    if target == "SELECTED_SAMPLES":
+        target_str = "selection"
+    elif target == "CURRENT_VIEW":
+        target_str = "current view"
+    else:
+        target_str = "dataset"
+
+    inputs.bool(
+        "overwrite",
+        default=False,
+        label="Recompute metadata for samples that already have it?",
+        view=types.CheckboxView(),
+    )
+
+    overwrite = ctx.params.get("overwrite", False)
+
+    if overwrite:
+        n = len(target_view)
+        if n > 0:
+            label = f"Found {n} samples to (re)compute metadata for"
+        else:
+            label = f"Your {target_str} is empty"
+    else:
+        n = len(target_view.exists("metadata", False))
+        if n > 0:
+            label = f"Found {n} samples that need metadata computed"
+        else:
+            label = (
+                f"All samples in your {target_str} already have metadata "
+                "computed"
+            )
+
+    if n > 0:
+        inputs.view("status", types.Notice(label=label))
+    else:
+        status = inputs.view("status", types.Warning(label=label))
+        status.invalid = True
+        return False
+
+    return True
 
 
 def _compute_metadata(ctx, sample_collection, overwrite=False):
@@ -1135,21 +1143,6 @@ def _compute_metadata(ctx, sample_collection, overwrite=False):
                     yield _set_progress(ctx, progress, label=label)
 
 
-def _set_progress(ctx, progress, label=None):
-    # https://github.com/voxel51/fiftyone/pull/3516
-    # return ctx.trigger("set_progress", dict(progress=progress, label=label))
-
-    loading = types.Object()
-    loading.float("progress", view=types.ProgressView(label=label))
-    return ctx.trigger(
-        "show_output",
-        dict(
-            outputs=types.Property(loading).to_json(),
-            results={"progress": progress},
-        ),
-    )
-
-
 def _do_compute_metadata(args):
     sample_id, filepath, media_type = args
     metadata = _compute_sample_metadata(
@@ -1177,6 +1170,226 @@ def _get_metadata(filepath, media_type):
         metadata = fomm.Metadata.build_for(filepath)
 
     return metadata
+
+
+class GenerateThumbnails(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="generate_thumbnails",
+            label="Generate thumbnails",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        ready = _generate_thumbnails_inputs(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
+
+        return types.Property(
+            inputs, view=types.View(label="Generate thumbnails")
+        )
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        width = ctx.params.get("width", None)
+        height = ctx.params.get("height", None)
+        thumbnail_path = ctx.params["thumbnail_path"]
+        output_dir = ctx.params["output_dir"]["absolute_path"]
+        overwrite = ctx.params.get("overwrite", False)
+
+        view = _get_target_view(ctx, target)
+
+        if not overwrite:
+            view = view.exists(thumbnail_path, False)
+
+        size = (width or -1, height or -1)
+
+        foui.transform_images(
+            view,
+            size=size,
+            output_field=thumbnail_path,
+            output_dir=output_dir,
+            skip_failures=True,
+        )
+
+        if thumbnail_path not in ctx.dataset.app_config.media_fields:
+            ctx.dataset.app_config.media_fields.append(thumbnail_path)
+
+        if ctx.dataset.app_config.grid_media_field != thumbnail_path:
+            ctx.dataset.app_config.grid_media_field = thumbnail_path
+
+        ctx.dataset.save()
+
+        ctx.trigger("reload_dataset")
+
+
+def _generate_thumbnails_inputs(ctx, inputs):
+    has_view = ctx.view != ctx.dataset.view()
+    has_selected = bool(ctx.selected)
+    default_target = None
+    if has_view or has_selected:
+        target_choices = types.RadioGroup()
+        target_choices.add_choice(
+            "DATASET",
+            label="Entire dataset",
+            description="Generate thumbnails for the entire dataset",
+        )
+
+        if has_view:
+            target_choices.add_choice(
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Generate thumbnails for the current view",
+            )
+            default_target = "CURRENT_VIEW"
+
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Generate thumbnails for the selected samples",
+            )
+            default_target = "SELECTED_SAMPLES"
+
+        inputs.enum(
+            "target",
+            target_choices.values(),
+            view=target_choices,
+            default=default_target,
+        )
+
+    target = ctx.params.get("target", default_target)
+    target_view = _get_target_view(ctx, target)
+
+    if target == "SELECTED_SAMPLES":
+        target_str = "selection"
+    elif target == "CURRENT_VIEW":
+        target_str = "current view"
+    else:
+        target_str = "dataset"
+
+    field_selector = types.AutocompleteView()
+    for field in _get_fields_with_type(target_view, fo.StringField):
+        if field == "filepath":
+            continue
+
+        field_selector.add_choice(field, label=field)
+
+    inputs.str(
+        "thumbnail_path",
+        required=True,
+        label="Thumbnail field",
+        description=(
+            "Provide the name of a new or existing field in which to "
+            "store the thumbnail paths"
+        ),
+        view=field_selector,
+    )
+
+    thumbnail_path = ctx.params.get("thumbnail_path", None)
+
+    if thumbnail_path is None:
+        return False
+
+    file_explorer = types.FileExplorerView(
+        choose_dir=True,
+        button_label="Choose a directory...",
+    )
+    inputs.file(
+        "output_dir",
+        required=True,
+        label="Output directory",
+        description=(
+            "Choose a new or existing directory into which to write the "
+            "generated thumbnails"
+        ),
+        view=file_explorer,
+    )
+    output_dir = _parse_path(ctx, "output_dir")
+
+    if output_dir is None:
+        return False
+
+    inputs.bool(
+        "overwrite",
+        default=False,
+        label=(
+            f"Regenerate thumbnails for samples that already have their "
+            f"{thumbnail_path} populated?"
+        ),
+        view=types.CheckboxView(),
+    )
+
+    overwrite = ctx.params.get("overwrite", False)
+
+    if overwrite:
+        n = len(target_view)
+        if n > 0:
+            label = f"Found {n} samples to (re)generate thumbnails for"
+        else:
+            label = f"Your {target_str} is empty"
+    else:
+        n = len(target_view.exists("thumbnail_path", False))
+        if n > 0:
+            label = f"Found {n} samples that need thumbnails generated"
+        else:
+            label = (
+                f"All samples in your {target_str} already have "
+                "thumbnails generated"
+            )
+
+    if n > 0:
+        inputs.view("status1", types.Notice(label=label))
+    else:
+        status1 = inputs.view("status1", types.Warning(label=label))
+        status1.invalid = True
+        return False
+
+    inputs.str(
+        "size",
+        view=types.Header(
+            label="Thumbnail size",
+            description=(
+                "Provide a (width, height) for each thumbnails. "
+                "Either dimension can be omitted, in which case the aspect "
+                "ratio is preserved"
+            ),
+            divider=True,
+        ),
+    )
+
+    inputs.int(
+        "width",
+        required=False,
+        label="Width",
+        view=types.View(space=6),
+    )
+
+    inputs.int(
+        "height",
+        required=False,
+        label="Height",
+        view=types.View(space=6),
+    )
+
+    width = ctx.params.get("width", None)
+    height = ctx.params.get("height", None)
+
+    if width is None and height is None:
+        status2 = inputs.view(
+            "status2",
+            types.Warning(label="You must provide a width and/or height"),
+        )
+        status2.invalid = True
+        return False
+
+    return True
 
 
 class ExportSamples(foo.Operator):
@@ -1519,13 +1732,19 @@ class DrawLabels(foo.Operator):
         )
 
 
-def register(p):
-    p.register(ImportSamples)
-    p.register(MergeSamples)
-    p.register(MergeLabels)
-    p.register(ComputeMetadata)
-    p.register(ExportSamples)
-    p.register(DrawLabels)
+def _set_progress(ctx, progress, label=None):
+    # https://github.com/voxel51/fiftyone/pull/3516
+    # return ctx.trigger("set_progress", dict(progress=progress, label=label))
+
+    loading = types.Object()
+    loading.float("progress", view=types.ProgressView(label=label))
+    return ctx.trigger(
+        "show_output",
+        dict(
+            outputs=types.Property(loading).to_json(),
+            results={"progress": progress},
+        ),
+    )
 
 
 def _parse_path(ctx, key):
@@ -1657,8 +1876,11 @@ def _get_label_fields(view, dataset_type):
     return sorted(set(label_fields))
 
 
-def _get_fields_with_type(view, label_type):
-    return view.get_field_schema(embedded_doc_type=label_type).keys()
+def _get_fields_with_type(view, type):
+    if issubclass(type, fo.Field):
+        return view.get_field_schema(ftype=type).keys()
+
+    return view.get_field_schema(embedded_doc_type=type).keys()
 
 
 # @todo add import-only types
@@ -1723,3 +1945,13 @@ _LABELS_DIR_TYPES = [
     "YOLOv4",
     "Image Segmentation",
 ]
+
+
+def register(p):
+    p.register(ImportSamples)
+    p.register(MergeSamples)
+    p.register(MergeLabels)
+    p.register(ComputeMetadata)
+    p.register(GenerateThumbnails)
+    p.register(ExportSamples)
+    p.register(DrawLabels)

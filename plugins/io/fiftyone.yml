@@ -10,5 +10,6 @@ operators:
   - merge_samples
   - merge_labels
   - compute_metadata
+  - generate_thumbnails
   - export_samples
   - draw_labels
