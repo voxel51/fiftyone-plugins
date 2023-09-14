@@ -132,8 +132,19 @@ def _manage_indexes(ctx, inputs):
 
 
 def _build_action_label(ctx):
-    nc = len(ctx.params.get("create", []))
-    nd = len(ctx.params.get("drop", []))
+    create = [
+        c
+        for c in ctx.params.get("create", [])
+        if c.get("field_name", None) is not None
+    ]
+    nc = len(create)
+
+    drop = [
+        d
+        for d in ctx.params.get("drop", [])
+        if d.get("index_name", None) is not None
+    ]
+    nd = len(drop)
 
     if nc > 0 and nd > 0:
         label = f"You are about to create {_istr(nc)} and drop {_istr(nd)}"
