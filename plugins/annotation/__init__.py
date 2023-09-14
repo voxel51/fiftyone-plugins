@@ -53,6 +53,8 @@ class RequestAnnotations(foo.Operator):
         elif label_schema_fields:
             label_schema = _build_label_schema(label_schema_fields)
 
+        _inject_annotation_secrets(ctx)
+
         # Parse backend-specific parameters
         _get_backend(backend).parse_parameters(ctx, kwargs)
 
@@ -864,6 +866,8 @@ class LoadAnnotations(foo.Operator):
         unexpected = ctx.params["unexpected"]
         cleanup = ctx.params["cleanup"]
 
+        _inject_annotation_secrets(ctx)
+
         ctx.dataset.load_annotations(
             anno_key, unexpected=unexpected, cleanup=cleanup
         )
@@ -1093,6 +1097,8 @@ class DeleteAnnotationRun(foo.Operator):
         anno_key = ctx.params["anno_key"]
         cleanup = ctx.params.get("cleanup", False)
 
+        _inject_annotation_secrets(ctx)
+
         if cleanup:
             results = ctx.dataset.load_annotation_results(anno_key)
             if results:
@@ -1129,6 +1135,24 @@ def get_anno_key(ctx, inputs, show_default=True):
     )
 
     return ctx.params.get("anno_key", None)
+
+
+def _inject_annotation_secrets(ctx):
+    for key, value in ctx.get("secrets", {}).items():
+        # FIFTYONE_CVAT_[UPPER_KEY]
+        if key.startswith("FIFTYONE_CVAT_"):
+            _key = key[len("FIFTYONE_CVAT_") :].lower()
+            fo.annotation_config.backends["cvat"][_key] = value
+
+        # FIFTYONE_LABELBOX_[UPPER_KEY]
+        if key.startswith("FIFTYONE_LABELBOX_"):
+            _key = key[len("FIFTYONE_LABELBOX_") :].lower()
+            fo.annotation_config.backends["labelbox"][_key] = value
+
+        # FIFTYONE_LABELSTUDIO_[UPPER_KEY]
+        if key.startswith("FIFTYONE_LABELSTUDIO_"):
+            _key = key[len("FIFTYONE_LABELSTUDIO_") :].lower()
+            fo.annotation_config.backends["labelstudio"][_key] = value
 
 
 def _execution_mode(ctx, inputs):
