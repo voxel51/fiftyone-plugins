@@ -23,10 +23,15 @@ class ManageIndexes(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        manage_indexes(ctx, inputs)
+        ready = _manage_indexes(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         view = types.View(label="Manage indexes")
         return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         create = ctx.params.get("create", [])
@@ -55,7 +60,7 @@ class ManageIndexes(foo.Operator):
         return types.Property(outputs, view=view)
 
 
-def manage_indexes(ctx, inputs):
+def _manage_indexes(ctx, inputs):
     indexes = _get_existing_indexes(ctx)
     default_indexes = set(_get_default_indexes(ctx))
 
@@ -104,14 +109,14 @@ def manage_indexes(ctx, inputs):
 
     inputs.list(
         "create",
-        create_index(ctx),
+        _create_index(ctx),
         default=[],
         label="Create indexes",
         description="New indexes to create",
     )
     inputs.list(
         "drop",
-        drop_index(ctx),
+        _drop_index(ctx),
         default=[],
         label="Drop indexes",
         description="Existing indexes to drop",
@@ -121,6 +126,9 @@ def manage_indexes(ctx, inputs):
     prop = inputs.view("confirmation", types.Notice(label=label))
     if not has_action:
         prop.invalid = True
+        return False
+
+    return True
 
 
 def _build_action_label(ctx):
@@ -149,7 +157,7 @@ def _get_existing_indexes(ctx):
     return ctx.dataset.get_index_information()
 
 
-def create_index(ctx):
+def _create_index(ctx):
     obj = types.Object()
 
     choices = types.DropdownView(space=6)
@@ -244,7 +252,7 @@ def _get_field_name(ctx, index_name):
     return index_name
 
 
-def drop_index(ctx):
+def _drop_index(ctx):
     index_names = _get_droppable_indexes(ctx)
 
     obj = types.Object()
@@ -285,6 +293,38 @@ def _get_default_indexes(ctx):
         )
 
     return index_names
+
+
+def _execution_mode(ctx, inputs):
+    delegate = ctx.params.get("delegate", False)
+
+    if delegate:
+        description = "Uncheck this box to execute the operation immediately"
+    else:
+        description = "Check this box to delegate execution of this task"
+
+    inputs.bool(
+        "delegate",
+        default=False,
+        required=True,
+        label="Delegate execution?",
+        description=description,
+        view=types.CheckboxView(),
+    )
+
+    if delegate:
+        inputs.view(
+            "notice",
+            types.Notice(
+                label=(
+                    "You've chosen delegated execution. Note that you must "
+                    "have a delegated operation service running in order for "
+                    "this task to be processed. See "
+                    "https://docs.voxel51.com/plugins/index.html#operators "
+                    "for more information"
+                )
+            ),
+        )
 
 
 def register(p):
