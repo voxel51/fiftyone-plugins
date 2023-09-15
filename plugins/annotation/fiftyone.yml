@@ -12,3 +12,11 @@ operators:
   - load_annotation_view
   - rename_annotation_run
   - delete_annotation_run
+secrets:
+  - FIFTYONE_CVAT_URL
+  - FIFTYONE_CVAT_USERNAME
+  - FIFTYONE_CVAT_PASSWORD
+  - FIFTYONE_LABELBOX_URL
+  - FIFTYONE_LABELBOX_API_KEY
+  - FIFTYONE_LABELSTUDIO_URL
+  - FIFTYONE_LABELSTUDIO_API_KEY
