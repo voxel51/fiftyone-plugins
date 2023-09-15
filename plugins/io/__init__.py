@@ -2724,7 +2724,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
 
     if fo.dataset_exists(dataset_name):
         inputs.view(
-            "overwrite",
+            "created",
             types.Warning(
                 label=(
                     f"A dataset '{dataset_name}' already exists and will be "
@@ -2734,7 +2734,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         )
     else:
         inputs.view(
-            "notice",
+            "created",
             types.Notice(label=f"A dataset '{dataset_name}' will be created"),
         )
 
