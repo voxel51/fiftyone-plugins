@@ -6,10 +6,19 @@ fiftyone:
 url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md
 license: Apache 2.0
 operators:
+  - create_dataset
+  - load_dataset
+  - edit_dataset_info
+  - rename_dataset
+  - delete_dataset
   - import_samples
   - merge_samples
   - merge_labels
-  - compute_metadata
-  - generate_thumbnails
   - export_samples
   - draw_labels
+  - compute_metadata
+  - generate_thumbnails
+  - load_zoo_dataset
+  - apply_model
+  - install_plugin
+  - check_plugin_requirements

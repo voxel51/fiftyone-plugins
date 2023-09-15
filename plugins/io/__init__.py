@@ -5,20 +5,639 @@ I/O operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+from collections import defaultdict
+
+try:
+    from importlib import metadata
+except ImportError:
+    import importlib_metadata as metadata
+
+import json
 import multiprocessing
 import os
+from packaging.requirements import Requirement
 
 import eta.core.utils as etau
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.core.media as fom
 import fiftyone.core.metadata as fomm
+import fiftyone.plugins as fop
 import fiftyone.core.storage as fos
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.utils.image as foui
 import fiftyone.types as fot
+import fiftyone.zoo as foz
+import fiftyone.zoo.datasets as fozd
+import fiftyone.zoo.models as fozm
+
+
+class CreateDataset(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="create_dataset",
+            label="Create dataset",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        name_prop = inputs.str(
+            "name",
+            required=False,
+            label="Dataset name",
+            description=(
+                "Choose a name for the dataset. If omitted, a randomly "
+                "generated name will be used"
+            ),
+        )
+
+        name = ctx.params.get("name", None)
+
+        if name and fo.dataset_exists(name):
+            name_prop.invalid = True
+            name_prop.error_message = f"Dataset {name} already exists"
+
+        inputs.bool(
+            "persistent",
+            default=True,
+            required=True,
+            label="Persistent",
+            description="Whether to make the dataset persistent",
+            view=types.CheckboxView(),
+        )
+
+        return types.Property(inputs, view=types.View(label="Create dataset"))
+
+    def execute(self, ctx):
+        name = ctx.params.get("name", None)
+        persistent = ctx.params.get("persistent", False)
+
+        fo.Dataset(name, persistent=persistent)
+        ctx.trigger("open_dataset", dict(dataset=name))
+
+
+class LoadDataset(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="load_dataset",
+            label="Load dataset",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        sort_by_choices = types.RadioGroup()
+        sort_by_choices.add_choice("NAME", label="Name")
+        sort_by_choices.add_choice("CREATED_AT", label="Recently created")
+        sort_by_choices.add_choice("LAST_LOADED_AT", label="Recently loaded")
+        default = "NAME"
+
+        inputs.enum(
+            "sort_by",
+            sort_by_choices.values(),
+            default=default,
+            label="Sort by",
+            description="Choose how to sort the datasets in the dropdown",
+            view=sort_by_choices,
+        )
+        sort_by = ctx.params.get("sort_by", default).lower()
+
+        info = fo.list_datasets(info=True)
+        key = lambda i: (i[sort_by] is not None, i[sort_by])
+        reverse = sort_by != "name"
+
+        dataset_choices = types.AutocompleteView()
+        for i in sorted(info, key=key, reverse=reverse):
+            dataset_choices.add_choice(i["name"], label=i["name"])
+
+        inputs.enum(
+            "name",
+            dataset_choices.values(),
+            required=True,
+            label="Dataset name",
+            description="The name of a dataset to load",
+            view=dataset_choices,
+        )
+
+        return types.Property(inputs, view=types.View(label="Load dataset"))
+
+    def execute(self, ctx):
+        name = ctx.params["name"]
+        ctx.trigger("open_dataset", dict(dataset=name))
+
+
+class EditDatasetInfo(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="edit_dataset_info",
+            label="Edit dataset info",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _dataset_info_inputs(ctx, inputs)
+
+        return types.Property(
+            inputs, view=types.View(label="Edit dataset info")
+        )
+
+    def execute(self, ctx):
+        name = ctx.params.get("name", None)
+        description = ctx.params.get("description", None)
+        persistent = ctx.params.get("persistent", None)
+        info = ctx.params.get("info", None)
+        app_config = ctx.params.get("app_config", None)
+        classes = ctx.params.get("classes", None)
+        default_classes = ctx.params.get("default_classes", None)
+        mask_targets = ctx.params.get("mask_targets", None)
+        default_mask_targets = ctx.params.get("default_mask_targets", None)
+        skeletons = ctx.params.get("skeletons", None)
+        default_skeleton = ctx.params.get("default_skeleton", None)
+
+        if name is not None:
+            ctx.dataset.name = name
+
+        if description is not None:
+            ctx.dataset.description = description
+
+        if persistent is not None:
+            ctx.dataset.persistent = persistent
+
+        if info is not None:
+            ctx.dataset.info = json.loads(info)
+
+        if app_config is not None:
+            ctx.dataset.app_config = fo.DatasetAppConfig.from_json(app_config)
+
+        if classes is not None:
+            ctx.dataset.classes = json.loads(classes)
+
+        if default_classes is not None:
+            ctx.dataset.default_classes = json.loads(default_classes)
+
+        if mask_targets is not None:
+            ctx.dataset.mask_targets = json.loads(mask_targets)
+
+        if default_mask_targets is not None:
+            ctx.dataset.default_mask_targets = json.loads(default_mask_targets)
+
+        if skeletons is not None:
+            ctx.dataset.skeletons = {
+                field: fo.KeypointSkeleton.from_json(skeleton)
+                for field, skeleton in json.loads(skeletons).items()
+            }
+
+        if default_skeleton is not None:
+            ctx.dataset.default_skeleton = fo.KeypointSkeleton.from_json(
+                json.loads(default_skeleton)
+            )
+
+        ctx.trigger("reload_dataset")
+
+
+def _dataset_info_inputs(ctx, inputs):
+    num_changed = 0
+
+    ## tabs
+
+    tab_choices = types.TabsView()
+    tab_choices.add_choice("BASIC", label="Basic")
+    tab_choices.add_choice("INFO", label="Info")
+    tab_choices.add_choice("APP_CONFIG", label="App config")
+    tab_choices.add_choice("CLASSES", label="Clasess")
+    tab_choices.add_choice("MASK_TARGETS", label="Mask targets")
+    tab_choices.add_choice("SKELETONS", label="Keypoint skeletons")
+    default = "BASIC"
+    inputs.enum(
+        "tab_choice",
+        tab_choices.values(),
+        default=default,
+        view=tab_choices,
+    )
+    tab_choice = ctx.params.get("tab_choice", default)
+
+    ## name
+
+    name = ctx.params.get("name", None)
+    edited_name = name != ctx.dataset.name
+
+    if tab_choice == "BASIC":
+        name_prop = inputs.str(
+            "name",
+            default=ctx.dataset.name,
+            required=True,
+            label="Name" + (" (edited)" if edited_name else ""),
+            description="The name of the dataset",
+        )
+    else:
+        name_prop = None
+
+    if edited_name:
+        if name and fo.dataset_exists(name) and name_prop is not None:
+            name_prop.invalid = True
+            name_prop.error_message = f"Dataset {name} already exists"
+        else:
+            num_changed += 1
+
+    ## description
+
+    description = ctx.params.get("description", None) or None
+    edited_description = description != ctx.dataset.description
+
+    if tab_choice == "BASIC":
+        inputs.str(
+            "description",
+            default=ctx.dataset.description,
+            required=False,
+            label="Description" + (" (edited)" if edited_description else ""),
+            description="A description for the dataset",
+        )
+
+    if edited_description:
+        num_changed += 1
+
+    ## persistent
+
+    persistent = ctx.params.get("persistent", None)
+    edited_persistent = persistent != ctx.dataset.persistent
+
+    if tab_choice == "BASIC":
+        inputs.bool(
+            "persistent",
+            default=ctx.dataset.persistent,
+            required=True,
+            description="Whether the dataset is persistent",
+            view=types.CheckboxView(
+                label="Persistent" + (" (edited)" if edited_persistent else "")
+            ),
+        )
+
+    if edited_persistent:
+        num_changed += 1
+
+    ## info
+
+    info, valid = _parse_field(ctx, "info", default={})
+    edited_info = info != ctx.dataset.info
+
+    if tab_choice == "INFO":
+        info_prop = inputs.str(
+            "info",
+            default=json.dumps(ctx.dataset.info, indent=4),
+            required=True,
+            label="Info" + (" (edited)" if edited_info else ""),
+            description="A dict of info associated with the dataset",
+            view=types.CodeView(),
+        )
+    else:
+        info_prop = None
+
+    if edited_info:
+        if not valid and info_prop is not None:
+            info_prop.invalid = True
+            info_prop.error_message = "Invalid info"
+        else:
+            num_changed += 1
+
+    ## app_config
+
+    app_config, valid = _parse_field(ctx, "app_config", default={})
+    edited_app_config = (
+        fo.DatasetAppConfig.from_dict(app_config) != ctx.dataset.app_config
+    )
+
+    if tab_choice == "APP_CONFIG":
+        app_config_prop = inputs.str(
+            "app_config",
+            default=ctx.dataset.app_config.to_json(pretty_print=4),
+            required=True,
+            label="App config" + (" (edited)" if edited_app_config else ""),
+            description=(
+                "A DatasetAppConfig that customizes how this dataset is "
+                "visualized in the FiftyOne App"
+            ),
+            view=types.CodeView(),
+        )
+    else:
+        app_config_prop = None
+
+    if edited_app_config:
+        if not valid and app_config_prop is not None:
+            app_config_prop.invalid = True
+            app_config_prop.error_message = "Invalid App config"
+        else:
+            num_changed += 1
+
+    ## classes
+
+    classes, valid = _parse_field(ctx, "classes", default={})
+    edited_classes = classes != ctx.dataset.classes
+
+    if tab_choice == "CLASSES":
+        classes_prop = inputs.str(
+            "classes",
+            default=json.dumps(ctx.dataset.classes, indent=4),
+            required=True,
+            label="Classes" + (" (edited)" if edited_classes else ""),
+            description=(
+                "A dict mapping field names to lists of class label strings for "
+                "the corresponding fields of the dataset"
+            ),
+            view=types.CodeView(),
+        )
+    else:
+        classes_prop = None
+
+    if edited_classes:
+        if not valid and classes_prop is not None:
+            classes_prop.invalid = True
+            classes_prop.error_message = "Invalid classes"
+        else:
+            num_changed += 1
+
+    ## default_classes
+
+    default_classes, valid = _parse_field(
+        ctx, "default_classes", type=list, default=[]
+    )
+    edited_default_classes = default_classes != ctx.dataset.default_classes
+
+    if tab_choice == "CLASSES":
+        default_classes_prop = inputs.str(
+            "default_classes",
+            default=json.dumps(ctx.dataset.default_classes, indent=4),
+            required=True,
+            label="Default classes"
+            + (" (edited)" if edited_default_classes else ""),
+            description=(
+                "A list of class label strings for all label fields of this "
+                "dataset that do not have customized classes defined"
+            ),
+            view=types.CodeView(),
+        )
+    else:
+        default_classes_prop = None
+
+    if edited_default_classes:
+        if not valid and default_classes_prop is not None:
+            default_classes_prop.invalid = True
+            default_classes_prop.error_message = "Invalid default classes"
+        else:
+            num_changed += 1
+
+    ## mask_targets
+
+    mask_targets, valid = _parse_field(ctx, "mask_targets", default={})
+    edited_mask_targets = mask_targets != ctx.dataset.mask_targets
+
+    if tab_choice == "MASK_TARGETS":
+        mask_targets_prop = inputs.str(
+            "mask_targets",
+            default=json.dumps(ctx.dataset.mask_targets, indent=4),
+            required=True,
+            label="Mask targets"
+            + (" (edited)" if edited_mask_targets else ""),
+            description=(
+                "A dict mapping field names to mask target dicts, each of "
+                "which defines a mapping between pixel values (2D masks) or "
+                "RGB hex strings (3D masks) and label strings for the "
+                "segmentation masks in the corresponding field of the dataset"
+            ),
+            view=types.CodeView(),
+        )
+
+    if edited_mask_targets:
+        if not valid:
+            mask_targets_prop.invalid = True
+            mask_targets_prop.error_message = "Invalid mask targets"
+        else:
+            num_changed += 1
+
+    ## default_mask_targets
+
+    default_mask_targets, valid = _parse_field(
+        ctx, "default_mask_targets", default={}
+    )
+    edited_default_mask_targets = (
+        default_mask_targets != ctx.dataset.default_mask_targets
+    )
+
+    if tab_choice == "MASK_TARGETS":
+        default_mask_targets_prop = inputs.str(
+            "default_mask_targets",
+            default=json.dumps(ctx.dataset.default_mask_targets, indent=4),
+            required=True,
+            label="Default mask targets"
+            + (" (edited)" if edited_default_mask_targets else ""),
+            description=(
+                "A dict defining a default mapping between pixel values "
+                "(2D masks) or RGB hex strings (3D masks) and label strings "
+                "for the segmentation masks of all label fields of this "
+                "dataset that do not have customized mask targets"
+            ),
+            view=types.CodeView(),
+        )
+    else:
+        default_mask_targets_prop = None
+
+    if edited_default_mask_targets:
+        if not valid and default_mask_targets_prop is not None:
+            default_mask_targets_prop.invalid = True
+            default_mask_targets_prop.error_message = (
+                "Invalid default mask targets"
+            )
+        else:
+            num_changed += 1
+
+    ## skeletons
+
+    skeletons, valid = _parse_field(ctx, "skeletons", default={})
+    edited_skeletons = skeletons != ctx.dataset.skeletons
+
+    if tab_choice == "SKELETONS":
+        skeletons_prop = inputs.str(
+            "skeletons",
+            default=json.dumps(ctx.dataset.skeletons, indent=4),
+            required=True,
+            label="Skeletons" + (" (edited)" if edited_skeletons else ""),
+            description=(
+                "A dict mapping field names to KeypointSkeleton instances, "
+                "each of which defines the semantic labels and point "
+                "connectivity for the Keypoint instances in the corresponding "
+                "field of the dataset"
+            ),
+            view=types.CodeView(),
+        )
+    else:
+        skeletons_prop = None
+
+    if edited_skeletons:
+        if not valid and skeletons_prop is not None:
+            skeletons_prop.invalid = True
+            skeletons_prop.error_message = "Invalid skeletons"
+        else:
+            num_changed += 1
+
+    ## default_skeleton
+
+    default_skeleton, valid = _parse_field(
+        ctx, "default_skeleton", default=None
+    )
+    edited_default_skeleton = default_skeleton != ctx.dataset.default_skeleton
+
+    if tab_choice == "SKELETONS":
+        default_skeleton_prop = inputs.str(
+            "default_skeleton",
+            default=json.dumps(ctx.dataset.default_skeleton, indent=4),
+            required=True,
+            label="Default skeleton"
+            + (" (edited)" if edited_default_skeleton else ""),
+            description=(
+                "A default KeypointSkeleton defining the semantic labels and "
+                "point connectivity for all Keypoint fields of this dataset "
+                "that do not have customized skeletons"
+            ),
+            view=types.CodeView(),
+        )
+    else:
+        default_skeleton_prop = None
+
+    if edited_default_skeleton:
+        if not valid and default_skeleton_prop is not None:
+            default_skeleton_prop.invalid = True
+            default_skeleton_prop.error_message = "Invalid default skeleton"
+        else:
+            num_changed += 1
+
+    ## final
+
+    if num_changed > 0:
+        view = types.Warning(
+            label=f"You are about to edit {num_changed} fields"
+        )
+    else:
+        view = types.Notice(label="You have not made any edits")
+
+    status_prop = inputs.view("status", view)
+
+    if num_changed == 0:
+        status_prop.invalid = True
+
+
+def _parse_field(ctx, name, type=dict, default=None):
+    value = ctx.params.get(name, None)
+    valid = True
+
+    if value:
+        try:
+            value = json.loads(value)
+            assert isinstance(value, type)
+        except:
+            value = default
+            valid = False
+    else:
+        value = default
+
+    return value, valid
+
+
+class RenameDataset(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="rename_dataset",
+            label="Rename dataset",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        dataset_choices = types.AutocompleteView()
+        for name in sorted(fo.list_datasets()):
+            dataset_choices.add_choice(name, label=name)
+
+        inputs.str(
+            "name",
+            default=ctx.dataset.name,
+            required=True,
+            label="Dataset name",
+            description="The name of a dataset to delete",
+            view=dataset_choices,
+        )
+
+        new_name_prop = inputs.str(
+            "new_name",
+            required=True,
+            label="New name",
+            description="Choose a new name for the dataset",
+        )
+
+        new_name = ctx.params.get("new_name", None)
+
+        if new_name and fo.dataset_exists(new_name):
+            new_name_prop.invalid = True
+            new_name_prop.error_message = f"Dataset {new_name} already exists"
+
+        return types.Property(inputs, view=types.View(label="Rename dataset"))
+
+    def execute(self, ctx):
+        name = ctx.params["name"]
+        new_name = ctx.params["new_name"]
+
+        if ctx.dataset.name == name:
+            ctx.dataset.name = new_name
+            ctx.trigger("open_dataset", dict(name=new_name))
+        else:
+            dataset = fo.load_dataset(name)
+            dataset.name = new_name
+
+
+class DeleteDataset(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delete_dataset",
+            label="Delete dataset",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        dataset_choices = types.AutocompleteView()
+        for name in sorted(fo.list_datasets()):
+            dataset_choices.add_choice(name, label=name)
+
+        inputs.str(
+            "name",
+            default=ctx.dataset.name,
+            required=True,
+            label="Dataset name",
+            description="The name of the dataset to delete",
+            view=dataset_choices,
+        )
+
+        return types.Property(inputs, view=types.View(label="Delete dataset"))
+
+    def execute(self, ctx):
+        name = ctx.params.get("name", None)
+
+        if name == ctx.dataset.name:
+            ctx.trigger("open_dataset", dict(dataset=None))
+
+        fo.delete_dataset(name)
 
 
 class ImportSamples(foo.Operator):
@@ -98,7 +717,7 @@ class ImportSamples(foo.Operator):
 
 def _import_media_only_inputs(ctx, inputs):
     # Choose input type
-    style_choices = types.TabsView()  # types.RadioGroup()
+    style_choices = types.TabsView()
     style_choices.add_choice("DIRECTORY", label="Directory")
     style_choices.add_choice("GLOB_PATTERN", label="Glob pattern")
     inputs.enum(
@@ -551,6 +1170,16 @@ def _do_upload_media(task):
     fos.copy_file(inpath, outpath)
 
 
+def _glob_files(directory=None, glob_patt=None):
+    if directory is not None:
+        glob_patt = f"{directory}/*"
+
+    if glob_patt is None:
+        return []
+
+    return fos.get_glob_matches(glob_patt)
+
+
 class MergeSamples(foo.Operator):
     @property
     def config(self):
@@ -922,68 +1551,608 @@ class MergeLabels(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        has_view = ctx.view != ctx.dataset.view()
-        field_names = _get_fields_with_type(ctx.view, fo.Label)
-
-        in_field_selector = types.AutocompleteView()
-        for field_name in field_names:
-            in_field_selector.add_choice(field_name, label=field_name)
-
-        inputs.enum(
-            "in_field",
-            field_names,
-            required=True,
-            label="Input field",
-            description="Choose an input label field",
-            view=in_field_selector,
-        )
-
-        in_field = ctx.params.get("in_field", None)
-
-        if in_field is not None:
-            out_field_selector = types.AutocompleteView()
-            for field in field_names:
-                if field == in_field:
-                    continue
-
-                out_field_selector.add_choice(field, label=field)
-
-            inputs.str(
-                "out_field",
-                required=True,
-                label="Output field",
-                description=(
-                    "Provide the name of the output label field into which to "
-                    "merge the input labels. This field will be created if "
-                    "necessary"
-                ),
-                view=out_field_selector,
-            )
-
-        out_field = ctx.params.get("out_field", None)
-
-        if out_field is not None and not has_view:
-            inputs.view(
-                "notice",
-                types.Notice(
-                    label=f"The '{in_field}' field will be deleted after "
-                    f"merging its labels into the '{out_field}' field"
-                ),
-            )
+        ready = _merge_labels_inputs(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Merge labels"))
 
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
+
     def execute(self, ctx):
-        has_view = ctx.view != ctx.dataset.view()
+        target = ctx.params.get("target", None)
         in_field = ctx.params["in_field"]
         out_field = ctx.params["out_field"]
 
-        if has_view:
-            ctx.view.merge_labels(in_field, out_field)
-        else:
-            ctx.dataset.merge_labels(in_field, out_field)
+        view = _get_target_view(ctx, target)
+
+        view.merge_labels(in_field, out_field)
 
         ctx.trigger("reload_dataset")
+
+
+def _merge_labels_inputs(ctx, inputs):
+    has_view = ctx.view != ctx.dataset.view()
+    has_selected = bool(ctx.selected)
+    has_selected_labels = bool(ctx.selected_labels)
+    default_target = None
+    if has_view or has_selected or has_selected_labels:
+        target_choices = types.RadioGroup()
+        target_choices.add_choice(
+            "DATASET",
+            label="Entire dataset",
+            description="Merge labels for the entire dataset",
+        )
+
+        if has_view:
+            target_choices.add_choice(
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Merge labels for the current view",
+            )
+            default_target = "CURRENT_VIEW"
+
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Merge labels for the selected samples",
+            )
+            default_target = "SELECTED_SAMPLES"
+
+        if has_selected_labels:
+            target_choices.add_choice(
+                "SELECTED_LABELS",
+                label="Selected labels",
+                description="Merge the selected labels",
+            )
+            default_target = "SELECTED_LABELS"
+
+        inputs.enum(
+            "target",
+            target_choices.values(),
+            default=default_target,
+            view=target_choices,
+        )
+
+    target = ctx.params.get("target", default_target)
+    target_view = _get_target_view(ctx, target)
+
+    field_names = _get_fields_with_type(ctx.view, fo.Label)
+
+    in_field_selector = types.AutocompleteView()
+    for field_name in field_names:
+        in_field_selector.add_choice(field_name, label=field_name)
+
+    inputs.enum(
+        "in_field",
+        field_names,
+        required=True,
+        label="Input field",
+        description="Choose an input label field",
+        view=in_field_selector,
+    )
+
+    in_field = ctx.params.get("in_field", None)
+    if in_field is None:
+        return False
+
+    out_field_selector = types.AutocompleteView()
+    for field in field_names:
+        if field == in_field:
+            continue
+
+        out_field_selector.add_choice(field, label=field)
+
+    inputs.str(
+        "out_field",
+        required=True,
+        label="Output field",
+        description=(
+            "Provide the name of the output label field into which to "
+            "merge the input labels. This field will be created if "
+            "necessary"
+        ),
+        view=out_field_selector,
+    )
+
+    out_field = ctx.params.get("out_field", None)
+    if out_field is None:
+        return False
+
+    if isinstance(target_view, fo.Dataset):
+        inputs.view(
+            "notice",
+            types.Notice(
+                label=f"The '{in_field}' field will be deleted after "
+                f"merging its labels into the '{out_field}' field"
+            ),
+        )
+
+    return True
+
+
+class ExportSamples(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="export_samples",
+            label="Export samples",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        ready = _export_samples_inputs(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
+
+        return types.Property(inputs, view=types.View(label="Export samples"))
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        export_dir = ctx.params["export_dir"]["absolute_path"]
+        export_type = ctx.params["export_type"]
+        dataset_type = ctx.params.get("dataset_type", None)
+        label_field = ctx.params.get("label_field", None)
+
+        target_view = _get_target_view(ctx, target)
+        export_media = True
+
+        if export_type == "MEDIA_ONLY":
+            dataset_type = fot.MediaDirectory
+            label_field = None
+        elif export_type == "FILEPATHS_ONLY":
+            dataset_type = fot.CSVDataset
+            label_field = "filepath"
+            export_media = False
+        elif export_type == "LABELS_ONLY":
+            dataset_type = _DATASET_TYPES[dataset_type]
+            export_media = False
+        else:
+            dataset_type = _DATASET_TYPES[dataset_type]
+
+        target_view.export(
+            export_dir=export_dir,
+            dataset_type=dataset_type,
+            label_field=label_field,
+            export_media=export_media,
+        )
+
+
+def _export_samples_inputs(ctx, inputs):
+    has_view = ctx.view != ctx.dataset.view()
+    has_selected = bool(ctx.selected)
+    default_target = None
+    if has_view or has_selected:
+        target_choices = types.RadioGroup()
+        target_choices.add_choice(
+            "DATASET",
+            label="Entire dataset",
+            description="Export the entire dataset",
+        )
+
+        if has_view:
+            target_choices.add_choice(
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Export the current view",
+            )
+            default_target = "CURRENT_VIEW"
+
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Export only the selected samples",
+            )
+            default_target = "SELECTED_SAMPLES"
+
+        inputs.enum(
+            "target",
+            target_choices.values(),
+            default=default_target,
+            view=target_choices,
+        )
+
+    target = ctx.params.get("target", default_target)
+    target_view = _get_target_view(ctx, target)
+
+    if target == "SELECTED_SAMPLES":
+        target_str = "selected samples"
+    elif target == "CURRENT_VIEW":
+        target_str = "current view"
+    else:
+        target_str = "dataset"
+
+    export_choices = types.Choices()
+    export_choices.add_choice(
+        "FILEPATHS_ONLY",
+        label="Filepaths only",
+        description=f"Export the filepaths of the {target_str}",
+    )
+    export_choices.add_choice(
+        "MEDIA_ONLY",
+        label="Media only",
+        description=f"Export media of the {target_str}",
+    )
+    export_choices.add_choice(
+        "LABELS_ONLY",
+        label="Labels only",
+        description=f"Export labels of the {target_str}",
+    )
+    export_choices.add_choice(
+        "MEDIA_AND_LABELS",
+        label="Media and labels",
+        description=f"Export media and labels of the {target_str}",
+    )
+
+    inputs.enum(
+        "export_type",
+        export_choices.values(),
+        required=True,
+        label="Export type",
+        description="Choose what to export",
+        view=export_choices,
+    )
+
+    export_type = ctx.params.get("export_type", None)
+    if export_type is None:
+        return False
+
+    if export_type in ("LABELS_ONLY", "MEDIA_AND_LABELS"):
+        dataset_type_choices = _get_labeled_dataset_types(target_view)
+        inputs.enum(
+            "dataset_type",
+            dataset_type_choices,
+            required=True,
+            label="Label format",
+            description="The label format in which to export",
+        )
+
+        dataset_type = ctx.params.get("dataset_type", None)
+        if dataset_type == "CSV Dataset":
+            field_choices = types.Dropdown(multiple=True)
+            for field in _get_csv_fields(target_view):
+                field_choices.add_choice(field, label=field)
+
+            inputs.list(
+                "label_field",
+                types.String(),
+                required=True,
+                label="Fields",
+                description="Field(s) to include as columns of the CSV",
+                view=field_choices,
+            )
+        elif dataset_type not in ("FiftyOne Dataset", None):
+            label_field_choices = types.Dropdown()
+            for field in _get_label_fields(target_view, dataset_type):
+                label_field_choices.add_choice(field, label=field)
+
+            inputs.enum(
+                "label_field",
+                label_field_choices.values(),
+                required=True,
+                label="Label field",
+                description="The field containing the labels to export",
+                view=label_field_choices,
+            )
+
+    if export_type is not None:
+        file_explorer = types.FileExplorerView(
+            choose_dir=True,
+            button_label="Choose a directory...",
+        )
+        export_prop = inputs.file(
+            "export_dir",
+            required=True,
+            label="Directory",
+            description="Choose a directory at which to write the export",
+            view=file_explorer,
+        )
+        export_dir = _parse_path(ctx, "export_dir")
+
+        if export_dir is not None and fos.isdir(export_dir):
+            inputs.bool(
+                "overwrite",
+                default=True,
+                label="Directory already exists. Overwrite it?",
+                view=types.CheckboxView(),
+            )
+            overwrite = ctx.params.get("overwrite", True)
+
+            if not overwrite:
+                export_prop.invalid = True
+                export_prop.error_message = (
+                    "The specifieid export directory already exists"
+                )
+    else:
+        export_dir = None
+
+    if export_dir is not None:
+        label_field = ctx.params.get("label_field", None)
+        size_bytes = _estimate_export_size(
+            target_view, export_type, label_field
+        )
+        size_str = etau.to_human_bytes_str(size_bytes)
+        label = f"Estimated export size: {size_str}"
+        inputs.view("estimate", types.Notice(label=label))
+
+    if export_dir is None:
+        return False
+
+    return True
+
+
+def _estimate_export_size(view, export_type, label_field):
+    size_bytes = 0
+
+    # Estimate media size
+    if export_type in ("MEDIA_ONLY", "MEDIA_AND_LABELS"):
+        num_valid = len(view.exists("metadata.size_bytes"))
+        num_total = len(view)
+
+        if num_valid == 0:
+            size_bytes += 100e3 * num_total
+        else:
+            media_size = view.sum("metadata.size_bytes")
+            size_bytes += (num_total / num_valid) * media_size
+
+    if export_type == "FILEPATHS_ONLY":
+        label_field = "filepath"
+
+    # Estimate labels size
+    if label_field:
+        stats = view.select_fields(label_field).stats()
+        size_bytes += stats["samples_bytes"]
+
+    return size_bytes
+
+
+def _get_csv_fields(view):
+    for path, field in view.get_field_schema().items():
+        if isinstance(field, fo.EmbeddedDocumentField):
+            for _path, _field in field.get_field_schema().items():
+                if not isinstance(_field, (fo.ListField, fo.DictField)):
+                    yield path + "." + _path
+        elif not isinstance(field, (fo.ListField, fo.DictField)):
+            yield path
+
+
+def _get_labeled_dataset_types(view):
+    label_types = set(
+        view.get_field(field).document_type
+        for field in _get_fields_with_type(view, fo.Label)
+    )
+
+    dataset_types = []
+
+    if fo.Classification in label_types:
+        dataset_types.extend(_CLASSIFICATION_TYPES)
+
+    if fo.Detections in label_types:
+        dataset_types.extend(_DETECTION_TYPES)
+
+    if fo.Segmentation in label_types:
+        dataset_types.extend(_SEGMENTATION_TYPES)
+
+    dataset_types.extend(_OTHER_TYPES)
+
+    return sorted(set(dataset_types))
+
+
+def _get_label_fields(view, dataset_type):
+    label_fields = []
+
+    if dataset_type in _CLASSIFICATION_TYPES:
+        label_fields.extend(_get_fields_with_type(view, fo.Classification))
+
+    if dataset_type in _DETECTION_TYPES:
+        label_fields.extend(_get_fields_with_type(view, fo.Detections))
+
+    if dataset_type in _SEGMENTATION_TYPES:
+        label_fields.extend(_get_fields_with_type(view, fo.Segmentation))
+
+    return sorted(set(label_fields))
+
+
+def _get_fields_with_type(view, type):
+    if issubclass(type, fo.Field):
+        return view.get_field_schema(ftype=type).keys()
+
+    return view.get_field_schema(embedded_doc_type=type).keys()
+
+
+# @todo add import-only types
+# @todo add video types
+
+_DATASET_TYPES = {
+    # Classification
+    "Image Classification Directory Tree": fot.ImageClassificationDirectoryTree,
+    "TF Image Classification": fot.TFImageClassificationDataset,
+    # Detection
+    "COCO": fot.COCODetectionDataset,
+    "VOC": fot.VOCDetectionDataset,
+    "KITTI": fot.KITTIDetectionDataset,
+    "YOLOv4": fot.YOLOv4Dataset,
+    "YOLOv5": fot.YOLOv5Dataset,
+    "TF Object Detection": fot.TFObjectDetectionDataset,
+    "CVAT Image": fot.CVATImageDataset,
+    # Segmentation
+    "Image Segmentation": fot.ImageSegmentationDirectory,
+    # Other
+    "FiftyOne Dataset": fot.FiftyOneDataset,
+    "CSV Dataset": fot.CSVDataset,
+}
+
+_LABEL_TYPES = {
+    "COCO": ["detections", "segmentations", "keypoints"],
+}
+
+_CLASSIFICATION_TYPES = [
+    "Image Classification Directory Tree",
+    "TF Image Classification",
+]
+
+_DETECTION_TYPES = [
+    "COCO",
+    "VOC",
+    "KITTI",
+    "YOLOv4",
+    "YOLOv5",
+    "TF Object Detection",
+    "CVAT Image",
+]
+
+_SEGMENTATION_TYPES = [
+    "Image Segmentation",
+]
+
+_OTHER_TYPES = [
+    "FiftyOne Dataset",
+    "CSV Dataset",
+]
+
+_LABELS_FILE_TYPES = [
+    "COCO",
+    "CVAT Image",
+    "CSV Dataset",
+]
+
+_LABELS_DIR_TYPES = [
+    "VOC",
+    "KITTI",
+    "YOLOv4",
+    "Image Segmentation",
+]
+
+
+class DrawLabels(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="draw_labels",
+            label="Draw labels",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        ready = _draw_labels_inputs(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
+
+        return types.Property(inputs, view=types.View(label="Draw labels"))
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        output_dir = ctx.params["output_dir"]["absolute_path"]
+        label_fields = ctx.params.get("label_fields", None)
+        overwrite = ctx.params.get("overwrite", False)
+
+        target_view = _get_target_view(ctx, target)
+
+        target_view.draw_labels(
+            output_dir,
+            label_fields=label_fields,
+            overwrite=overwrite,
+        )
+
+
+def _draw_labels_inputs(ctx, inputs):
+    has_view = ctx.view != ctx.dataset.view()
+    has_selected = bool(ctx.selected)
+    default_target = None
+    if has_view or has_selected:
+        target_choices = types.RadioGroup()
+        target_choices.add_choice(
+            "DATASET",
+            label="Entire dataset",
+            description="Draw labels for the entire dataset",
+        )
+
+        if has_view:
+            target_choices.add_choice(
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Draw labels for the current view",
+            )
+            default_target = "CURRENT_VIEW"
+
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Draw labels for the selected samples",
+            )
+            default_target = "SELECTED_SAMPLES"
+
+        inputs.enum(
+            "target",
+            target_choices.values(),
+            default=default_target,
+            view=target_choices,
+        )
+
+    target = ctx.params.get("target", default_target)
+    target_view = _get_target_view(ctx, target)
+
+    label_field_choices = types.Dropdown(multiple=True)
+    for field in _get_fields_with_type(target_view, fo.Label):
+        label_field_choices.add_choice(field, label=field)
+
+    inputs.list(
+        "label_fields",
+        types.String(),
+        required=False,
+        default=None,
+        label="Label fields",
+        description=(
+            "The label field(s) to render. By default, all labels are rendered"
+        ),
+        view=label_field_choices,
+    )
+
+    file_explorer = types.FileExplorerView(
+        choose_dir=True,
+        button_label="Choose a directory...",
+    )
+    inputs.file(
+        "output_dir",
+        required=True,
+        label="Output directory",
+        description=(
+            "Choose a new or existing directory into which to write the "
+            "annotated media"
+        ),
+        view=file_explorer,
+    )
+    output_dir = _parse_path(ctx, "output_dir")
+
+    if output_dir is not None and fos.isdir(output_dir):
+        inputs.bool(
+            "overwrite",
+            default=False,
+            label=(
+                "Directory already exists. Delete it before writing new "
+                "media?"
+            ),
+            view=types.CheckboxView(),
+        )
+
+    if output_dir is None:
+        return False
+
+    return True
 
 
 class ComputeMetadata(foo.Operator):
@@ -1057,8 +2226,8 @@ def _compute_metadata_inputs(ctx, inputs):
         inputs.enum(
             "target",
             target_choices.values(),
-            view=target_choices,
             default=default_target,
+            view=target_choices,
         )
 
     target = ctx.params.get("target", default_target)
@@ -1260,8 +2429,8 @@ def _generate_thumbnails_inputs(ctx, inputs):
         inputs.enum(
             "target",
             target_choices.values(),
-            view=target_choices,
             default=default_target,
+            view=target_choices,
         )
 
     target = ctx.params.get("target", default_target)
@@ -1392,344 +2561,837 @@ def _generate_thumbnails_inputs(ctx, inputs):
     return True
 
 
-class ExportSamples(foo.Operator):
+class LoadZooDataset(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="export_samples",
-            label="Export samples",
+            name="load_zoo_dataset",
+            label="Load zoo dataset",
             dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        # Choose what view to export, if necessary
-        has_view = ctx.view != ctx.dataset.view()
-        has_selected = bool(ctx.selected)
-        default_target = None
-        if has_view or has_selected:
-            target_choices = types.RadioGroup()
-            target_choices.add_choice(
-                "DATASET",
-                label="Entire dataset",
-                description="Export the entire dataset",
-            )
-
-            if has_view:
-                target_choices.add_choice(
-                    "CURRENT_VIEW",
-                    label="Current view",
-                    description="Export the current view",
-                )
-                default_target = "CURRENT_VIEW"
-
-            if has_selected:
-                target_choices.add_choice(
-                    "SELECTED_SAMPLES",
-                    label="Selected samples",
-                    description="Export only the selected samples",
-                )
-                default_target = "SELECTED_SAMPLES"
-
-            inputs.enum(
-                "target",
-                target_choices.values(),
-                view=target_choices,
-                default=default_target,
-            )
-
-        target = ctx.params.get("target", default_target)
-        target_view = _get_target_view(ctx, target)
-
-        if target == "SELECTED_SAMPLES":
-            target_str = "selected samples"
-        elif target == "CURRENT_VIEW":
-            target_str = "current view"
-        else:
-            target_str = "dataset"
-
-        # Choose whether to export media and/or labels
-        export_choices = types.Choices()
-        export_choices.add_choice(
-            "FILEPATHS_ONLY",
-            label="Filepaths only",
-            description=f"Export the filepaths of the {target_str}",
-        )
-        export_choices.add_choice(
-            "MEDIA_ONLY",
-            label="Media only",
-            description=f"Export media of the {target_str}",
-        )
-        export_choices.add_choice(
-            "LABELS_ONLY",
-            label="Labels only",
-            description=f"Export labels of the {target_str}",
-        )
-        export_choices.add_choice(
-            "MEDIA_AND_LABELS",
-            label="Media and labels",
-            description=f"Export media and labels of the {target_str}",
-        )
-
-        inputs.enum(
-            "export_type",
-            export_choices.values(),
-            required=True,
-            label="Export type",
-            description="Choose what to export",
-            view=export_choices,
-        )
-        export_type = ctx.params.get("export_type", None)
-
-        # Choose the label field(s) to export, if applicable
-        if export_type in ("LABELS_ONLY", "MEDIA_AND_LABELS"):
-            dataset_type_choices = _get_labeled_dataset_types(target_view)
-            inputs.enum(
-                "dataset_type",
-                dataset_type_choices,
-                required=True,
-                label="Label format",
-                description="The label format in which to export",
-            )
-
-            dataset_type = ctx.params.get("dataset_type", None)
-            if dataset_type == "CSV Dataset":
-                field_choices = types.Dropdown(multiple=True)
-                for field in _get_csv_fields(target_view):
-                    field_choices.add_choice(field, label=field)
-
-                inputs.list(
-                    "label_field",
-                    types.String(),
-                    required=True,
-                    label="Fields",
-                    description="Field(s) to include as columns of the CSV",
-                    view=field_choices,
-                )
-            elif dataset_type not in ("FiftyOne Dataset", None):
-                label_field_choices = types.Dropdown()
-                for field in _get_label_fields(target_view, dataset_type):
-                    label_field_choices.add_choice(field, label=field)
-
-                inputs.enum(
-                    "label_field",
-                    label_field_choices.values(),
-                    required=True,
-                    label="Label field",
-                    description="The field containing the labels to export",
-                    view=label_field_choices,
-                )
-
-        # Choose an export directory
-        if export_type is not None:
-            file_explorer = types.FileExplorerView(
-                choose_dir=True,
-                button_label="Choose a directory...",
-            )
-            export_prop = inputs.file(
-                "export_dir",
-                required=True,
-                label="Directory",
-                description="Choose a directory at which to write the export",
-                view=file_explorer,
-            )
-            export_dir = _parse_path(ctx, "export_dir")
-
-            if export_dir is not None and fos.isdir(export_dir):
-                inputs.bool(
-                    "overwrite",
-                    default=True,
-                    label="Directory already exists. Overwrite it?",
-                    view=types.CheckboxView(),
-                )
-                overwrite = ctx.params.get("overwrite", True)
-
-                if not overwrite:
-                    export_prop.invalid = True
-                    export_prop.error_message = (
-                        "The specifieid export directory already exists"
-                    )
-        else:
-            export_dir = None
-
-        # Estimate export size
-        if export_dir is not None:
-            label_field = ctx.params.get("label_field", None)
-            size_bytes = _estimate_export_size(
-                target_view, export_type, label_field
-            )
-            size_str = etau.to_human_bytes_str(size_bytes)
-            label = f"Estimated export size: {size_str}"
-            inputs.view("estimate", types.Notice(label=label))
-
-        if export_dir is not None:
+        ready = _load_zoo_dataset_inputs(ctx, inputs)
+        if ready:
             _execution_mode(ctx, inputs)
 
-        return types.Property(inputs, view=types.View(label="Export samples"))
+        view = types.View(label="Load zoo dataset")
+        return types.Property(inputs, view=view)
+
+    def resolve_delegation(self, ctx):
+        return ctx.params.get("delegate", False)
+
+    def execute(self, ctx):
+        kwargs = ctx.params.copy()
+        kwargs.pop("tags", None)
+        name = kwargs.pop("name")
+        splits = kwargs.pop("splits", None)
+        label_field = kwargs.pop("label_field", None)
+        kwargs.pop("dataset_name", None)
+        kwargs.pop("delegate", None)
+
+        dataset_name = _get_zoo_dataset_name(ctx)
+
+        dataset = foz.load_zoo_dataset(
+            name,
+            splits=splits,
+            label_field=label_field,
+            dataset_name=dataset_name,
+            drop_existing_dataset=True,
+            **kwargs,
+        )
+        dataset.persistent = True
+
+        ctx.trigger("open_dataset", dict(name=dataset.name))
+
+
+def _get_zoo_datasets():
+    datasets_by_source = fozd._get_zoo_datasets()
+    all_sources, _ = fozd._get_zoo_dataset_sources()
+
+    zoo_datasets = {}
+    for source in all_sources:
+        for name, zoo_dataset_cls in datasets_by_source[source].items():
+            if name not in zoo_datasets:
+                zoo_datasets[name] = zoo_dataset_cls()
+
+    return zoo_datasets
+
+
+def _load_zoo_dataset_inputs(ctx, inputs):
+    zoo_datasets = _get_zoo_datasets()
+
+    datasets_by_tag = defaultdict(set)
+    for name, zoo_dataset in zoo_datasets.items():
+        for tag in zoo_dataset.tags or []:
+            datasets_by_tag[tag].add(name)
+
+    tag_choices = types.Dropdown(multiple=True)
+    for tag in sorted(datasets_by_tag.keys()):
+        tag_choices.add_choice(tag, label=tag)
+
+    inputs.list(
+        "tags",
+        types.String(),
+        default=None,
+        required=False,
+        label="Tags",
+        description="Provide optional tag(s) to filter the available datasets",
+        view=tag_choices,
+    )
+
+    tags = ctx.params.get("tags", None)
+
+    if tags:
+        dataset_names = set.intersection(
+            *[datasets_by_tag[tag] for tag in tags]
+        )
+    else:
+        dataset_names = list(zoo_datasets.keys())
+
+    dataset_choices = types.AutocompleteView()
+    for name in sorted(dataset_names):
+        dataset_choices.add_choice(name, label=name)
+
+    inputs.enum(
+        "name",
+        dataset_choices.values(),
+        label="Zoo dataset",
+        description=(
+            "The name of the dataset to load from the FiftyOne Dataset Zoo"
+        ),
+        caption="https://docs.voxel51.com/user_guide/model_zoo/models.html",
+        view=dataset_choices,
+    )
+
+    name = ctx.params.get("name", None)
+    if name is None:
+        return False
+
+    zoo_dataset = zoo_datasets[name]
+
+    _get_source_dir(ctx, inputs, zoo_dataset)
+
+    if zoo_dataset.has_splits:
+        split_choices = types.Dropdown(multiple=True)
+        for split in zoo_dataset.supported_splits:
+            split_choices.add_choice(split, label=split)
+
+        inputs.list(
+            "splits",
+            types.String(),
+            default=None,
+            required=False,
+            label="Splits",
+            description=(
+                "You can provide specific split(s) to load. By default, all "
+                "available splits are loaded"
+            ),
+            view=split_choices,
+        )
+
+    _partial_download_inputs(ctx, inputs, zoo_dataset)
+
+    inputs.str(
+        "label_field",
+        default=None,
+        required=False,
+        label="Label field",
+        description=(
+            "The label field (or prefix, if the dataset contains multiple "
+            "label fields) in which to store the dataset's labels. By "
+            "default, this is 'ground_truth' if the dataset contains a single "
+            "label field. If the dataset contains multiple label fields and "
+            "this value is not provided, the labels will be stored under "
+            "dataset-specific field names"
+        ),
+    )
+
+    inputs.str(
+        "dataset_name",
+        default=None,
+        required=False,
+        label="Dataset name",
+        description=(
+            "You can optionally customize the name of the FiftyOne dataset "
+            "that will be created"
+        ),
+    )
+
+    dataset_name = _get_zoo_dataset_name(ctx)
+
+    if fo.dataset_exists(dataset_name):
+        inputs.view(
+            "overwrite",
+            types.Warning(
+                label=(
+                    f"A dataset '{dataset_name}' already exists and will be "
+                    "overwritten"
+                )
+            ),
+        )
+    else:
+        inputs.view(
+            "notice",
+            types.Notice(label=f"A dataset '{dataset_name}' will be created"),
+        )
+
+    return True
+
+
+def _get_zoo_dataset_name(ctx):
+    name = ctx.params["name"]
+    splits = ctx.params.get("splits", None)
+    dataset_name = ctx.params.get("dataset_name", None)
+
+    if dataset_name:
+        return dataset_name
+
+    if not splits:
+        return name
+
+    return name + "-" + "-".join(splits)
+
+
+def _get_source_dir(ctx, inputs, zoo_dataset):
+    name = zoo_dataset.name
+
+    if name == "activitynet-100":
+        description = (
+            "You can optionally provide the directory containing the "
+            "manually downloaded ActivityNet files to avoid downloading "
+            "videos from YouTube"
+        )
+        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-100"
+        required = False
+    elif name == "activitynet-200":
+        description = (
+            "You can optionally provide the directory containing the "
+            "manually downloaded ActivityNet files to avoid downloading "
+            "videos from YouTube"
+        )
+        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-200"
+        required = False
+    elif name == "bdd100k":
+        description = (
+            "In order to load the BDD100K dataset, you must download the "
+            "source data manually"
+        )
+        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#bdd100k"
+        required = True
+    elif name == "cityscapes":
+        description = (
+            "In order to load the Cityscapes dataset, you must download the "
+            "source data manually"
+        )
+        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cityscapes"
+        required = True
+    elif name == "imagenet-2012":
+        description = (
+            "In order to load the ImageNet dataset, you must download the "
+            "source data manually"
+        )
+        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#imagenet-2012"
+        required = True
+    else:
+        return True
+
+    file_explorer = types.FileExplorerView(
+        choose_dir=True,
+        button_label="Choose a directory...",
+    )
+    inputs.file(
+        "source_dir",
+        required=required,
+        label="Source directory",
+        description=f"{description}.\n\nSee {url} for more information",
+        view=file_explorer,
+    )
+
+    if not required:
+        return True
+
+    source_dir = _parse_path(ctx, "source_dir")
+
+    return source_dir is not None
+
+
+def _partial_download_inputs(ctx, inputs, zoo_dataset):
+    if not zoo_dataset.supports_partial_downloads:
+        return
+
+    name = zoo_dataset.name
+
+    if "coco" in name:
+        label_types = ("detections", "segmentations")
+        default = "only detections"
+        id_type = "COCO"
+        only_matching = True
+    elif "open-images" in name:
+        label_types = (
+            "detections",
+            "classifications",
+            "relationships",
+            "segmentations",
+        )
+        default = "all label types"
+        id_type = "Open Images"
+        only_matching = True
+    elif "activitynet" in name:
+        label_types = None
+        id_type = None
+        only_matching = False
+    else:
+        return
+
+    if label_types is not None:
+        label_type_choices = types.Choices()
+        for field in label_types:
+            label_type_choices.add_choice(field, label=field)
+
+        inputs.list(
+            "label_types",
+            types.String(),
+            default=None,
+            required=False,
+            label="Label types",
+            description=(
+                f"The label type(s) to load. By default, {default} are loaded"
+            ),
+            view=label_type_choices,
+        )
+
+    inputs.list(
+        "classes",
+        types.String(),
+        default=None,
+        required=False,
+        label="Classes",
+        description=(
+            "An optional list of strings specifying required classes to load. "
+            "If provided, only samples containing at least one instance of a "
+            "specified class will be loaded"
+        ),
+    )
+
+    classes = ctx.params.get("classes", None)
+
+    if classes and only_matching:
+        inputs.bool(
+            "only_matching",
+            default=False,
+            label="Only matching",
+            description=(
+                "Whether to only load labels that match the classes you "
+                "provided (True) or to load all labels for samples that "
+                "contain the classes"
+            ),
+        )
+
+    if id_type is not None:
+        inputs.bool(
+            "include_id",
+            default=False,
+            label="Include ID",
+            description=(
+                f"Whether to include the {id_type} ID of each sample in the "
+                "loaded labels"
+            ),
+        )
+
+    inputs.int(
+        "max_samples",
+        default=None,
+        label="Max samples",
+        description=(
+            "A maximum number of samples to load per split. If label_types "
+            "and/or classes are also specified, first priority will be given "
+            "to samples that contain all of the specified label types and/or "
+            "classes, followed by samples that contain at least one of the "
+            "specified labels types or classes. The actual number of samples "
+            "loaded may be less than this maximum value if the dataset does "
+            "not contain sufficient samples matching your requirements"
+        ),
+    )
+
+    max_samples = ctx.params.get("max_samples", None)
+    if not max_samples:
+        return
+
+    inputs.bool(
+        "shuffle",
+        default=False,
+        label="Shuffle",
+        description=(
+            "Whether to randomly shuffle the order in which samples are chosen"
+        ),
+    )
+
+    shuffle = ctx.params.get("shuffle", False)
+    if not shuffle:
+        return
+
+    inputs.int(
+        "seed",
+        default=None,
+        label="Seed",
+        description="A random seed to use when shuffling",
+    )
+
+
+class ApplyModel(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="apply_model",
+            label="Apply model",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        ready = _apply_model_inputs(ctx, inputs)
+        if ready:
+            _execution_mode(ctx, inputs)
+
+        view = types.View(label="Apply model")
+        return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
         return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
-        export_dir = ctx.params["export_dir"]["absolute_path"]
-        export_type = ctx.params["export_type"]
-        dataset_type = ctx.params.get("dataset_type", None)
-        label_field = ctx.params.get("label_field", None)
+        model = ctx.params["model"]
+        label_field = ctx.params["label_field"]
+        confidence_thresh = ctx.params.get("confidence_thresh", None)
+        store_logits = ctx.params.get("store_logits", False)
+        batch_size = ctx.params.get("batch_size", None)
+        num_workers = ctx.params.get("num_workers", None)
+        skip_failures = ctx.params.get("skip_failures", True)
+        output_dir = ctx.params.get("output_dir", None)
+        rel_dir = ctx.params.get("rel_dir", None)
 
         target_view = _get_target_view(ctx, target)
-        export_media = True
 
-        if export_type == "MEDIA_ONLY":
-            dataset_type = fot.MediaDirectory
-            label_field = None
-        elif export_type == "FILEPATHS_ONLY":
-            dataset_type = fot.CSVDataset
-            label_field = "filepath"
-            export_media = False
-        elif export_type == "LABELS_ONLY":
-            dataset_type = _DATASET_TYPES[dataset_type]
-            export_media = False
-        else:
-            dataset_type = _DATASET_TYPES[dataset_type]
+        model = foz.load_zoo_model(model)
 
-        target_view.export(
-            export_dir=export_dir,
-            dataset_type=dataset_type,
+        target_view.apply_model(
+            model,
             label_field=label_field,
-            export_media=export_media,
+            confidence_thresh=confidence_thresh,
+            store_logits=store_logits,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            skip_failures=skip_failures,
+            output_dir=output_dir,
+            rel_dir=rel_dir,
         )
 
-        return {"count": len(target_view), "export_dir": export_dir}
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-
-        outputs.int(
-            "count",
-            label="Number of samples exported",
-            description="The number of samples that were exported",
-        )
-        outputs.str(
-            "export_dir",
-            label="Export directory",
-            description="The directory that the data was exported to",
+def _apply_model_inputs(ctx, inputs):
+    has_view = ctx.view != ctx.dataset.view()
+    has_selected = bool(ctx.selected)
+    default_target = None
+    if has_view or has_selected:
+        target_choices = types.RadioGroup()
+        target_choices.add_choice(
+            "DATASET",
+            label="Entire dataset",
+            description="Export the entire dataset",
         )
 
-        view = types.View(label="Export complete")
-        return types.Property(outputs, view=view)
-
-
-class DrawLabels(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="draw_labels",
-            label="Draw labels",
-            dynamic=True,
-        )
-
-    def resolve_input(self, ctx):
-        inputs = types.Object()
-
-        has_view = ctx.view != ctx.dataset.view()
-        has_selected = bool(ctx.selected)
-        default_target = None
-        if has_view or has_selected:
-            target_choices = types.RadioGroup()
+        if has_view:
             target_choices.add_choice(
-                "DATASET",
-                label="Entire dataset",
-                description="Draw labels for the entire dataset",
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Export the current view",
             )
+            default_target = "CURRENT_VIEW"
 
-            if has_view:
-                target_choices.add_choice(
-                    "CURRENT_VIEW",
-                    label="Current view",
-                    description="Draw labels for the current view",
-                )
-                default_target = "CURRENT_VIEW"
-
-            if has_selected:
-                target_choices.add_choice(
-                    "SELECTED_SAMPLES",
-                    label="Selected samples",
-                    description="Draw labels for the selected samples",
-                )
-                default_target = "SELECTED_SAMPLES"
-
-            inputs.enum(
-                "target",
-                target_choices.values(),
-                view=target_choices,
-                default=default_target,
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Export only the selected samples",
             )
+            default_target = "SELECTED_SAMPLES"
 
-        target = ctx.params.get("target", default_target)
-        target_view = _get_target_view(ctx, target)
-
-        label_field_choices = types.Dropdown(multiple=True)
-        for field in _get_fields_with_type(target_view, fo.Label):
-            label_field_choices.add_choice(field, label=field)
-
-        inputs.list(
-            "label_fields",
-            types.String(),
-            label="Label fields",
-            description="The label field(s) to render",
-            view=label_field_choices,
+        inputs.enum(
+            "target",
+            target_choices.values(),
+            default=default_target,
+            view=target_choices,
         )
 
+    target = ctx.params.get("target", default_target)
+    target_view = _get_target_view(ctx, target)
+
+    field_choices = types.AutocompleteView()
+    for field in _get_fields_with_type(target_view, fo.Label):
+        field_choices.add_choice(field, label=field)
+
+    inputs.str(
+        "label_field",
+        required=True,
+        label="Label field",
+        description=(
+            "The name of a new or existing field in which to store the model "
+            "predictions"
+        ),
+        view=field_choices,
+    )
+
+    manifest = fozm._load_zoo_models_manifest()
+
+    models_by_tag = defaultdict(set)
+    for model in manifest:
+        for tag in model.tags or []:
+            models_by_tag[tag].add(model.name)
+
+    tag_choices = types.Dropdown(multiple=True)
+    for tag in sorted(models_by_tag.keys()):
+        tag_choices.add_choice(tag, label=tag)
+
+    inputs.list(
+        "tags",
+        types.String(),
+        default=None,
+        required=False,
+        label="Tags",
+        description="Provide optional tag(s) to filter the available models",
+        view=tag_choices,
+    )
+
+    tags = ctx.params.get("tags", None)
+
+    if tags:
+        model_names = set.intersection(*[models_by_tag[tag] for tag in tags])
+    else:
+        model_names = [model.name for model in manifest]
+
+    model_choices = types.DropdownView()
+    for name in sorted(model_names):
+        model_choices.add_choice(name, label=name)
+
+    inputs.enum(
+        "model",
+        model_choices.values(),
+        label="Model",
+        description=(
+            "The name of a model from the FiftyOne Model Zoo to use to "
+            "generate predictions"
+        ),
+        caption="https://docs.voxel51.com/user_guide/model_zoo/models.html",
+        view=model_choices,
+    )
+
+    model = ctx.params.get("model", None)
+    if model is None:
+        return False
+
+    zoo_model = fozm.get_zoo_model(model)
+
+    inputs.float(
+        "confidence_thresh",
+        default=None,
+        label="Confidence threshold",
+        description=(
+            "A confidence threshold to apply to any applicable labels "
+            "generated by the model"
+        ),
+    )
+
+    inputs.bool(
+        "store_logits",
+        default=False,
+        label="Store logits",
+        description=(
+            "Whether to store logits for the predictions, if the model "
+            "supports it"
+        ),
+    )
+
+    inputs.int(
+        "batch_size",
+        default=None,
+        label="Batch size",
+        description=(
+            "A batch size to use when performing inference, if the model "
+            "supports it"
+        ),
+    )
+
+    inputs.int(
+        "num_workers",
+        default=None,
+        label="Num workers",
+        description="The number of workers to use for Torch data loaders",
+    )
+
+    inputs.bool(
+        "skip_failures",
+        default=True,
+        label="Skip failures",
+        description=(
+            "Whether to gracefully continue without raising an error "
+            "if predictions cannot be generated for a sample"
+        ),
+    )
+
+    if "segmentation" in (zoo_model.tags or []):
         file_explorer = types.FileExplorerView(
             choose_dir=True,
             button_label="Choose a directory...",
         )
         inputs.file(
             "output_dir",
-            required=True,
+            required=False,
             label="Output directory",
             description=(
                 "Choose a new or existing directory into which to write the "
-                "annotated media"
+                "segmentations. If omitted, the segmentations will be stored "
+                "in the database"
             ),
             view=file_explorer,
         )
-        output_dir = _parse_path(ctx, "output_dir")
 
-        if output_dir is not None and fos.isdir(output_dir):
-            inputs.bool(
-                "overwrite",
-                default=False,
-                label=(
-                    "Directory already exists. Delete it before writing new "
-                    "media?"
-                ),
-                view=types.CheckboxView(),
-            )
+    return True
 
-        if output_dir is not None:
-            _execution_mode(ctx, inputs)
 
-        return types.Property(inputs, view=types.View(label="Draw labels"))
+class InstallPlugin(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="install_plugin",
+            label="Install plugin",
+            dynamic=True,
+        )
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _install_plugin_inputs(ctx, inputs)
+
+        view = types.View(label="Install plugin")
+        return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        target = ctx.params.get("target", None)
-        output_dir = ctx.params["output_dir"]["absolute_path"]
-        label_fields = ctx.params.get("label_fields", None)
+        url_or_gh_repo = ctx.params["url_or_gh_repo"]
+        plugin_names = ctx.params.get("plugin_names", None)
+        max_depth = ctx.params.get("max_depth", 3)
         overwrite = ctx.params.get("overwrite", False)
 
-        target_view = _get_target_view(ctx, target)
-
-        target_view.draw_labels(
-            output_dir,
-            label_fields=label_fields,
+        fop.download_plugin(
+            url_or_gh_repo,
+            plugin_names=plugin_names,
+            max_depth=max_depth,
             overwrite=overwrite,
         )
+
+
+def _install_plugin_inputs(ctx, inputs):
+    """
+    The location to download the plugin(s) from, which can be:
+
+    -   a GitHub repo URL like ``https://github.com/<user>/<repo>``
+    -   a GitHub ref like
+        ``https://github.com/<user>/<repo>/tree/<branch>`` or
+        ``https://github.com/<user>/<repo>/commit/<commit>``
+    -   a GitHub ref string like ``<user>/<repo>[/<ref>]``
+    -   a publicly accessible URL of an archive (eg zip or tar) file
+    """
+
+    inputs.str(
+        "url_or_gh_repo",
+        required=True,
+        label="URL",
+        description="The GitHub repository to download the plugin(s) from",
+    )
+
+    url_or_gh_repo = ctx.params.get("url_or_gh_repo", None)
+    if not url_or_gh_repo:
+        return
+
+    inputs.list(
+        "plugin_names",
+        types.String(),
+        default=None,
+        required=False,
+        label="Plugin names",
+        description=(
+            "An optional list of plugin names to install. By default, all "
+            "found plugins are installed"
+        ),
+    )
+
+    inputs.int(
+        "max_depth",
+        default=3,
+        label="Max depth",
+        description=(
+            "The maximum depth within the downloaded archive to search for "
+            "plugins"
+        ),
+    )
+
+    inputs.bool(
+        "overwrite",
+        default=False,
+        label=(
+            "Whether to overwrite an existing plugin with the same name if it "
+            "already exists"
+        ),
+        view=types.CheckboxView(),
+    )
+
+
+class CheckPluginRequirements(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="check_plugin_requirements",
+            label="Check plugin requirements",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _check_plugin_requirements_inputs(ctx, inputs)
+        inputs.invalid = True
+
+        view = types.View(label="Check plugin requirements")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        pass
+
+
+def _check_plugin_requirements_inputs(ctx, inputs):
+    plugins = [p.name for p in fop.list_plugins()]
+
+    plugin_choices = types.DropdownView()
+    for name in sorted(plugins):
+        plugin_choices.add_choice(name, label=name)
+
+    inputs.str(
+        "name",
+        required=True,
+        label="Plugin",
+        view=plugin_choices,
+    )
+
+    name = ctx.params.get("name", None)
+    if name is None:
+        return False
+
+    requirements = []
+
+    plugin = fop.get_plugin(name)
+    req_str = plugin.fiftyone_requirement
+    if req_str is not None:
+        requirements.append(_check_fiftyone_requirement(req_str))
+
+    req_strs = fop.load_plugin_requirements(name)
+    if req_strs is not None:
+        for req_str in req_strs:
+            requirements.append(_check_package_requirement(req_str))
+
+    num_requirements = len(requirements)
+
+    if num_requirements == 0:
+        inputs.view(
+            "status",
+            types.Notice(label="This plugin has no package requirements"),
+        )
+
+        return
+
+    inputs.str(
+        "requirements",
+        view=types.Header(label="Package requirements", divider=True),
+    )
+
+    num_satisfied = 0
+    for i, (req, version, success) in enumerate(requirements, 1):
+        num_satisfied += int(success)
+
+        obj = types.Object()
+        obj.str(
+            "requirement",
+            default=str(req),
+            view=types.LabelValueView(label="Requirement", space=4),
+        )
+        obj.str(
+            "version",
+            default=version or "-",
+            view=types.LabelValueView(label="Installed version", space=4),
+        )
+        obj.bool(
+            "satisfied",
+            default=success,
+            label="Satisfied",
+            description="Requirement satisfied",
+            view=types.View(space=4, read_only=True),
+        )
+        inputs.define_property("req" + str(i), obj)
+
+    if num_satisfied == num_requirements:
+        view = types.Notice(label="All package requirements are satisfied")
+    else:
+        view = types.Warning(
+            label=(
+                f"Only {num_satisfied}/{num_requirements} package "
+                "requirements are satisfied"
+            )
+        )
+
+    inputs.view("status", view)
+
+
+def _check_fiftyone_requirement(req_str):
+    req = Requirement(req_str)
+    version = foc.VERSION
+    success = not req.specifier or req.specifier.contains(version)
+
+    return req, version, success
+
+
+def _check_package_requirement(req_str):
+    req = Requirement(req_str)
+
+    try:
+        version = metadata.version(req.name)
+    except metadata.PackageNotFoundError:
+        version = None
+
+    success = (version is not None) and (
+        not req.specifier or req.specifier.contains(version)
+    )
+
+    return req, version, success
+
+
+def _parse_path(ctx, key):
+    value = ctx.params.get(key, None)
+    return value.get("absolute_path", None) if value else None
+
+
+def _get_target_view(ctx, target):
+    if target == "SELECTED_LABELS":
+        return ctx.view.select_labels(labels=ctx.selected_labels)
+
+    if target == "SELECTED_SAMPLES":
+        return ctx.view.select(ctx.selected)
+
+    if target == "DATASET":
+        return ctx.dataset
+
+    return ctx.view
 
 
 def _set_progress(ctx, progress, label=None):
@@ -1745,11 +3407,6 @@ def _set_progress(ctx, progress, label=None):
             results={"progress": progress},
         ),
     )
-
-
-def _parse_path(ctx, key):
-    value = ctx.params.get(key, None)
-    return value.get("absolute_path", None) if value else None
 
 
 def _execution_mode(ctx, inputs):
@@ -1784,174 +3441,20 @@ def _execution_mode(ctx, inputs):
         )
 
 
-def _glob_files(directory=None, glob_patt=None):
-    if directory is not None:
-        glob_patt = f"{directory}/*"
-
-    if glob_patt is None:
-        return []
-
-    return fos.get_glob_matches(glob_patt)
-
-
-def _get_target_view(ctx, target):
-    if target == "SELECTED_SAMPLES":
-        return ctx.view.select(ctx.selected)
-
-    if target == "DATASET":
-        return ctx.dataset
-
-    return ctx.view
-
-
-def _estimate_export_size(view, export_type, label_field):
-    size_bytes = 0
-
-    # Estimate media size
-    if export_type in ("MEDIA_ONLY", "MEDIA_AND_LABELS"):
-        num_valid = len(view.exists("metadata.size_bytes"))
-        num_total = len(view)
-
-        if num_valid == 0:
-            size_bytes += 100e3 * num_total
-        else:
-            media_size = view.sum("metadata.size_bytes")
-            size_bytes += (num_total / num_valid) * media_size
-
-    if export_type == "FILEPATHS_ONLY":
-        label_field = "filepath"
-
-    # Estimate labels size
-    if label_field:
-        stats = view.select_fields(label_field).stats()
-        size_bytes += stats["samples_bytes"]
-
-    return size_bytes
-
-
-def _get_csv_fields(view):
-    for path, field in view.get_field_schema().items():
-        if isinstance(field, fo.EmbeddedDocumentField):
-            for _path, _field in field.get_field_schema().items():
-                if not isinstance(_field, (fo.ListField, fo.DictField)):
-                    yield path + "." + _path
-        elif not isinstance(field, (fo.ListField, fo.DictField)):
-            yield path
-
-
-def _get_labeled_dataset_types(view):
-    label_types = set(
-        view.get_field(field).document_type
-        for field in _get_fields_with_type(view, fo.Label)
-    )
-
-    dataset_types = []
-
-    if fo.Classification in label_types:
-        dataset_types.extend(_CLASSIFICATION_TYPES)
-
-    if fo.Detections in label_types:
-        dataset_types.extend(_DETECTION_TYPES)
-
-    if fo.Segmentation in label_types:
-        dataset_types.extend(_SEGMENTATION_TYPES)
-
-    dataset_types.extend(_OTHER_TYPES)
-
-    return sorted(set(dataset_types))
-
-
-def _get_label_fields(view, dataset_type):
-    label_fields = []
-
-    if dataset_type in _CLASSIFICATION_TYPES:
-        label_fields.extend(_get_fields_with_type(view, fo.Classification))
-
-    if dataset_type in _DETECTION_TYPES:
-        label_fields.extend(_get_fields_with_type(view, fo.Detections))
-
-    if dataset_type in _SEGMENTATION_TYPES:
-        label_fields.extend(_get_fields_with_type(view, fo.Segmentation))
-
-    return sorted(set(label_fields))
-
-
-def _get_fields_with_type(view, type):
-    if issubclass(type, fo.Field):
-        return view.get_field_schema(ftype=type).keys()
-
-    return view.get_field_schema(embedded_doc_type=type).keys()
-
-
-# @todo add import-only types
-# @todo add video types
-
-_DATASET_TYPES = {
-    # Classification
-    "Image Classification Directory Tree": fot.ImageClassificationDirectoryTree,
-    "TF Image Classification": fot.TFImageClassificationDataset,
-    # Detection
-    "COCO": fot.COCODetectionDataset,
-    "VOC": fot.VOCDetectionDataset,
-    "KITTI": fot.KITTIDetectionDataset,
-    "YOLOv4": fot.YOLOv4Dataset,
-    "YOLOv5": fot.YOLOv5Dataset,
-    "TF Object Detection": fot.TFObjectDetectionDataset,
-    "CVAT Image": fot.CVATImageDataset,
-    # Segmentation
-    "Image Segmentation": fot.ImageSegmentationDirectory,
-    # Other
-    "FiftyOne Dataset": fot.FiftyOneDataset,
-    "CSV Dataset": fot.CSVDataset,
-}
-
-_LABEL_TYPES = {
-    "COCO": ["detections", "segmentations", "keypoints"],
-}
-
-_CLASSIFICATION_TYPES = [
-    "Image Classification Directory Tree",
-    "TF Image Classification",
-]
-
-_DETECTION_TYPES = [
-    "COCO",
-    "VOC",
-    "KITTI",
-    "YOLOv4",
-    "YOLOv5",
-    "TF Object Detection",
-    "CVAT Image",
-]
-
-_SEGMENTATION_TYPES = [
-    "Image Segmentation",
-]
-
-_OTHER_TYPES = [
-    "FiftyOne Dataset",
-    "CSV Dataset",
-]
-
-_LABELS_FILE_TYPES = [
-    "COCO",
-    "CVAT Image",
-    "CSV Dataset",
-]
-
-_LABELS_DIR_TYPES = [
-    "VOC",
-    "KITTI",
-    "YOLOv4",
-    "Image Segmentation",
-]
-
-
 def register(p):
+    p.register(CreateDataset)
+    p.register(LoadDataset)
+    p.register(EditDatasetInfo)
+    p.register(RenameDataset)
+    p.register(DeleteDataset)
     p.register(ImportSamples)
     p.register(MergeSamples)
     p.register(MergeLabels)
-    p.register(ComputeMetadata)
-    p.register(GenerateThumbnails)
     p.register(ExportSamples)
     p.register(DrawLabels)
+    p.register(ComputeMetadata)
+    p.register(GenerateThumbnails)
+    p.register(LoadZooDataset)
+    p.register(ApplyModel)
+    p.register(InstallPlugin)
+    p.register(CheckPluginRequirements)
