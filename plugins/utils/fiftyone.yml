@@ -1,0 +1,16 @@
+name: "@voxel51/utils"
+description: A collection of utility operators
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/utils/README.md
+license: Apache 2.0
+operators:
+  - create_dataset
+  - load_dataset
+  - edit_dataset_info
+  - rename_dataset
+  - delete_dataset
+  - compute_metadata
+  - generate_thumbnails
+  - manage_plugins

@@ -6,5 +6,8 @@ fiftyone:
 url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md
 license: Apache 2.0
 operators:
-  - add_samples
+  - import_samples
+  - merge_samples
+  - merge_labels
   - export_samples
+  - draw_labels
