@@ -32,6 +32,14 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>📁 A collection of import/export utilities</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/utils/README.md">@voxel51/utils</a></b></td>
+        <td>⚒️ Call your favorite SDK utilities from the App</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/zoo/README.md">@voxel51/zoo</a></b></td>
+        <td>🌎 Download and use datasets and models from the FiftyOne Zoo</td>
+    </tr>
 </table>
 
 ## Voxel51 Plugins

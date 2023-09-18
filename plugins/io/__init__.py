@@ -24,6 +24,7 @@ class ImportSamples(foo.Operator):
         return foo.OperatorConfig(
             name="import_samples",
             label="Import samples",
+            # icon="/assets/folder.png",
             dynamic=True,
             execute_as_generator=True,
         )
@@ -569,6 +570,7 @@ class MergeSamples(foo.Operator):
         return foo.OperatorConfig(
             name="merge_samples",
             label="Merge samples",
+            # icon="/assets/folder.png",
             dynamic=True,
         )
 
@@ -934,6 +936,7 @@ class MergeLabels(foo.Operator):
         return foo.OperatorConfig(
             name="merge_labels",
             label="Merge labels",
+            # icon="/assets/folder.png",
             dynamic=True,
         )
 
@@ -1068,6 +1071,7 @@ class ExportSamples(foo.Operator):
         return foo.OperatorConfig(
             name="export_samples",
             label="Export samples",
+            # icon="/assets/folder.png",
             dynamic=True,
         )
 
@@ -1427,6 +1431,7 @@ class DrawLabels(foo.Operator):
         return foo.OperatorConfig(
             name="draw_labels",
             label="Draw labels",
+            # icon="/assets/folder.png",
             dynamic=True,
         )
 
