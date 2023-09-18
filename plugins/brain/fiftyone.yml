@@ -1,0 +1,27 @@
+name: "@voxel51/brain"
+description: Utilities for working with the FiftyOne Brain
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/brain/README.md
+license: Apache 2.0
+operators:
+  - compute_visualization
+  - compute_similarity
+  - compute_uniqueness
+  - compute_mistakenness
+  - compute_hardness
+  - get_brain_info
+  - load_brain_view
+  - rename_brain_run
+  - delete_brain_run
+secrets:
+  - FIFTYONE_BRAIN_SIMILARITY_QDRANT_URL
+  - FIFTYONE_BRAIN_SIMILARITY_QDRANT_API_KEY
+  - FIFTYONE_BRAIN_SIMILARITY_QDRANT_GRPC_PORT
+  - FIFTYONE_BRAIN_SIMILARITY_QDRANT_PREFER_GRPC
+  - FIFTYONE_BRAIN_SIMILARITY_PINECONE_API_KEY
+  - FIFTYONE_BRAIN_SIMILARITY_PINECONE_ENVIRONMENT
+  - FIFTYONE_BRAIN_SIMILARITY_MILVUS_USER
+  - FIFTYONE_BRAIN_SIMILARITY_MILVUS_PASSWORD
+  - FIFTYONE_BRAIN_SIMILARITY_MILVUS_URI
