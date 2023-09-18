@@ -29,6 +29,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/annotation/README.md">@voxel51/annotation</a></b></td>
+        <td>✏️ Utilities for integrating FiftyOne with annotation tools</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>📁 A collection of import/export utilities</td>
     </tr>
@@ -120,7 +124,6 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/image-deduplication-plugin/">@jacobmarks/image_deduplication</a></b></td>
         <td>🪞 Find exact and approximate duplicates in your dataset!</td>
     </tr>
-    
 </table>
 
 ## Using Plugins
