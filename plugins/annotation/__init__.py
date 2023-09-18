@@ -1138,7 +1138,7 @@ def get_anno_key(ctx, inputs, show_default=True):
 
 
 def _inject_annotation_secrets(ctx):
-    for key, value in ctx.get("secrets", {}).items():
+    for key, value in getattr(ctx, "secrets", {}).items():
         # FIFTYONE_CVAT_[UPPER_KEY]
         if key.startswith("FIFTYONE_CVAT_"):
             _key = key[len("FIFTYONE_CVAT_") :].lower()

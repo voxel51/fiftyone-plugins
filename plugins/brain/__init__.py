@@ -1207,7 +1207,7 @@ def get_brain_key(
 
 
 def _inject_brain_secrets(ctx):
-    for key, value in ctx.get("secrets", {}).items():
+    for key, value in getattr(ctx, "secrets", {}).items():
         # FIFTYONE_BRAIN_SIMILARITY_[UPPER_BACKEND]_[UPPER_KEY]
         if key.startswith("FIFTYONE_BRAIN_SIMILARITY_"):
             _key = key[len("FIFTYONE_BRAIN_SIMILARITY_") :].lower()
