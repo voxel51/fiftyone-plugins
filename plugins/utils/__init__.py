@@ -36,7 +36,8 @@ class CreateDataset(foo.Operator):
         return foo.OperatorConfig(
             name="create_dataset",
             label="Create dataset",
-            # icon="/assets/shovel.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -84,7 +85,8 @@ class LoadDataset(foo.Operator):
         return foo.OperatorConfig(
             name="load_dataset",
             label="Load dataset",
-            # icon="/assets/picks-and-shovels.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -137,7 +139,8 @@ class EditDatasetInfo(foo.Operator):
         return foo.OperatorConfig(
             name="edit_dataset_info",
             label="Edit dataset info",
-            # icon="/assets/picks-and-shovels.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -578,7 +581,8 @@ class RenameDataset(foo.Operator):
         return foo.OperatorConfig(
             name="rename_dataset",
             label="Rename dataset",
-            # icon="/assets/picks-and-shovels.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -631,7 +635,8 @@ class DeleteDataset(foo.Operator):
         return foo.OperatorConfig(
             name="delete_dataset",
             label="Delete dataset",
-            # icon="/assets/picks-and-shovels.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -668,7 +673,8 @@ class ComputeMetadata(foo.Operator):
         return foo.OperatorConfig(
             name="compute_metadata",
             label="Compute metadata",
-            # icon="/assets/picks-and-shovels.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
             execute_as_generator=True,
         )
@@ -855,7 +861,8 @@ class GenerateThumbnails(foo.Operator):
         return foo.OperatorConfig(
             name="generate_thumbnails",
             label="Generate thumbnails",
-            # icon="/assets/picks-and-shovels.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1076,7 +1083,8 @@ class ManagePlugins(foo.Operator):
         return foo.OperatorConfig(
             name="manage_plugins",
             label="Manage plugins",
-            # icon="/assets/picks-and-shovels.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 

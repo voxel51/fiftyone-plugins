@@ -17,6 +17,8 @@ class ManageIndexes(foo.Operator):
         return foo.OperatorConfig(
             name="manage_indexes",
             label="Manage indexes",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 

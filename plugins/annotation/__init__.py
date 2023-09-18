@@ -21,6 +21,8 @@ class RequestAnnotations(foo.Operator):
         return foo.OperatorConfig(
             name="request_annotations",
             label="Request annotations",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -845,6 +847,8 @@ class LoadAnnotations(foo.Operator):
         return foo.OperatorConfig(
             name="load_annotations",
             label="Load annotations",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -944,6 +948,8 @@ class GetAnnotationInfo(foo.Operator):
         return foo.OperatorConfig(
             name="get_annotation_info",
             label="Get annotation info",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1007,6 +1013,8 @@ class LoadAnnotationView(foo.Operator):
         return foo.OperatorConfig(
             name="load_annotation_view",
             label="Load annotation view",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1034,6 +1042,8 @@ class RenameAnnotationRun(foo.Operator):
         return foo.OperatorConfig(
             name="rename_annotation_run",
             label="Rename annotation run",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1065,6 +1075,8 @@ class DeleteAnnotationRun(foo.Operator):
         return foo.OperatorConfig(
             name="delete_annotation_run",
             label="Delete annotation run",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 

@@ -30,6 +30,8 @@ class ComputeVisualization(foo.Operator):
         return foo.OperatorConfig(
             name="compute_visualization",
             label="Compute visualization",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -125,6 +127,8 @@ class ComputeSimilarity(foo.Operator):
         return foo.OperatorConfig(
             name="compute_similarity",
             label="Compute similarity",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -388,6 +392,8 @@ class ComputeUniqueness(foo.Operator):
         return foo.OperatorConfig(
             name="compute_uniqueness",
             label="Compute uniqueness",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -470,6 +476,8 @@ class ComputeMistakenness(foo.Operator):
         return foo.OperatorConfig(
             name="compute_mistakenness",
             label="Compute mistakenness",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -653,6 +661,8 @@ class ComputeHardness(foo.Operator):
         return foo.OperatorConfig(
             name="compute_hardness",
             label="Compute hardness",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -930,6 +940,8 @@ class GetBrainInfo(foo.Operator):
         return foo.OperatorConfig(
             name="get_brain_info",
             label="Get brain info",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -997,6 +1009,8 @@ class LoadBrainView(foo.Operator):
         return foo.OperatorConfig(
             name="load_brain_view",
             label="Load brain view",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1025,6 +1039,8 @@ class RenameBrainRun(foo.Operator):
         return foo.OperatorConfig(
             name="rename_brain_run",
             label="Rename brain run",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1066,6 +1082,8 @@ class DeleteBrainRun(foo.Operator):
         return foo.OperatorConfig(
             name="delete_brain_run",
             label="Delete brain run",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 

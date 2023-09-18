@@ -21,7 +21,8 @@ class LoadZooDataset(foo.Operator):
         return foo.OperatorConfig(
             name="load_zoo_dataset",
             label="Load zoo dataset",
-            # icon="/assets/zoo.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -402,7 +403,8 @@ class ApplyZooModel(foo.Operator):
         return foo.OperatorConfig(
             name="apply_zoo_model",
             label="Apply zoo model",
-            # icon="/assets/zoo.png",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 

@@ -20,6 +20,8 @@ class EvaluateModel(foo.Operator):
         return foo.OperatorConfig(
             name="evaluate_model",
             label="Evaluate model",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -911,6 +913,8 @@ class GetEvaluationInfo(foo.Operator):
         return foo.OperatorConfig(
             name="get_evaluation_info",
             label="Get evaluation info",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -974,6 +978,8 @@ class LoadEvaluationView(foo.Operator):
         return foo.OperatorConfig(
             name="load_evaluation_view",
             label="Load evaluation view",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1001,6 +1007,8 @@ class RenameEvaluation(foo.Operator):
         return foo.OperatorConfig(
             name="rename_evaluation",
             label="Rename evaluation",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -1032,6 +1040,8 @@ class DeleteEvaluation(foo.Operator):
         return foo.OperatorConfig(
             name="delete_evaluation",
             label="Delete evaluation",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
