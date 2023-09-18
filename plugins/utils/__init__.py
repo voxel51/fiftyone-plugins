@@ -151,6 +151,7 @@ class EditDatasetInfo(foo.Operator):
         name = ctx.params.get("name", None)
         description = ctx.params.get("description", None)
         persistent = ctx.params.get("persistent", None)
+        tags = ctx.params.get("tags", None)
         info = ctx.params.get("info", None)
         app_config = ctx.params.get("app_config", None)
         classes = ctx.params.get("classes", None)
@@ -168,6 +169,9 @@ class EditDatasetInfo(foo.Operator):
 
         if persistent is not None:
             ctx.dataset.persistent = persistent
+
+        if tags is not None:
+            ctx.dataset.tags = tags
 
         if info is not None:
             ctx.dataset.info = json.loads(info)
@@ -279,6 +283,24 @@ def _dataset_info_inputs(ctx, inputs):
         )
 
     if edited_persistent:
+        num_changed += 1
+
+    ## tags
+
+    tags = ctx.params.get("tags", None) or []
+    edited_tags = tags != ctx.dataset.tags
+
+    if tab_choice == "BASIC":
+        inputs.list(
+            "tags",
+            types.String(),
+            default=ctx.dataset.tags,
+            required=False,
+            label="Tags" + (" (edited)" if edited_tags else ""),
+            description="A list of tags for the dataset",
+        )
+
+    if edited_tags:
         num_changed += 1
 
     ## info

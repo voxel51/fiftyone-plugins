@@ -33,6 +33,102 @@ session = fo.launch_app(dataset)
 
 ## Operators
 
+### create_dataset
+
+You can use this operator to create a new dataset from within the App.
+
+This operator is essentially a wrapper around the
+[Dataset()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset)
+constructor:
+
+```py
+dataset = fo.Dataset(name, persistent=persistent)
+```
+
+where the operator's form allows you to configure the name and persistence of
+the dataset.
+
+### load_dataset
+
+You can use this operator to switch to a different dataset in the App.
+
+This operator is essentially a wrapper around the
+[load_dataset()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.load_dataset)
+method:
+
+```py
+session.dataset = fo.load_dataset(name)
+```
+
+where the operator's form allows you to configure the name of the dataset to
+load.
+
+### edit_dataset_info
+
+You can use this operator to edit dataset-level metadata in the App.
+
+This operator is essentially a wrapper around the various dataset properties
+described in
+[this section](https://docs.voxel51.com/user_guide/using_datasets.html#datasets)
+of the docs:
+
+```py
+# Basic
+dataset.name = ...
+dataset.persistent = ...
+dataset.tags = ...
+dataset.classes = ...
+
+# Info
+dataset.info = ...
+
+# App config
+dataset.app_config = ...
+
+# Classes
+dataset.classes = ...
+dataset.default_classes = ...
+
+# Mask targets
+dataset.mask_targets = ...
+dataset.default_mask_targets = ...
+
+# Keypoint skeletons
+dataset.skeletons = ...
+dataset.default_skeleton = ...
+```
+
+where the operator's form allows you to edit any of the above properties.
+
+### rename_dataset
+
+You can use this operator to rename a dataset in the App.
+
+This operator is essentially a wrapper around setting the dataset's
+[name](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.name)
+property:
+
+```py
+dataset.name = new_name
+```
+
+where the operator's form allows you to configure the new name for the dataset.
+
+### delete_dataset
+
+You can use this operator to delete a dataset in the App.
+
+This operator is essentially a wrapper around the
+[delete_dataset()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.delete_dataset)
+method:
+
+```py
+fo.delete_dataset(name)
+```
+
+where the operator's form allows you to configure the name of the dataset to
+delete.
+
 ### compute_metadata
 
 You can use this operator to populate the `metadata` field of a collection.
@@ -74,3 +170,28 @@ dataset.save()
 where the operator's form allows you to configure the `(width, height)` for the
 thumbnails, the field in which to store their paths, and the directory in which
 to store the thumbnail images.
+
+### manage_plugins
+
+You can use this operator to manage your FiftyOne plugins from within the App.
+
+This operator is essentially a wrapper around the following
+[plugin methods](https://docs.voxel51.com/plugins/index.html):
+
+```py
+import fiftyone.plugins as fop
+
+# Plugin enablement
+fop.list_plugins()
+fop.enable_plugin(name)
+fop.disable_plugin(name)
+
+# Plugin package requirements
+fop.load_plugin_requirements()
+fop.ensure_plugin_requirements()
+
+# Plugin installation
+fop.download_plugin()
+```
+
+where the operator's form allows you to navigate between the available actions.
