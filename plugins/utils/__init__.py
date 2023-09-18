@@ -36,7 +36,7 @@ class CreateDataset(foo.Operator):
         return foo.OperatorConfig(
             name="create_dataset",
             label="Create dataset",
-            icon="/assets/shovel.png",
+            # icon="/assets/shovel.png",
             dynamic=True,
         )
 
