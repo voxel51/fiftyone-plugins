@@ -36,6 +36,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/brain/README.md">@voxel51/brain</a></b></td>
         <td>🧠 Utilities for working with the FiftyOne Brain</td>
     </tr>
+    </tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/evaluation/README.md">@voxel51/evaluation</a></b></td>
+        <td>✅ Utilities for evaluating models with FiftyOne</td>
+    </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
         <td>📁 A collection of import/export utilities</td>
@@ -47,7 +51,7 @@ Want to showcase your own plugin here? See the
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/zoo/README.md">@voxel51/zoo</a></b></td>
         <td>🌎 Download and use datasets and models from the FiftyOne Zoo</td>
-    </tr>
+    <tr>
 </table>
 
 ## Voxel51 Plugins
