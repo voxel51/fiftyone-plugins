@@ -54,7 +54,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/zoo/README.md">@voxel51/zoo</a></b></td>
-        <td>🌎 Download and use datasets and models from the FiftyOne Zoo</td>
+        <td>🌎 Download datasets and run inference with models from the FiftyOne Zoo, all without leaving the App</td>
     </tr>
 </table>
 
