@@ -31,44 +31,7 @@ class ImportSamples(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        import_choices = types.Choices()
-        import_choices.add_choice(
-            "MEDIA_ONLY",
-            label="Media only",
-            description="Add new samples for media",
-        )
-        import_choices.add_choice(
-            "LABELS_ONLY",
-            label="Labels only",
-            description="Add labels to existing samples",
-        )
-        import_choices.add_choice(
-            "MEDIA_AND_LABELS",
-            label="Media and labels",
-            description="Add new samples with media and labels",
-        )
-
-        inputs.enum(
-            "import_type",
-            import_choices.values(),
-            required=True,
-            label="Import type",
-            description="Choose what to import",
-            view=import_choices,
-        )
-        import_type = ctx.params.get("import_type", None)
-
-        ready = False
-        if import_type == "MEDIA_ONLY":
-            ready = _import_media_only_inputs(ctx, inputs)
-        elif import_type == "MEDIA_AND_LABELS":
-            ready = _import_media_and_labels_inputs(ctx, inputs)
-        elif import_type == "LABELS_ONLY":
-            ready = _import_labels_only_inputs(ctx, inputs)
-
-        if ready and import_type in ("MEDIA_ONLY", "MEDIA_AND_LABELS"):
-            _upload_media_inputs(ctx, inputs)
-
+        ready = _import_samples_inputs(ctx, inputs)
         if ready:
             _execution_mode(ctx, inputs)
 
@@ -91,6 +54,48 @@ class ImportSamples(foo.Operator):
                 yield update
 
         yield ctx.trigger("reload_dataset")
+
+
+def _import_samples_inputs(ctx, inputs):
+    import_choices = types.Choices()
+    import_choices.add_choice(
+        "MEDIA_ONLY",
+        label="Media only",
+        description="Add new samples for media",
+    )
+    import_choices.add_choice(
+        "LABELS_ONLY",
+        label="Labels only",
+        description="Add labels to existing samples",
+    )
+    import_choices.add_choice(
+        "MEDIA_AND_LABELS",
+        label="Media and labels",
+        description="Add new samples with media and labels",
+    )
+
+    inputs.enum(
+        "import_type",
+        import_choices.values(),
+        required=True,
+        label="Import type",
+        description="Choose what to import",
+        view=import_choices,
+    )
+    import_type = ctx.params.get("import_type", None)
+
+    ready = False
+    if import_type == "MEDIA_ONLY":
+        ready = _import_media_only_inputs(ctx, inputs)
+    elif import_type == "MEDIA_AND_LABELS":
+        ready = _import_media_and_labels_inputs(ctx, inputs)
+    elif import_type == "LABELS_ONLY":
+        ready = _import_labels_only_inputs(ctx, inputs)
+
+    if ready and import_type in ("MEDIA_ONLY", "MEDIA_AND_LABELS"):
+        _upload_media_inputs(ctx, inputs)
+
+    return ready
 
 
 def _import_media_only_inputs(ctx, inputs):
@@ -570,10 +575,8 @@ class MergeSamples(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _get_src_dst_collections(ctx, inputs)
-
+        ready = _merge_samples_inputs(ctx, inputs)
         if ready:
-            _get_merge_parameters(ctx, inputs)
             _execution_mode(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Merge samples"))
@@ -617,6 +620,14 @@ class MergeSamples(foo.Operator):
             include_info=include_info,
             overwrite_info=overwrite_info,
         )
+
+
+def _merge_samples_inputs(ctx, inputs):
+    ready = _get_src_dst_collections(ctx, inputs)
+    if ready:
+        _get_merge_parameters(ctx, inputs)
+
+    return ready
 
 
 def _get_src_dst_collections(ctx, inputs):

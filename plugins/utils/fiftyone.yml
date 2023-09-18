@@ -13,5 +13,4 @@ operators:
   - delete_dataset
   - compute_metadata
   - generate_thumbnails
-  - install_plugin
-  - check_plugin_requirements
+  - manage_plugins

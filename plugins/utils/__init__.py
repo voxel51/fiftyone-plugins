@@ -1041,47 +1041,278 @@ def _generate_thumbnails_inputs(ctx, inputs):
     return True
 
 
-class InstallPlugin(foo.Operator):
+class ManagePlugins(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="install_plugin",
-            label="Install plugin",
+            name="manage_plugins",
+            label="Manage plugins",
             dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-
-        _install_plugin_inputs(ctx, inputs)
-
-        view = types.View(label="Install plugin")
-        return types.Property(inputs, view=view)
+        _manage_plugins_inputs(ctx, inputs)
+        return types.Property(inputs, view=types.View(label="Manage plugins"))
 
     def execute(self, ctx):
-        url_or_gh_repo = ctx.params["url_or_gh_repo"]
-        plugin_names = ctx.params.get("plugin_names", None)
-        max_depth = ctx.params.get("max_depth", 3)
-        overwrite = ctx.params.get("overwrite", False)
+        tab = ctx.params.get("tab", None)
+        if tab == "PLUGINS":
+            _plugin_enablement(ctx)
+        elif tab == "INSTALL":
+            _install_plugin(ctx)
 
-        fop.download_plugin(
-            url_or_gh_repo,
-            plugin_names=plugin_names,
-            max_depth=max_depth,
-            overwrite=overwrite,
+
+def _manage_plugins_inputs(ctx, inputs):
+    tab_choices = types.TabsView()
+    tab_choices.add_choice("PLUGINS", label="Plugins")
+    tab_choices.add_choice("REQUIREMENTS", label="Requirements")
+    tab_choices.add_choice("INSTALL", label="Install")
+    default = "PLUGINS"
+
+    inputs.enum(
+        "tab",
+        tab_choices.values(),
+        default=default,
+        view=tab_choices,
+    )
+    tab = ctx.params.get("tab", default)
+
+    if tab == "PLUGINS":
+        _plugin_enablement_inputs(ctx, inputs)
+    elif tab == "REQUIREMENTS":
+        _plugin_requirements_inputs(ctx, inputs)
+    elif tab == "INSTALL":
+        _install_plugin_inputs(ctx, inputs)
+
+
+def _plugin_enablement_inputs(ctx, inputs):
+    obj = types.Object()
+    obj.str(
+        "name",
+        default="**Name**",
+        view=types.MarkdownView(read_only=True, space=3),
+    )
+    obj.str(
+        "description",
+        default="**Description**",
+        view=types.MarkdownView(read_only=True, space=7),
+    )
+    obj.str(
+        "enabled",
+        default="**Enabled**",
+        view=types.MarkdownView(read_only=True, space=2),
+    )
+    inputs.define_property("enablement_header", obj)
+
+    enabled_plugins = set(fop.list_enabled_plugins())
+
+    num_edited = 0
+    for i, plugin in enumerate(fop.list_plugins(enabled="all"), 1):
+        prop_name = f"enablement{i}"
+        actual_enabled = plugin.name in enabled_plugins
+        enabled = ctx.params.get(prop_name, {}).get("enabled", actual_enabled)
+        edited = enabled != actual_enabled
+        num_edited += int(edited)
+
+        obj = types.Object()
+        obj.str(
+            "markdown_name",
+            default=f"[{plugin.name}]({plugin.url})",
+            view=types.MarkdownView(read_only=True, space=3),
         )
+        obj.str(
+            "description",
+            default=plugin.description,
+            view=types.MarkdownView(read_only=True, space=6.5),
+        )
+        obj.str(
+            "name",
+            default=plugin.name,
+            view=types.HiddenView(read_only=True, space=0.5),
+        )
+        obj.bool(
+            "enabled",
+            label="(edited)" if edited else "",
+            default=actual_enabled,
+            view=types.CheckboxView(space=2),  # @todo use SwitchView
+        )
+        inputs.define_property(prop_name, obj)
+
+    if num_edited > 0:
+        view = types.Notice(
+            label=(
+                f"You are about to change the enablement of {num_edited} "
+                "plugins"
+            )
+        )
+    else:
+        view = types.Notice(label="You have not made any changes")
+
+    status_prop = inputs.view("enablement_status", view)
+
+    if num_edited == 0:
+        status_prop.invalid = True
+
+
+def _plugin_enablement(ctx):
+    enabled_plugins = set(fop.list_enabled_plugins())
+
+    i = 0
+    while True:
+        i += 1
+        prop_name = f"enablement{i}"
+        obj = ctx.params.get(prop_name, None)
+        if obj is None:
+            break
+
+        name = obj["name"]
+        enabled = obj["enabled"]
+
+        actual_enabled = name in enabled_plugins
+        if enabled != actual_enabled:
+            if enabled:
+                fop.enable_plugin(name)
+            else:
+                fop.disable_plugin(name)
+
+
+def _plugin_requirements_inputs(ctx, inputs):
+    plugins = [p.name for p in fop.list_plugins(enabled="all")]
+
+    plugin_choices = types.DropdownView()
+    for name in sorted(plugins):
+        plugin_choices.add_choice(name, label=name)
+
+    inputs.str(
+        "requirements_name",
+        default=None,
+        required=True,
+        label="Plugin",
+        description="Choose a plugin whose requirements you want to check",
+        view=plugin_choices,
+    )
+
+    name = ctx.params.get("requirements_name", None)
+    if name is None:
+        return
+
+    requirements = []
+
+    plugin = fop.get_plugin(name)
+    req_str = plugin.fiftyone_requirement
+    if req_str is not None:
+        requirements.append(_check_fiftyone_requirement(req_str))
+
+    req_strs = fop.load_plugin_requirements(name)
+    if req_strs is not None:
+        for req_str in req_strs:
+            requirements.append(_check_package_requirement(req_str))
+
+    num_requirements = len(requirements)
+    if num_requirements == 0:
+        inputs.view(
+            "requirements_status",
+            types.Notice(label="This plugin has no package requirements"),
+        )
+        return
+
+    obj = types.Object()
+    obj.str(
+        "requirements_requirement",
+        default="**Requirement**",
+        view=types.MarkdownView(read_only=True, space=5),
+    )
+    obj.str(
+        "requirements_version",
+        default="**Installed version**",
+        view=types.MarkdownView(read_only=True, space=5),
+    )
+    obj.str(
+        "requirements_satisfied",
+        default="**Satisfied**",
+        view=types.MarkdownView(read_only=True, space=2),
+    )
+    inputs.define_property("requirements_header", obj)
+
+    num_satisfied = 0
+    for i, (req, version, success) in enumerate(requirements, 1):
+        prop_name = f"requirements{i}"
+        num_satisfied += int(success)
+
+        obj = types.Object()
+        obj.str(
+            "requirement",
+            default=str(req),
+            view=types.MarkdownView(read_only=True, space=5),
+        )
+        obj.str(
+            "version",
+            default=version or "-",
+            view=types.MarkdownView(read_only=True, space=5),
+        )
+        obj.bool(
+            "satisfied",
+            default=success,
+            view=types.CheckboxView(read_only=True, space=2),
+        )
+        inputs.define_property(prop_name, obj)
+
+    if num_satisfied == num_requirements:
+        view = types.Notice(label="All package requirements are satisfied")
+    else:
+        view = types.Warning(
+            label=(
+                f"Only {num_satisfied}/{num_requirements} package "
+                "requirements are satisfied"
+            )
+        )
+
+    status_prop = inputs.view("requirements_status", view)
+    status_prop.invalid = True
+
+
+def _check_fiftyone_requirement(req_str):
+    req = Requirement(req_str)
+    version = foc.VERSION
+    success = not req.specifier or req.specifier.contains(version)
+
+    return req, version, success
+
+
+def _check_package_requirement(req_str):
+    req = Requirement(req_str)
+
+    try:
+        version = metadata.version(req.name)
+    except metadata.PackageNotFoundError:
+        version = None
+
+    success = (version is not None) and (
+        not req.specifier or req.specifier.contains(version)
+    )
+
+    return req, version, success
 
 
 def _install_plugin_inputs(ctx, inputs):
-    """
-    The location to download the plugin(s) from, which can be:
+    instructions = """
+The location to download the plugin(s) from, which can be:
 
-    -   a GitHub repo URL like ``https://github.com/<user>/<repo>``
-    -   a GitHub ref like
-        ``https://github.com/<user>/<repo>/tree/<branch>`` or
-        ``https://github.com/<user>/<repo>/commit/<commit>``
-    -   a GitHub ref string like ``<user>/<repo>[/<ref>]``
-    -   a publicly accessible URL of an archive (eg zip or tar) file
+-   A GitHub repo URL like `https://github.com/<user>/<repo>`
+-   A GitHub ref like
+    `https://github.com/<user>/<repo>/tree/<branch>` or
+    `https://github.com/<user>/<repo>/commit/<commit>`
+-   A GitHub ref string like `<user>/<repo>[/<ref>]`
+-   A publicly accessible URL of an archive (eg zip or tar) file
+    """
+
+    """
+    inputs.str(
+        "instructions",
+        default=instructions.strip(),
+        view=types.MarkdownView(read_only=True),
+    )
     """
 
     inputs.str(
@@ -1115,144 +1346,33 @@ def _install_plugin_inputs(ctx, inputs):
             "The maximum depth within the downloaded archive to search for "
             "plugins"
         ),
+        view=types.View(space=6),
     )
 
     inputs.bool(
         "overwrite",
         default=False,
-        label=(
+        label="Overwrite",
+        description=(
             "Whether to overwrite an existing plugin with the same name if it "
             "already exists"
         ),
-        view=types.CheckboxView(),
+        view=types.CheckboxView(space=6),
     )
 
 
-class CheckPluginRequirements(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="check_plugin_requirements",
-            label="Check plugin requirements",
-            dynamic=True,
-        )
+def _install_plugin(ctx):
+    url_or_gh_repo = ctx.params["url_or_gh_repo"]
+    plugin_names = ctx.params.get("plugin_names", None)
+    max_depth = ctx.params.get("max_depth", 3)
+    overwrite = ctx.params.get("overwrite", False)
 
-    def resolve_input(self, ctx):
-        inputs = types.Object()
-
-        _check_plugin_requirements_inputs(ctx, inputs)
-        inputs.invalid = True
-
-        view = types.View(label="Check plugin requirements")
-        return types.Property(inputs, view=view)
-
-    def execute(self, ctx):
-        pass
-
-
-def _check_plugin_requirements_inputs(ctx, inputs):
-    plugins = [p.name for p in fop.list_plugins()]
-
-    plugin_choices = types.DropdownView()
-    for name in sorted(plugins):
-        plugin_choices.add_choice(name, label=name)
-
-    inputs.str(
-        "name",
-        required=True,
-        label="Plugin",
-        view=plugin_choices,
+    fop.download_plugin(
+        url_or_gh_repo,
+        plugin_names=plugin_names,
+        max_depth=max_depth,
+        overwrite=overwrite,
     )
-
-    name = ctx.params.get("name", None)
-    if name is None:
-        return False
-
-    requirements = []
-
-    plugin = fop.get_plugin(name)
-    req_str = plugin.fiftyone_requirement
-    if req_str is not None:
-        requirements.append(_check_fiftyone_requirement(req_str))
-
-    req_strs = fop.load_plugin_requirements(name)
-    if req_strs is not None:
-        for req_str in req_strs:
-            requirements.append(_check_package_requirement(req_str))
-
-    num_requirements = len(requirements)
-
-    if num_requirements == 0:
-        inputs.view(
-            "status",
-            types.Notice(label="This plugin has no package requirements"),
-        )
-
-        return
-
-    inputs.str(
-        "requirements",
-        view=types.Header(label="Package requirements", divider=True),
-    )
-
-    num_satisfied = 0
-    for i, (req, version, success) in enumerate(requirements, 1):
-        num_satisfied += int(success)
-
-        obj = types.Object()
-        obj.str(
-            "requirement",
-            default=str(req),
-            view=types.LabelValueView(label="Requirement", space=4),
-        )
-        obj.str(
-            "version",
-            default=version or "-",
-            view=types.LabelValueView(label="Installed version", space=4),
-        )
-        obj.bool(
-            "satisfied",
-            default=success,
-            label="Satisfied",
-            description="Requirement satisfied",
-            view=types.View(space=4, read_only=True),
-        )
-        inputs.define_property("req" + str(i), obj)
-
-    if num_satisfied == num_requirements:
-        view = types.Notice(label="All package requirements are satisfied")
-    else:
-        view = types.Warning(
-            label=(
-                f"Only {num_satisfied}/{num_requirements} package "
-                "requirements are satisfied"
-            )
-        )
-
-    inputs.view("status", view)
-
-
-def _check_fiftyone_requirement(req_str):
-    req = Requirement(req_str)
-    version = foc.VERSION
-    success = not req.specifier or req.specifier.contains(version)
-
-    return req, version, success
-
-
-def _check_package_requirement(req_str):
-    req = Requirement(req_str)
-
-    try:
-        version = metadata.version(req.name)
-    except metadata.PackageNotFoundError:
-        version = None
-
-    success = (version is not None) and (
-        not req.specifier or req.specifier.contains(version)
-    )
-
-    return req, version, success
 
 
 def _get_fields_with_type(view, type):
@@ -1335,5 +1455,4 @@ def register(p):
     p.register(DeleteDataset)
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
-    p.register(InstallPlugin)
-    p.register(CheckPluginRequirements)
+    p.register(ManagePlugins)
