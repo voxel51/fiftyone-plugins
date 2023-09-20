@@ -755,19 +755,21 @@ def brain_init(ctx, inputs):
         (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines),
     )
 
-    patches_field_choices = types.DropdownView()
-    for field_name in sorted(patches_fields):
-        patches_field_choices.add_choice(field_name, label=field_name)
+    if patches_fields:
+        patches_field_choices = types.DropdownView()
+        for field_name in sorted(patches_fields):
+            patches_field_choices.add_choice(field_name, label=field_name)
 
-    inputs.str(
-        "patches_field",
-        label="Patches field",
-        description=(
-            "An optional sample field defining the image patches in each "
-            "sample that have been/will be embedded"
-        ),
-        view=patches_field_choices,
-    )
+        inputs.str(
+            "patches_field",
+            label="Patches field",
+            description=(
+                "An optional sample field defining the image patches in each "
+                "sample that have been/will be embedded. If omitted, the "
+                "full images are processed"
+            ),
+            view=patches_field_choices,
+        )
 
     patches_field = ctx.params.get("patches_field", None)
 
