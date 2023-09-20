@@ -136,6 +136,14 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/image-deduplication-plugin/">@jacobmarks/image_deduplication</a></b></td>
         <td>🪞 Find exact and approximate duplicates in your dataset!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/keyword-search-plugin/">@jacobmarks/keyword_search</a></b></td>
+        <td>🔑 Perform keyword search on a specified field!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/pytesseract-ocr-plugin/">@jacobmarks/pytesseract_ocr</a></b></td>
+        <td>👓 Run optical character recognition with PyTesseract!</td>
+    </tr>
 </table>
 
 ## Using Plugins
