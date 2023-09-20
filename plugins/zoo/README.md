@@ -58,17 +58,39 @@ You can use this operator to download and run inference with any model from the
 [FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/index.html).
 
 This operator is essentially a wrapper around the
-[load_zoo_model()](https://docs.voxel51.com/api/fiftyone.zoo.html#fiftyone.zoo.load_zoo_model)
+[load_zoo_model()](https://docs.voxel51.com/api/fiftyone.zoo.html#fiftyone.zoo.load_zoo_model),
+[apply_model()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.apply_model),
+[compute_embeddings()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.compute_embeddings),
 and
-[apply_model()](https://docs.voxel51.com/api/fiftyone.zoo.datasets.html#fiftyone.zoo.datasets.load_zoo_dataset)
+[compute_patch_embeddings()](https://docs.voxel51.com/api/fiftyone.core.collections.html#fiftyone.core.collections.SampleCollection.compute_patch_embeddings)
 methods:
 
 ```py
-model = foz.load_zoo_model(name, ...)
+model = foz.load_zoo_model(name)
 
-dataset_or_view.apply_model(model, label_field=label_field, ...)
+# Predictions
+dataset_or_view.apply_model(
+    model,
+    label_field=label_field,
+    ...,
+)
+
+# Embeddings
+dataset_or_view.compute_embeddings(
+    model,
+    embeddings_field=embeddings_field,
+    ...
+)
+
+# Patch embeddings
+dataset_or_view.compute_patch_embeddings(
+    model,
+    patches_field,
+    embeddings_field=embeddings_field,
+    ...
+)
 ```
 
-where the operator's form allows you to choose a model, a label field in which
-to store its predictions, and provide any applicable optional arguments for
-`load_zoo_model()`.
+where the operator's form allows you to choose a model, an inference type
+(predictions or embeddings, if applicable), a field in which to store the
+inference results, and provide any applicable optional arguments.
