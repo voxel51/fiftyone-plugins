@@ -578,21 +578,6 @@ def _apply_zoo_model_inputs(ctx, inputs):
     embeddings = ctx.params.get("embeddings", None) == "EMBEDDINGS"
 
     if embeddings:
-        embeddings_field_choices = types.AutocompleteView()
-        for field in _get_fields_with_type(target_view, fo.VectorField):
-            embeddings_field_choices.add_choice(field, label=field)
-
-        inputs.str(
-            "embeddings_field",
-            required=True,
-            label="Embeddings field",
-            description=(
-                "The name of a new or existing field in which to store the "
-                "embeddings"
-            ),
-            view=embeddings_field_choices,
-        )
-
         patch_types = (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines)
         patches_fields = list(
             target_view.get_field_schema(embedded_doc_type=patch_types).keys()
@@ -605,6 +590,8 @@ def _apply_zoo_model_inputs(ctx, inputs):
 
             inputs.str(
                 "patches_field",
+                default=None,
+                required=False,
                 label="Patches field",
                 description=(
                     "An optional sample field defining image patches in each "
@@ -613,6 +600,30 @@ def _apply_zoo_model_inputs(ctx, inputs):
                 ),
                 view=patches_field_choices,
             )
+
+        patches_field = ctx.params.get("patches_field", None)
+
+        if patches_field is not None:
+            root, _ = target_view._get_label_field_root(patches_field)
+            field = target_view.get_field(root, leaf=True)
+            schema = field.get_field_schema(ftype=fo.VectorField)
+        else:
+            schema = target_view.get_field_schema(ftype=fo.VectorField)
+
+        embeddings_field_choices = types.AutocompleteView()
+        for field in sorted(schema.keys()):
+            embeddings_field_choices.add_choice(field, label=field)
+
+        inputs.str(
+            "embeddings_field",
+            required=True,
+            label="Embeddings field",
+            description=(
+                "The name of a new or existing field in which to store the "
+                "embeddings"
+            ),
+            view=embeddings_field_choices,
+        )
     else:
         label_field_choices = types.AutocompleteView()
         for field in _get_fields_with_type(target_view, fo.Label):
