@@ -18,13 +18,14 @@ import fiftyone.utils.annotations as foua
 class RequestAnnotations(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="request_annotations",
             label="Request annotations",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -844,13 +845,14 @@ class LabelStudioBackend(AnnotationBackend):
 class LoadAnnotations(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="load_annotations",
             label="Load annotations",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -945,13 +947,14 @@ def load_annotations(ctx, inputs):
 class GetAnnotationInfo(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="get_annotation_info",
             label="Get annotation info",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -1010,13 +1013,14 @@ class GetAnnotationInfo(foo.Operator):
 class LoadAnnotationView(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="load_annotation_view",
             label="Load annotation view",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -1039,13 +1043,14 @@ def serialize_view(view):
 class RenameAnnotationRun(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="rename_annotation_run",
             label="Rename annotation run",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -1072,13 +1077,14 @@ class RenameAnnotationRun(foo.Operator):
 class DeleteAnnotationRun(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="delete_annotation_run",
             label="Delete annotation run",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()

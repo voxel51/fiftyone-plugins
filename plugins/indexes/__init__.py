@@ -14,13 +14,14 @@ import fiftyone.operators.types as types
 class ManageIndexes(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="manage_indexes",
             label="Manage indexes",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()

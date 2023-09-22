@@ -18,13 +18,14 @@ import fiftyone.zoo.models as fozm
 class LoadZooDataset(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="load_zoo_dataset",
             label="Load zoo dataset",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -400,13 +401,14 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
 class ApplyZooModel(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="apply_zoo_model",
             label="Apply zoo model",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()

@@ -17,13 +17,14 @@ import fiftyone.operators.types as types
 class EvaluateModel(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="evaluate_model",
             label="Evaluate model",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -910,13 +911,14 @@ def _get_target_view(ctx, target):
 class GetEvaluationInfo(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="get_evaluation_info",
             label="Get evaluation info",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -975,13 +977,14 @@ class GetEvaluationInfo(foo.Operator):
 class LoadEvaluationView(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="load_evaluation_view",
             label="Load evaluation view",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -1004,13 +1007,14 @@ def serialize_view(view):
 class RenameEvaluation(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="rename_evaluation",
             label="Rename evaluation",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -1037,13 +1041,14 @@ class RenameEvaluation(foo.Operator):
 class DeleteEvaluation(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="delete_evaluation",
             label="Delete evaluation",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()

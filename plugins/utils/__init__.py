@@ -33,13 +33,14 @@ import fiftyone.zoo.models as fozm
 class CreateDataset(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="create_dataset",
             label="Create dataset",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -82,13 +83,14 @@ class CreateDataset(foo.Operator):
 class LoadDataset(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="load_dataset",
             label="Load dataset",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -110,7 +112,10 @@ class LoadDataset(foo.Operator):
         sort_by = ctx.params.get("sort_by", default).lower()
 
         info = fo.list_datasets(info=True)
-        key = lambda i: (i[sort_by] is not None, i[sort_by])
+
+        def key(i):
+            return (i[sort_by] is not None, i[sort_by])
+
         reverse = sort_by != "name"
 
         dataset_choices = types.AutocompleteView()
@@ -136,13 +141,14 @@ class LoadDataset(foo.Operator):
 class EditDatasetInfo(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="edit_dataset_info",
             label="Edit dataset info",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -214,7 +220,7 @@ class EditDatasetInfo(foo.Operator):
 def _dataset_info_inputs(ctx, inputs):
     num_changed = 0
 
-    ## tabs
+    # tabs
 
     tab_choices = types.TabsView()
     tab_choices.add_choice("BASIC", label="Basic")
@@ -232,7 +238,7 @@ def _dataset_info_inputs(ctx, inputs):
     )
     tab_choice = ctx.params.get("tab_choice", default)
 
-    ## name
+    # name
 
     name = ctx.params.get("name", None)
     edited_name = name != ctx.dataset.name
@@ -255,7 +261,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## description
+    # description
 
     description = ctx.params.get("description", None) or None
     edited_description = description != ctx.dataset.description
@@ -272,7 +278,7 @@ def _dataset_info_inputs(ctx, inputs):
     if edited_description:
         num_changed += 1
 
-    ## persistent
+    # persistent
 
     persistent = ctx.params.get("persistent", None)
     edited_persistent = persistent != ctx.dataset.persistent
@@ -291,7 +297,7 @@ def _dataset_info_inputs(ctx, inputs):
     if edited_persistent:
         num_changed += 1
 
-    ## tags
+    # tags
 
     tags = ctx.params.get("tags", None) or []
     edited_tags = tags != ctx.dataset.tags
@@ -309,7 +315,7 @@ def _dataset_info_inputs(ctx, inputs):
     if edited_tags:
         num_changed += 1
 
-    ## info
+    # info
 
     info, valid = _parse_field(ctx, "info", default={})
     edited_info = info != ctx.dataset.info
@@ -333,7 +339,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## app_config
+    # app_config
 
     app_config, valid = _parse_field(ctx, "app_config", default={})
     edited_app_config = (
@@ -362,7 +368,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## classes
+    # classes
 
     classes, valid = _parse_field(ctx, "classes", default={})
     edited_classes = classes != ctx.dataset.classes
@@ -389,7 +395,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## default_classes
+    # default_classes
 
     default_classes, valid = _parse_field(
         ctx, "default_classes", type=list, default=[]
@@ -419,7 +425,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## mask_targets
+    # mask_targets
 
     mask_targets, valid = _parse_field(ctx, "mask_targets", default={})
     edited_mask_targets = mask_targets != ctx.dataset.mask_targets
@@ -447,7 +453,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## default_mask_targets
+    # default_mask_targets
 
     default_mask_targets, valid = _parse_field(
         ctx, "default_mask_targets", default={}
@@ -483,7 +489,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## skeletons
+    # skeletons
 
     skeletons, valid = _parse_field(ctx, "skeletons", default={})
     edited_skeletons = skeletons != ctx.dataset.skeletons
@@ -512,7 +518,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## default_skeleton
+    # default_skeleton
 
     default_skeleton, valid = _parse_field(
         ctx, "default_skeleton", default=None
@@ -543,7 +549,7 @@ def _dataset_info_inputs(ctx, inputs):
         else:
             num_changed += 1
 
-    ## final
+    # final
 
     if num_changed > 0:
         view = types.Warning(
@@ -578,13 +584,14 @@ def _parse_field(ctx, name, type=dict, default=None):
 class RenameDataset(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="rename_dataset",
             label="Rename dataset",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -632,13 +639,14 @@ class RenameDataset(foo.Operator):
 class DeleteDataset(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="delete_dataset",
             label="Delete dataset",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -670,14 +678,15 @@ class DeleteDataset(foo.Operator):
 class ComputeMetadata(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="compute_metadata",
             label="Compute metadata",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
             execute_as_generator=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -858,13 +867,14 @@ def _get_metadata(filepath, media_type):
 class GenerateThumbnails(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="generate_thumbnails",
             label="Generate thumbnails",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -1080,13 +1090,14 @@ def _generate_thumbnails_inputs(ctx, inputs):
 class ManagePlugins(foo.Operator):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        op_config = foo.OperatorConfig(
             name="manage_plugins",
             label="Manage plugins",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+        op_config.light_icon = "/assets/icon-light.svg"
+        op_config.dark_icon = "/assets/icon-dark.svg"
+        return op_config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
