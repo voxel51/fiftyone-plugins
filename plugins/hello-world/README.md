@@ -1,4 +1,4 @@
-## Hello World
+# Hello World
 
 This plugin contains an example of using both Python and JS together in a
 FiftyOne plugin.
@@ -25,11 +25,11 @@ locally.
 
 ## Operators
 
-### my_alert_operator
+### count_samples
 
--   example of a very basic JS operator
+A basic Python operator that displays the number of samples in the current view
+or optionally the entire dataset.
 
-### count
+### show_alert
 
--   example of a simple python operator
--   returns the size of the current view
+A basic JS operator that displays an alert.

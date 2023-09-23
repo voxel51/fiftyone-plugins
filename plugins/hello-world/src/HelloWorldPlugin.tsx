@@ -3,13 +3,15 @@ import { HelloWorld } from "./HelloWorld";
 
 registerComponent({
   name: "HelloWorld",
-  label: "Hello World",
+  label: "Hello world",
   component: HelloWorld,
-  type: PluginComponentType.Plot,
+  type: PluginComponentType.Panel,
   activator: myActivator,
 });
 
 function myActivator({ dataset }) {
+  // Example of activating the plugin in a particular context
   // return dataset.name === 'quickstart'
+
   return true;
 }
