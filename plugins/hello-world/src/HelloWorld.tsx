@@ -12,37 +12,38 @@ import {
 } from "@fiftyone/operators";
 
 export function HelloWorld() {
-  const executor = useOperatorExecutor("@voxel51/hello-world/count");
+  const executor = useOperatorExecutor("@voxel51/hello-world/count_samples");
   const onClickAlert = useCallback(() =>
-    executeOperator("@voxel51/hello-world/alert")
+    executeOperator("@voxel51/hello-world/show_alert")
   );
   const dataset = useRecoilValue(fos.dataset);
 
-  if (executor.isLoading) return <h3>loading...</h3>;
-  if (executor.result) return <h3>Count: {executor.result.count}</h3>;
+  if (executor.isLoading) return <h3>Loading...</h3>;
+  if (executor.result) return <h3>Dataset size: {executor.result.count}</h3>;
 
   return (
     <>
       <h1>Hello, world!</h1>
       <h2>
-        You are viewing the <strong>{dataset.name}</strong> dataset!
+        You are viewing the <strong>{dataset.name}</strong> dataset
       </h2>
-      <Button onClick={() => executor.execute()}>Count</Button>
-      <Button onClick={onClickAlert}>Alert</Button>
+      <Button onClick={() => executor.execute()}>Count samples</Button>
+      <Button onClick={onClickAlert}>Show alert</Button>
     </>
   );
 }
 
-class MyAlertOperator extends Operator {
+class AlertOperator extends Operator {
   get config() {
     return new OperatorConfig({
-      name: "alert",
-      label: "My Alert Operator",
+      name: "show_alert",
+      label: "Show alert",
+      unlisted: true,
     });
   }
   async execute() {
-    alert("Hello, world... plugin:" + this.pluginName);
+    alert(`Hello from plugin ${this.pluginName}`);
   }
 }
 
-registerOperator(MyAlertOperator, "@voxel51/hello-world");
+registerOperator(AlertOperator, "@voxel51/hello-world");
