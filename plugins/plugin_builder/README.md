@@ -18,7 +18,7 @@ fiftyone plugins download https://github.com/jacobmarks/plugin-builder-plugin
 
 ## Operators
 
-### `build_a_plugin`
+### `build_component`
 
 -   This operator walks you through the process of choosing a component type
     for a given type of input, and selecting the component's properties.
@@ -33,10 +33,13 @@ It currently supports the following component types:
 
 Each of these component types has a set of properties that can be configured.
 
+### `build_operator_skeleton`
+
+-   This operator walks you through the process of creating an operator. It
+    then generates a skeleton of the code for the operator.
+
 ## Usage
 
-To use this plugin, press the "\'" key in the App and select the
-`build_a_plugin` operator. You will be prompted to select a component type.
-After selecting a component type, you will be prompted to select the
-component's properties. As you do so, the code block and the code preview will
-be updated!
+To use this plugin, press the "\'" key in the App and select the relevant
+operator from the list. As you select options, the code block and the code
+preview will be updated!

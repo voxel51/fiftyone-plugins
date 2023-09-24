@@ -5,6 +5,7 @@
 |
 """
 
+import re
 from textwrap import dedent
 
 import fiftyone as fo
@@ -460,11 +461,11 @@ def _create_message_code(ctx, inputs):
         )
 
 
-class BuildAPlugin(foo.Operator):
+class BuildAComponent(foo.Operator):
     @property
     def config(self):
         _config = foo.OperatorConfig(
-            name="build_a_plugin",
+            name="build_component",
             label="Plugin Builder: create your perfect plugin component!",
             description="Manage plugins",
             dynamic=True,
@@ -494,5 +495,762 @@ class BuildAPlugin(foo.Operator):
         pass
 
 
+#################################################
+############### Operator Skeleton ###############
+#################################################
+
+operator_skeleton_tabs = (
+    "1️⃣ Config",
+    "2️⃣ Input",
+    "3️⃣ Execution",
+    "4️⃣ Delegation",
+    "5️⃣ Output",
+    "6️⃣ Placement",
+    "▶️ View Code",
+)
+
+
+def _operator_skeleton_tabs_input(inputs):
+    os_group = types.RadioGroup()
+    for choice in operator_skeleton_tabs:
+        os_group.add_choice(choice, label=choice)
+
+    inputs.enum(
+        "operator_skeleton_tab",
+        os_group.values(),
+        label="Skeleton Creation",
+        description="Walk through the steps to create a Python operator skeleton",
+        view=types.TabsView(),
+        default=operator_skeleton_tabs[0],
+    )
+
+
+def _operator_skeleton_config_flow(ctx, inputs):
+    inputs.str(
+        "operator_skeleton_config_header",
+        view=types.Header(
+            label="Config",
+            description="Configure your operator",
+            divider=True,
+        ),
+    )
+
+    inputs.str(
+        "operator_name",
+        label="Operator Name",
+        default="my_operator",
+        description="The name of your operator",
+        required=True,
+    )
+
+    inputs.str(
+        "operator_label",
+        label="Operator Label",
+        default="My Operator",
+        description="The label of your operator",
+    )
+
+    inputs.str(
+        "operator_description",
+        label="Operator Description",
+        default="My Operator Description",
+        description="The description of your operator",
+    )
+
+    obj = types.Object()
+    obj.bool(
+        "operator_dynamic",
+        label="Dynamic?",
+        default=False,
+        view=types.CheckboxView(space=2),
+    )
+
+    obj.bool(
+        "execute_as_generator",
+        label="Execute as generator?",
+        default=False,
+        view=types.CheckboxView(space=3),
+    )
+
+    obj.bool(
+        "unlisted",
+        label="Unlisted?",
+        default=False,
+        view=types.CheckboxView(space=2),
+    )
+
+    obj.bool(
+        "on_startup",
+        label="On startup?",
+        default=False,
+        view=types.CheckboxView(space=2),
+    )
+
+    icon_obj = types.Object()
+    icon_obj.bool(
+        "config_icon",
+        label="Icon?",
+        default=True,
+        view=types.CheckboxView(space=2),
+    )
+
+    icon_obj.bool(
+        "config_light_icon",
+        label="Light icon?",
+        default=False,
+        view=types.CheckboxView(space=3),
+    )
+
+    icon_obj.bool(
+        "config_dark_icon",
+        label="Dark icon?",
+        default=False,
+        view=types.CheckboxView(space=3),
+    )
+
+    inputs.define_property("config_bool_props", obj)
+    inputs.define_property("config_icon_props", icon_obj)
+
+
+def _create_operator_config_code(ctx):
+    operator_name = ctx.params.get("operator_name", "my_operator")
+    operator_label = ctx.params.get("operator_label", "My Operator")
+    operator_description = ctx.params.get(
+        "operator_description", "My Operator Description"
+    )
+
+    config_bool_props = ctx.params.get("config_bool_props", {})
+    dynamic = config_bool_props.get("operator_dynamic", False)
+    execute_as_generator = config_bool_props.get("execute_as_generator", False)
+    unlisted = config_bool_props.get("unlisted", False)
+    on_startup = config_bool_props.get("on_startup", False)
+
+    config_icon_props = ctx.params.get("config_icon_props", {})
+    config_icon = config_icon_props.get("config_icon", True)
+    config_light_icon = config_icon_props.get("config_light_icon", False)
+    config_dark_icon = config_icon_props.get("config_dark_icon", False)
+
+    code = f"""
+    @property
+    def config(self):
+        _config = foo.OperatorConfig(
+            name="{operator_name}",
+            label="{operator_label}",
+            description="{operator_description}",
+        """
+
+    if dynamic:
+        code += f"""
+            dynamic={dynamic},"""
+    if execute_as_generator:
+        code += f"""
+            execute_as_generator={execute_as_generator},"""
+    if unlisted:
+        code += f"""
+            unlisted={unlisted},"""
+    if on_startup:
+        code += f"""
+            on_startup={on_startup},"""
+
+    code += f"""
+        )"""
+
+    icon_lines = []
+    if config_icon:
+        icon_lines.append('_config.icon = "/path/to/icon.svg"')
+    if config_light_icon:
+        icon_lines.append('_config.light_icon = "/path/to/light_icon.svg"')
+    if config_dark_icon:
+        icon_lines.append('_config.dark_icon = "/path/to/dark_icon.svg"')
+
+    if icon_lines:
+        code += "\n        " + "\n        ".join(icon_lines)
+
+    code += f"""
+        return _config
+    """
+
+    return dedent(code).replace("\n\n", "\n")
+
+
+def _operator_skeleton_input_flow(ctx, inputs):
+    inputs.str(
+        "operator_skeleton_input_header",
+        view=types.Header(
+            label="Input",
+            description="Configure your operator's input",
+            divider=True,
+        ),
+    )
+
+    inputs.bool(
+        "operator_input_has_input",
+        label="Has input?",
+        default=False,
+        view=types.SwitchView(),
+    )
+
+
+def _operator_skeleton_input_code(ctx):
+    has_input = ctx.params.get("operator_input_has_input", False)
+    delegation = ctx.params.get("delegated_execution_choices", "False")
+    deleg_user_choice = delegation == "User Choice"
+
+    if has_input and not deleg_user_choice:
+        code = """
+        def resolve_input(self, ctx):
+            inputs = types.Object()
+
+            ### Add your inputs here ###
+
+            return types.Property(inputs)
+        """
+    elif has_input and deleg_user_choice:
+        code = """
+        def resolve_input(self, ctx):
+            inputs = types.Object()
+
+            ### Add your inputs here ###
+            _execution_mode(ctx, inputs)
+            return types.Property(inputs)
+        """
+    elif deleg_user_choice:
+        code = """
+        def resolve_input(self, ctx):
+            inputs = types.Object()
+
+            _execution_mode(ctx, inputs)
+            return types.Property(inputs)
+        """
+    else:
+        code = """
+        def resolve_input(self, ctx):
+            pass
+        """
+    return dedent(code).replace("\n\n", "\n")
+
+
+TRIGGER_CHOICES = (
+    "Reload Samples",
+    "Reload Dataset",
+    "Set View",
+    "Open A Panel",
+)
+
+LAYOUT_CHOICES = (
+    "Horizontal",
+    "Vertical",
+)
+
+
+def _get_panel_choices():
+    return ("Embeddings", "Histograms")
+
+
+def _operator_skeleton_execution_flow(ctx, inputs):
+    inputs.str(
+        "operator_skeleton_execution_header",
+        view=types.Header(
+            label="Execution",
+            description="Configure your operator's execution",
+            divider=True,
+        ),
+    )
+
+    inputs.bool(
+        "operator_execution_has_trigger",
+        label="Has trigger?",
+        description="Check this if you want the execution of your operator to trigger on a specific event",
+        default=False,
+        view=types.CheckboxView(),
+    )
+
+    has_trigger = ctx.params.get("operator_execution_has_trigger", False)
+
+    if has_trigger:
+        inputs.view(
+            "header",
+            types.Header(
+                label="Trigger Details",
+                description="You can trigger any operator! Here are some common choices:",
+            ),
+        )
+
+        trigger_group = types.RadioGroup()
+        for choice in TRIGGER_CHOICES:
+            trigger_group.add_choice(choice, label=choice)
+
+        inputs.enum(
+            "operator_execution_trigger",
+            trigger_group.values(),
+            label="trigger_type",
+            default=TRIGGER_CHOICES[0],
+            view=types.DropdownView(),
+        )
+
+        trigger_type = ctx.params.get(
+            "operator_execution_trigger", TRIGGER_CHOICES[0]
+        )
+
+        if trigger_type == "Open A Panel":
+            panel_group = types.RadioGroup()
+            for choice in _get_panel_choices():
+                panel_group.add_choice(choice, label=choice)
+
+            inputs.enum(
+                "operator_execution_trigger_panel",
+                panel_group.values(),
+                label="panel_type",
+                default=_get_panel_choices()[0],
+                view=types.DropdownView(),
+            )
+
+            layout_group = types.RadioGroup()
+            for choice in LAYOUT_CHOICES:
+                layout_group.add_choice(choice, label=choice)
+
+            inputs.enum(
+                "operator_execution_trigger_layout",
+                layout_group.values(),
+                label="layout_type",
+                default=LAYOUT_CHOICES[0],
+                view=types.DropdownView(),
+            )
+
+
+def _operator_skeleton_execution_code(ctx):
+    has_trigger = ctx.params.get("operator_execution_has_trigger", False)
+
+    if has_trigger:
+        trigger_type = ctx.params.get(
+            "operator_execution_trigger", TRIGGER_CHOICES[0]
+        )
+        if trigger_type == "Reload Samples":
+            code = """
+            def execute(self, ctx):
+                ### Your logic here ###
+
+                ctx.trigger("reload_samples")
+                return {}
+            """
+        elif trigger_type == "Reload Dataset":
+            code = """
+            def execute(self, ctx):
+                ### Your logic here ###
+
+                ctx.trigger("reload_dataset")
+                return {}
+            """
+        elif trigger_type == "Set View":
+            code = """
+            def execute(self, ctx):
+                ### Your logic here ###
+            
+                ### Create your view here ###
+                view = ctx.dataset.take(10)
+
+                ctx.trigger(
+                    "set_view",
+                    params=dict(view=serialize_view(view)),
+                )
+                return {}
+            """
+        elif trigger_type == "Open A Panel":
+            panel_type = ctx.params.get(
+                "operator_execution_trigger_panel", _get_panel_choices()[0]
+            )
+            layout_type = ctx.params.get(
+                "operator_execution_trigger_layout", LAYOUT_CHOICES[0]
+            )
+
+            code = """
+            def execute(self, ctx):
+                ### Your logic here ###
+
+                ctx.trigger(
+                    "open_panel",
+                    params=dict(
+                        name=f"{panel_type}", 
+                        isActive=True, 
+                        layout=f"{layout_type}"
+                        ),
+                )
+                return {}
+            """
+        else:
+            raise ValueError("Invalid trigger type")
+    else:
+        code = """
+        def execute(self, ctx):
+            ### Your logic here ###
+        
+            return {}
+        """
+    return dedent(code).replace("\n\n", "\n")
+
+
+def _operator_skeleton_delegation_flow(ctx, inputs):
+    inputs.str(
+        "operator_skeleton_delegation_header",
+        view=types.Header(
+            label="Delegation",
+            description="Configure your operator's delegation",
+            divider=True,
+        ),
+    )
+
+    delegation_choices = ("False", "True", "User Choice")
+
+    degelation_group = types.RadioGroup()
+    for choice in delegation_choices:
+        degelation_group.add_choice(choice, label=choice)
+
+    inputs.enum(
+        "delegated_execution_choices",
+        degelation_group.values(),
+        label="Delegate execution?",
+        view=types.RadioView(),
+        default="False",
+    )
+
+
+IMPORTS_CODE = """
+import fiftyone as fo
+import fiftyone.operators as foo
+from fiftyone.operators import types
+"""
+
+EXECUTION_MODE_CODE = """
+def _execution_mode(ctx, inputs):
+    delegate = ctx.params.get("delegate", False)
+
+    if delegate:
+        description = "Uncheck this box to execute the operation immediately"
+    else:
+        description = "Check this box to delegate execution of this task"
+
+    inputs.bool(
+        "delegate",
+        default=False,
+        required=True,
+        label="Delegate execution?",
+        description=description,
+        view=types.CheckboxView(),
+    )
+
+    if delegate:
+        inputs.view(
+            "notice",
+            types.Notice(
+                label=(
+                    "You've chosen delegated execution. Note that you must "
+                    "have a delegated operation service running in order for "
+                    "this task to be processed. See "
+                    "https://docs.voxel51.com/plugins/index.html#operators "
+                    "for more information"
+                )
+            ),
+        )
+"""
+
+
+def _operator_skeleton_delegation_code(ctx):
+    delegated_execution = ctx.params.get(
+        "delegated_execution_choices", "False"
+    )
+
+    if delegated_execution == "False":
+        code = ""
+    elif delegated_execution == "True":
+        code = """
+        def resolve_delegation(self, ctx):
+            True
+        """
+    elif delegated_execution == "User Choice":
+        code = """
+        def resolve_delegation(self, ctx):
+            return ctx.params.get("delegate", False)
+        """
+    else:
+        raise ValueError("Invalid delegation choice")
+
+    return dedent(code).replace("\n\n", "\n")
+
+
+def _operator_skeleton_output_flow(ctx, inputs):
+    inputs.str(
+        "operator_skeleton_output_header",
+        view=types.Header(
+            label="Output",
+            description="Configure your operator's output",
+            divider=True,
+        ),
+    )
+
+    inputs.bool(
+        "operator_output_has_output",
+        label="Has output?",
+        default=False,
+        view=types.SwitchView(),
+    )
+
+
+def _operator_skeleton_output_code(ctx):
+    has_output = ctx.params.get("operator_output_has_output", False)
+
+    if has_output:
+        code = """
+        def resolve_output(self, ctx):
+            outputs = types.Object()
+
+            ### Add your outputs here ###
+
+            return types.Property(outputs)
+        """
+    else:
+        code = ""
+    return dedent(code).replace("\n\n", "\n")
+
+
+PLACEMENTS = (
+    "SAMPLES-GRID-ACTIONS",
+    "SAMPLES-GRID-SECONDARY-ACTIONS",
+    "SAMPLES-VIEWER-ACTIONS",
+)
+
+
+def _operator_skeleton_placement_flow(ctx, inputs):
+    inputs.str(
+        "operator_skeleton_placement_header",
+        view=types.Header(
+            label="Placement",
+            description="Configure your operator's placement",
+            divider=True,
+        ),
+    )
+
+    inputs.bool(
+        "operator_placement_has_placement",
+        label="Has placement?",
+        default=False,
+        view=types.SwitchView(),
+    )
+
+    if ctx.params.get("operator_placement_has_placement", False):
+        placement_group = types.RadioGroup()
+        for choice in PLACEMENTS:
+            placement_group.add_choice(choice, label=choice)
+
+        inputs.enum(
+            "operator_placement",
+            placement_group.values(),
+            label="Placement",
+            default=PLACEMENTS[0],
+            view=types.DropdownView(),
+        )
+
+        inputs.str(
+            "placement_label",
+            label="Placement Label",
+            default="My Placement Label",
+        )
+
+        inputs.bool(
+            "placement_has_icon",
+            label="Placement Icon?",
+            default=True,
+        )
+
+        inputs.str(
+            "placement_icon",
+            label="Placement Icon",
+            default="/path/to/icon.svg",
+        )
+
+        inputs.bool(
+            "placement_prompt",
+            label="Placement Prompt?",
+            default=False,
+            description="If checked, the user will be prompted when the button is clicked",
+        )
+
+
+def _operator_skeleton_placement_code(ctx):
+    has_placement = ctx.params.get("operator_placement_has_placement", False)
+
+    if has_placement:
+        placement = ctx.params.get("operator_placement", PLACEMENTS[0])
+        placement_label = ctx.params.get(
+            "placement_label", "My Placement Label"
+        )
+        placement_prompt = ctx.params.get("placement_prompt", False)
+
+        placement_has_icon = ctx.params.get("placement_has_icon", True)
+        placement_icon = ctx.params.get("placement_icon", "/path/to/icon.svg")
+        placement_icon = (
+            f'"{placement_icon}"' if placement_has_icon else "None"
+        )
+
+        code = f"""
+        def resolve_placement(self, ctx):
+            return types.Placement(
+                types.Places.{placement},
+                label = "{placement_label}"
+                icon = {placement_icon}
+                prompt = {placement_prompt}
+            )
+        """
+    else:
+        code = ""
+    return dedent(code).replace("\n\n", "\n")
+
+
+def indent_code(code):
+    # Remove any common leading whitespace
+    dedented_code = dedent(code)
+
+    # Add 4 spaces to the beginning of each line
+    indented_code = "    " + dedented_code.replace("\n", "\n    ")
+
+    return indented_code
+
+
+def replace_extra_newlines(text):
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
+def _create_operator_class_name(ctx):
+    operator_name = ctx.params.get("operator_name", "my_operator")
+    class_name = operator_name.replace("_", " ").title().replace(" ", "")
+    return class_name
+
+
+SERIALIZE_VIEW_CODE = """
+def serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
+"""
+
+
+def _create_class_header(ctx):
+    class_name = _create_operator_class_name(ctx)
+    return f"class {class_name}(foo.Operator):" + "\n"
+
+
+def _create_footer(ctx):
+    class_name = _create_operator_class_name(ctx)
+    footer_code = f"""
+    def register(plugin):
+        plugin.register({class_name})
+    """
+    return dedent(footer_code)
+
+
+def _create_operator_skeleton_code(ctx):
+    code = _create_operator_config_code(ctx)
+    code += "\n\n"
+    code += _operator_skeleton_input_code(ctx)
+    code += "\n\n"
+    code += _operator_skeleton_execution_code(ctx)
+    code += "\n\n"
+    code += _operator_skeleton_delegation_code(ctx)
+    code += "\n\n"
+    code += _operator_skeleton_output_code(ctx)
+    code += "\n\n"
+    code += _operator_skeleton_placement_code(ctx)
+
+    code = replace_extra_newlines(indent_code(code))
+
+    class_header = _create_class_header(ctx)
+
+    header = ""
+    set_view = ctx.params.get("operator_execution_trigger", None) == "Set View"
+    if set_view:
+        header += "import json\n"
+        header += "from bson import json_util\n"
+    header += IMPORTS_CODE
+    if ctx.params.get("delegated_execution_choices", "False") == "User Choice":
+        header += EXECUTION_MODE_CODE
+    if set_view:
+        header += "\n\n"
+        header += SERIALIZE_VIEW_CODE
+    header += "\n\n"
+    header += class_header
+    footer = _create_footer(ctx)
+    return replace_extra_newlines(header + code + footer)
+
+
+def _operator_skeleton_view_code_flow(ctx, inputs):
+    inputs.str(
+        "operator_skeleton_view_code_header",
+        view=types.Header(
+            label="Preview Operator Skeleton",
+            divider=True,
+        ),
+    )
+
+    inputs.str(
+        "operator_skeleton_view_code",
+        label="Python Code",
+        description="Preview of your `__init__.py` file",
+        default=_create_operator_skeleton_code(ctx),
+        view=types.CodeView(language="python", readOnly=True),
+    )
+
+    operator_name = ctx.params.get("operator_name", "my_operator")
+
+    inputs.message(
+        "yml_message",
+        label="fiftyone.yml instructions",
+        description=f"""
+        You will also need to add the operator `{operator_name}` to your plugin's
+        fiftyone.yml file to register your operator
+        """,
+    )
+
+
+class BuildOperatorSkeleton(foo.Operator):
+    @property
+    def config(self):
+        _config = foo.OperatorConfig(
+            name="build_operator_skeleton",
+            label="Plugin Builder: create a Python operator!",
+            description="Create a Python operator skeleton",
+            dynamic=True,
+        )
+        _config.icon = "/assets/build_icon.svg"
+        return _config
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        form_view = types.View(
+            label="Build an operator skeleton",
+            description="Walk through the steps to create a Python operator skeleton",
+        )
+
+        _operator_skeleton_tabs_input(inputs)
+
+        main_tab = ctx.params.get("operator_skeleton_tab", "1️⃣ Config")
+        if "Config" in main_tab:
+            _operator_skeleton_config_flow(ctx, inputs)
+        elif "Input" in main_tab:
+            _operator_skeleton_input_flow(ctx, inputs)
+        elif "Execution" in main_tab:
+            _operator_skeleton_execution_flow(ctx, inputs)
+        elif "Delegation" in main_tab:
+            _operator_skeleton_delegation_flow(ctx, inputs)
+        elif "Output" in main_tab:
+            _operator_skeleton_output_flow(ctx, inputs)
+        elif "Placement" in main_tab:
+            _operator_skeleton_placement_flow(ctx, inputs)
+        elif "View Code" in main_tab:
+            _operator_skeleton_view_code_flow(ctx, inputs)
+
+        return types.Property(inputs, view=form_view)
+
+    def execute(self, ctx):
+        pass
+
+
 def register(plugin):
-    plugin.register(BuildAPlugin)
+    plugin.register(BuildAComponent)
+    plugin.register(BuildOperatorSkeleton)
