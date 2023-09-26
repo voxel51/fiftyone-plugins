@@ -9,6 +9,7 @@ Airflow DAG that executes FiftyOne delegated operations in parallel.
 import asyncio
 import logging
 import psutil
+import re
 import traceback
 
 from airflow.operators.python import task
@@ -27,11 +28,9 @@ svc = DelegatedOperationService()
      tags=["cron", "fiftyone"],
      dag_id="run-parallel-operations")
 def execute_in_parallel():
-
     # get all the queued operations
     queued_ops = svc.list_operations(run_state=ExecutionRunState.QUEUED)
     logger.info(f"found : {len(queued_ops)} queued operations, filtering out duplicate datasets")
-
     # iterate over the number of queued operations and create a new task to process each one
     # don't execute multiple dags with the same dataset_id, for concurrency reasons.
     # also consider not executing certain operations in parallel, if they are known to be
@@ -40,6 +39,10 @@ def execute_in_parallel():
     logger.info(f"max parallel tasks: {max_parallel}")
 
     dataset_ids = set()
+
+    # if more than one instance of this DAG is able to run (max_active_runs),
+    # then also consider checking for currently running operations (ExecutionRunState.RUNNING)
+    # dataset ids.
     for i, op in enumerate(queued_ops):
         dataset_id = op.dataset_id
         # only operate on one dataset at a time
@@ -54,7 +57,7 @@ def execute_in_parallel():
         task_name = f"{dataset_name}{op.operator}"
 
         # task ids cannot have special characters, they must be alphanumeric or underscored.
-        task_id = "".join([c if c.isalnum() else "_" for c in task_name])
+        task_id = re.sub(r'\W+', '_', task_name)
 
         @task(task_id=task_id)
         def execute_operation(delegated_operation):
