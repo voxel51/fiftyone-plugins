@@ -27,9 +27,11 @@ svc = DelegatedOperationService()
      tags=["cron", "fiftyone"],
      dag_id="run-parallel-operations")
 def execute_in_parallel():
+
     # get all the queued operations
     queued_ops = svc.list_operations(run_state=ExecutionRunState.QUEUED)
     logger.info(f"found : {len(queued_ops)} queued operations, filtering out duplicate datasets")
+
     # iterate over the number of queued operations and create a new task to process each one
     # don't execute multiple dags with the same dataset_id, for concurrency reasons.
     # also consider not executing certain operations in parallel, if they are known to be
