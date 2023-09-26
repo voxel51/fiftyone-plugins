@@ -48,8 +48,8 @@ def execute_in_parallel():
             break
 
         dataset_ids.add(dataset_id)
-        dataset_name = op.context.dataset_name if op.context.dataset_name else ""
-        task_name = f"{op.operator}_{dataset_name}"
+        dataset_name = f"{op.context.dataset_name}_" if op.context.dataset_name else ""
+        task_name = f"{dataset_name}{op.operator}"
 
         # task ids cannot have special characters, they must be alphanumeric or underscored.
         task_id = "".join([c if c.isalnum() else "_" for c in task_name])
