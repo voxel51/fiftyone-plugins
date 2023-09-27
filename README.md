@@ -29,31 +29,31 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/annotation/README.md">@voxel51/annotation</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/annotation">@voxel51/annotation</a></b></td>
         <td>✏️ Utilities for integrating FiftyOne with annotation tools</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/brain/README.md">@voxel51/brain</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain">@voxel51/brain</a></b></td>
         <td>🧠 Utilities for working with the FiftyOne Brain</td>
     </tr>
     </tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/evaluation/README.md">@voxel51/evaluation</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/evaluation">@voxel51/evaluation</a></b></td>
         <td>✅ Utilities for evaluating models with FiftyOne</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md">@voxel51/io</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/io">@voxel51/io</a></b></td>
         <td>📁 A collection of import/export utilities</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/indexes/README.md">@voxel51/indexes</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/indexes">@voxel51/indexes</a></b></td>
         <td>📈 Utilities working with FiftyOne database indexes</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/utils/README.md">@voxel51/utils</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/utils">@voxel51/utils</a></b></td>
         <td>⚒️ Call your favorite SDK utilities from the App</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/zoo/README.md">@voxel51/zoo</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/zoo">@voxel51/zoo</a></b></td>
         <td>🌎 Download datasets and run inference with models from the FiftyOne Zoo, all without leaving the App</td>
     </tr>
 </table>
@@ -79,15 +79,15 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/hello-world">@voxel51/hello-world</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/hello-world">@voxel51/hello-world</a></b></td>
         <td>👋 An example of JavaScript and Python components and operators in a single plugin</td>
     </tr>
         <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/python-view/README.md">@voxel51/python-view</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/python-view">@voxel51/python-view</a></b></td>
         <td>🔎 Create views in the FiftyOne App with Python</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/examples/">@voxel51/examples</a></b></td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/examples">@voxel51/examples</a></b></td>
         <td>📋 Examples of how to use the operator type system to build custom FiftyOne operations</td>
     </tr>
 </table>
@@ -129,23 +129,23 @@ Want to showcase your own plugin here? See the
         <td>❔ Ask (and answer) open-ended visual questions about your images!</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/jacobmarks/fiftyone-youtube-panel-plugin/">@jacobmarks/youtube_panel_plugin</a></b></td>
+        <td><b><a href="https://github.com/jacobmarks/fiftyone-youtube-panel-plugin">@jacobmarks/youtube_panel_plugin</a></b></td>
         <td>📺 Play YouTube videos in the FiftyOne App!</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/jacobmarks/image-deduplication-plugin/">@jacobmarks/image_deduplication</a></b></td>
+        <td><b><a href="https://github.com/jacobmarks/image-deduplication-plugin">@jacobmarks/image_deduplication</a></b></td>
         <td>🪞 Find exact and approximate duplicates in your dataset!</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/jacobmarks/keyword-search-plugin/">@jacobmarks/keyword_search</a></b></td>
+        <td><b><a href="https://github.com/jacobmarks/keyword-search-plugin">@jacobmarks/keyword_search</a></b></td>
         <td>🔑 Perform keyword search on a specified field!</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/jacobmarks/pytesseract-ocr-plugin/">@jacobmarks/pytesseract_ocr</a></b></td>
+        <td><b><a href="https://github.com/jacobmarks/pytesseract-ocr-plugin">@jacobmarks/pytesseract_ocr</a></b></td>
         <td>👓 Run optical character recognition with PyTesseract!</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/jacobmarks/zero-shot-prediction-plugin/">@jacobmarks/zero_shot_prediction</a></b></td>
+        <td><b><a href="https://github.com/jacobmarks/zero-shot-prediction-plugin">@jacobmarks/zero_shot_prediction</a></b></td>
         <td>👓 Run zero-shot (open vocabulary) prediction on your data!</td>
     </tr>
 </table>
