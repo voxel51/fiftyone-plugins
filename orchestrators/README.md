@@ -15,6 +15,6 @@ your workflow orchestration tool to execute
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/blob/main/orchestrators/local/README.md">Local</a></b></td>
-        <td>Run your delegated operations locally via a single CLI command</td>
+        <td>Run your delegated operations locally via a CLI command or Python script</td>
     </tr>
 </table>
