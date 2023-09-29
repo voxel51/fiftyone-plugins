@@ -13,7 +13,9 @@ It demonstrates how to do the following:
 ## Installation
 
 ```shell
-fiftyone plugins download https://github.com/jacobmarks/plugin-builder-plugin
+fiftyone plugins download \
+    https://github.com/voxel51/fiftyone-plugins \
+    --plugin-names @voxel51/plugin_builder
 ```
 
 ## Operators
@@ -37,6 +39,8 @@ Each of these component types has a set of properties that can be configured.
 
 -   This operator walks you through the process of creating an operator. It
     then generates a skeleton of the code for the operator.
+-   Pressing the `Execute` button will add the plugin in the location of your
+    choice!
 
 ## Usage
 

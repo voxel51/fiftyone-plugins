@@ -1,6 +1,6 @@
 fiftyone:
   version: "~0.21.0"
-name: "@jacobmarks/plugin_builder"
+name: "@voxel51/plugin_builder"
 version: "1.0.0"
 description: "Build custom plugin components from the FiftyOne App!"
 url: "https://github.com/jacobmarks/plugin-builder-plugin/blob/main/README.md"
