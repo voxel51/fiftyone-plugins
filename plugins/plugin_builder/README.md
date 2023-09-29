@@ -22,6 +22,8 @@ fiftyone plugins download \
 
 ### `build_component`
 
+![plugin_builder_component](https://github.com/voxel51/fiftyone-plugins/assets/12500356/19f1af29-7642-4b13-8317-01ba2a263e03)
+
 -   This operator walks you through the process of choosing a component type
     for a given type of input, and selecting the component's properties.
 
@@ -36,6 +38,8 @@ It currently supports the following component types:
 Each of these component types has a set of properties that can be configured.
 
 ### `build_operator_skeleton`
+
+![build_operator](https://github.com/voxel51/fiftyone-plugins/assets/12500356/436f17fa-acc7-4b7f-aa2e-d8edffc76c2e)
 
 -   This operator walks you through the process of creating an operator. It
     then generates a skeleton of the code for the operator.
