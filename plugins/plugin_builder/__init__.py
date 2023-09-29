@@ -64,8 +64,9 @@ def _create_view_type_input(inputs):
     inputs.enum(
         "view_type",
         vt_radio_group.values(),
-        view=types.DropdownView(),
+        view=types.RadioView(),
         required=True,
+        default=vt_radio_group.choices[0].value,
     )
 
 
