@@ -863,19 +863,19 @@ def _operator_skeleton_execution_code(ctx):
                 "operator_execution_trigger_layout", LAYOUT_CHOICES[0]
             )
 
-            code = """
+            code = f"""
             def execute(self, ctx):
                 ### Your logic here ###
 
                 ctx.trigger(
                     "open_panel",
                     params=dict(
-                        name=f"{panel_type}", 
+                        name="{panel_type}", 
                         isActive=True, 
-                        layout=f"{layout_type}"
+                        layout="{layout_type}"
                         ),
                 )
-                return {}
+                return {{}}
             """
         else:
             raise ValueError("Invalid trigger type")
