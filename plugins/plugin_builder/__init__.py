@@ -5,6 +5,7 @@
 |
 """
 
+import os
 import re
 from textwrap import dedent
 
@@ -500,13 +501,11 @@ class BuildAComponent(foo.Operator):
 #################################################
 
 operator_skeleton_tabs = (
-    "1️⃣ Config",
-    "2️⃣ Input",
-    "3️⃣ Execution",
-    "4️⃣ Delegation",
-    "5️⃣ Output",
-    "6️⃣ Placement",
-    "▶️ View Code",
+    "1️⃣ Config & Placement",
+    "2️⃣ Input & Output",
+    "3️⃣ Execution & Delegation",
+    "4️⃣ Preview Code",
+    "▶️ Create",
 )
 
 
@@ -673,12 +672,12 @@ def _create_operator_config_code(ctx):
     return dedent(code).replace("\n\n", "\n")
 
 
-def _operator_skeleton_input_flow(ctx, inputs):
+def _operator_skeleton_io_flow(ctx, inputs):
     inputs.str(
-        "operator_skeleton_input_header",
+        "operator_skeleton_io_header",
         view=types.Header(
             label="Input",
-            description="Configure your operator's input",
+            description="Configure your operator's input and output",
             divider=True,
         ),
     )
@@ -686,6 +685,13 @@ def _operator_skeleton_input_flow(ctx, inputs):
     inputs.bool(
         "operator_input_has_input",
         label="Has input?",
+        default=False,
+        view=types.SwitchView(),
+    )
+
+    inputs.bool(
+        "operator_output_has_output",
+        label="Has output?",
         default=False,
         view=types.SwitchView(),
     )
@@ -977,24 +983,6 @@ def _operator_skeleton_delegation_code(ctx):
     return dedent(code).replace("\n\n", "\n")
 
 
-def _operator_skeleton_output_flow(ctx, inputs):
-    inputs.str(
-        "operator_skeleton_output_header",
-        view=types.Header(
-            label="Output",
-            description="Configure your operator's output",
-            divider=True,
-        ),
-    )
-
-    inputs.bool(
-        "operator_output_has_output",
-        label="Has output?",
-        default=False,
-        view=types.SwitchView(),
-    )
-
-
 def _operator_skeleton_output_code(ctx):
     has_output = ctx.params.get("operator_output_has_output", False)
 
@@ -1196,16 +1184,73 @@ def _operator_skeleton_view_code_flow(ctx, inputs):
         view=types.CodeView(language="python", readOnly=True),
     )
 
-    operator_name = ctx.params.get("operator_name", "my_operator")
 
-    inputs.message(
-        "yml_message",
-        label="fiftyone.yml instructions",
-        description=f"""
-        You will also need to add the operator `{operator_name}` to your plugin's
-        fiftyone.yml file to register your operator
-        """,
+def _get_fo_plugins_dir():
+    return os.environ["FIFTYONE_PLUGINS_DIR"]
+
+
+def _create_skeleton(ctx, inputs):
+    inputs.str(
+        "create_plugin_header",
+        view=types.Header(
+            label="Create Plugin Template",
+            divider=True,
+        ),
     )
+
+    file_explorer = types.FileExplorerView(
+        choose_dir=True,
+        button_label="Choose a directory in which to create your plugin",
+        choose_button_label="Accept",
+    )
+
+    inputs.file(
+        "directory",
+        label="Directory",
+        description="Choose a directory",
+        view=file_explorer,
+    )
+
+    # default_plugin_directory = _get_fo_plugins_dir()
+    # plugin_directory = ctx.params.get("directory", {}).get("absolute_path", default_plugin_directory)
+
+    inputs.str(
+        "plugin_subdirectory",
+        label="Directory to Create",
+        default=ctx.params.get("operator_name", "my_operator"),
+    )
+
+    inputs.str(
+        "plugin_name",
+        label="Plugin Name",
+        default="@github_username/plugin_name",
+        required=True,
+        description="The name of your plugin. Use the format @github_username/plugin_name",
+    )
+
+    inputs.str(
+        "plugin_description",
+        label="Plugin Description",
+        default="My Plugin Description",
+        description="The description of your plugin",
+        required=True,
+    )
+
+
+def _create_fiftyone_yml_code(ctx):
+    plugin_name = ctx.params.get("plugin_name", "@github_username/plugin_name")
+    plugin_description = ctx.params.get(
+        "plugin_description", "My Plugin Description"
+    )
+    operator_name = ctx.params.get("operator_name", "my_operator")
+    yml_code = f"""
+    name: "{plugin_name}"
+    version: "0.0.1"
+    description: "{plugin_description}"
+    operators:
+      - {operator_name}
+    """
+    return dedent(yml_code).replace("\n\n", "\n")
 
 
 class BuildOperatorSkeleton(foo.Operator):
@@ -1232,23 +1277,36 @@ class BuildOperatorSkeleton(foo.Operator):
         main_tab = ctx.params.get("operator_skeleton_tab", "1️⃣ Config")
         if "Config" in main_tab:
             _operator_skeleton_config_flow(ctx, inputs)
+            _operator_skeleton_placement_flow(ctx, inputs)
         elif "Input" in main_tab:
-            _operator_skeleton_input_flow(ctx, inputs)
+            _operator_skeleton_io_flow(ctx, inputs)
         elif "Execution" in main_tab:
             _operator_skeleton_execution_flow(ctx, inputs)
-        elif "Delegation" in main_tab:
             _operator_skeleton_delegation_flow(ctx, inputs)
-        elif "Output" in main_tab:
-            _operator_skeleton_output_flow(ctx, inputs)
-        elif "Placement" in main_tab:
-            _operator_skeleton_placement_flow(ctx, inputs)
-        elif "View Code" in main_tab:
+        elif "Code" in main_tab:
             _operator_skeleton_view_code_flow(ctx, inputs)
-
+        else:
+            _create_skeleton(ctx, inputs)
         return types.Property(inputs, view=form_view)
 
     def execute(self, ctx):
-        pass
+        default_plugin_directory = _get_fo_plugins_dir()
+        plugin_directory = ctx.params.get("directory", {}).get(
+            "absolute_path", default_plugin_directory
+        )
+        subdir = ctx.params.get("plugin_subdirectory", "my_operator")
+        full_path = os.path.join(plugin_directory, subdir)
+        os.makedirs(full_path, exist_ok=True)
+
+        # Create __init__.py
+        init_path = os.path.join(full_path, "__init__.py")
+        with open(init_path, "w") as f:
+            f.write(_create_operator_skeleton_code(ctx))
+
+        # Create fiftyone.yml
+        yml_path = os.path.join(full_path, "fiftyone.yml")
+        with open(yml_path, "w") as f:
+            f.write(_create_fiftyone_yml_code(ctx))
 
 
 def register(plugin):
