@@ -146,7 +146,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/zero-shot-prediction-plugin">@jacobmarks/zero_shot_prediction</a></b></td>
-        <td>👓 Run zero-shot (open vocabulary) prediction on your data!</td>
+        <td>🔮 Run zero-shot (open vocabulary) prediction on your data!</td>
     </tr>
 </table>
 
