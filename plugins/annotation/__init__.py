@@ -1192,7 +1192,7 @@ def _execution_mode(ctx, inputs):
                     "You've chosen delegated execution. Note that you must "
                     "have a delegated operation service running in order for "
                     "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/index.html#operators "
+                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
                     "for more information"
                 )
             ),

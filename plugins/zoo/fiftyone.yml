@@ -2,7 +2,7 @@ name: "@voxel51/zoo"
 description: A collection of FiftyOne Zoo utilities
 version: 1.0.0
 fiftyone:
-  version: "*"
+  version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/zoo/README.md
 license: Apache 2.0
 operators:
