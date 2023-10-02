@@ -3,7 +3,7 @@ description: Utilities for working with the FiftyOne Brain
 version: 1.0.0
 fiftyone:
   version: ">=0.22"
-url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/brain/README.md
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain
 license: Apache 2.0
 operators:
   - compute_visualization
