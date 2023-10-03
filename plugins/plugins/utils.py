@@ -6,20 +6,13 @@ Plugin management utilities.
 |
 """
 import functools
-import requests
 
 import fiftyone.plugins.utils as fopu
 
 
 @functools.lru_cache
 def find_plugins(gh_repo):
-    try:
-        return fopu.find_plugins(gh_repo, info=True)
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            return None
-
-        raise e
+    return fopu.find_plugins(gh_repo, info=True)
 
 
 @functools.lru_cache
