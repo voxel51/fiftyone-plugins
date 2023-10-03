@@ -148,6 +148,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/zero-shot-prediction-plugin">@jacobmarks/zero_shot_prediction</a></b></td>
         <td>👓 Run zero-shot (open vocabulary) prediction on your data!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/active-learning-plugin">@jacobmarks/active_learning</a></b></td>
+        <td>🏃 Accelerate your data labeling with Active Learning!</td>
+    </tr>
 </table>
 
 ## Using Plugins
