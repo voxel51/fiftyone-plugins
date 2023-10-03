@@ -1,5 +1,5 @@
 name: "@voxel51/plugins"
-description: A collection of plugin management operators
+description: Utilities for managing your FiftyOne plugins
 version: 1.0.0
 fiftyone:
   version: ">=0.22"

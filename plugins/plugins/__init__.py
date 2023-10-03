@@ -367,7 +367,7 @@ def _plugin_enablement_inputs(ctx, inputs):
             "enabled",
             label="(edited)" if edited else "",
             default=actual_enabled,
-            view=types.CheckboxView(space=2),  # @todo use SwitchView
+            view=types.SwitchView(space=2),
         )
         inputs.define_property(prop_name, obj)
 
@@ -468,7 +468,8 @@ def _plugin_requirements_inputs(ctx, inputs):
 
     num_satisfied = 0
     for i, (req_str, version, satisfied) in enumerate(requirements, 1):
-        prop_name = f"requirements{i}"
+        # @todo why is a unique prop name required for Markdown to re-render?
+        prop_name = f"{name}_requirements{i}"
         num_satisfied += int(satisfied)
 
         obj = types.Object()
