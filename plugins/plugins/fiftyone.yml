@@ -2,7 +2,7 @@ name: "@voxel51/plugins"
 description: Utilities for managing your FiftyOne plugins
 version: 1.0.0
 fiftyone:
-  version: ">=0.22"
+  version: ">=0.22.1"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/plugins
 license: Apache 2.0
 operators:
