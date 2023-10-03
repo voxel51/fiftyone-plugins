@@ -183,6 +183,8 @@ Provide a location to download the plugin(s) from, which can be:
     updates = _get_updates(plugin_names, plugins)
 
     if updates:
+        # @todo why is a unique prop name required for Markdown to re-render?
+        prop_name = tab + "_" + "_".join(plugin_names) + "_update_str"
         update_str = (
             "You are about to update the following plugins:\n"
             + "\n".join(
@@ -193,7 +195,7 @@ Provide a location to download the plugin(s) from, which can be:
             )
         )
         inputs.str(
-            "update_str",
+            prop_name,
             default=update_str,
             view=types.MarkdownView(read_only=True),
         )
