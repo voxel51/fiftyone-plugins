@@ -467,24 +467,24 @@ def _plugin_requirements_inputs(ctx, inputs):
     inputs.define_property("requirements_header", obj)
 
     num_satisfied = 0
-    for i, (req, version, success) in enumerate(requirements, 1):
+    for i, (req_str, version, satisfied) in enumerate(requirements, 1):
         prop_name = f"requirements{i}"
-        num_satisfied += int(success)
+        num_satisfied += int(satisfied)
 
         obj = types.Object()
         obj.str(
             "requirement",
-            default=str(req),
+            default=req_str,
             view=types.MarkdownView(read_only=True, space=5),
         )
         obj.str(
             "version",
-            default=version or "-",
+            default=version or "",
             view=types.MarkdownView(read_only=True, space=5),
         )
         obj.bool(
             "satisfied",
-            default=success,
+            default=satisfied,
             view=types.CheckboxView(read_only=True, space=2),
         )
         inputs.define_property(prop_name, obj)
@@ -504,26 +504,36 @@ def _plugin_requirements_inputs(ctx, inputs):
 
 
 def _check_fiftyone_requirement(req_str):
-    req = Requirement(req_str)
     version = foc.VERSION
-    success = not req.specifier or req.specifier.contains(version)
 
-    return req, version, success
+    try:
+        req = Requirement(req_str)
+        satisfied = not req.specifier or req.specifier.contains(version)
+    except:
+        satisfied = False
+
+    return req_str, version, satisfied
 
 
 def _check_package_requirement(req_str):
-    req = Requirement(req_str)
+    try:
+        req = Requirement(req_str)
+    except:
+        pass
 
     try:
         version = metadata.version(req.name)
-    except metadata.PackageNotFoundError:
+    except:
         version = None
 
-    success = (version is not None) and (
-        not req.specifier or req.specifier.contains(version)
-    )
+    try:
+        satisfied = (version is not None) and (
+            not req.specifier or req.specifier.contains(version)
+        )
+    except:
+        satisfied = False
 
-    return req, version, success
+    return req_str, version, satisfied
 
 
 def register(p):
