@@ -157,7 +157,7 @@ Provide a location to download the plugin(s) from, which can be:
                 "Choose a community-authored plugin from the zoo to install"
             )
 
-        plugin_choices = types.Dropdown()
+        plugin_choices = types.AutocompleteView()
         for plugin in plugins:
             plugin_choices.add_choice(
                 plugin["name"],
@@ -165,8 +165,9 @@ Provide a location to download the plugin(s) from, which can be:
                 description=plugin["description"],
             )
 
-        inputs.str(
+        inputs.enum(
             param,
+            plugin_choices.values(),
             required=True,
             label="Plugin",
             description=description,
@@ -415,8 +416,9 @@ def _plugin_requirements_inputs(ctx, inputs):
     for name in sorted(plugin_names):
         plugin_choices.add_choice(name, label=name)
 
-    inputs.str(
+    inputs.enum(
         "requirements_name",
+        plugin_choices.values(),
         default=None,
         required=True,
         label="Plugin",
