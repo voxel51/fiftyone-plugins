@@ -1,0 +1,10 @@
+name: "@voxel51/plugins"
+description: A collection of plugin management operators
+version: 1.0.0
+fiftyone:
+  version: ">=0.22"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/plugins
+license: Apache 2.0
+operators:
+  - install_plugin
+  - manage_plugins

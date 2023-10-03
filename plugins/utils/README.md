@@ -170,28 +170,3 @@ dataset.save()
 where the operator's form allows you to configure the `(width, height)` for the
 thumbnails, the field in which to store their paths, and the directory in which
 to store the thumbnail images.
-
-### manage_plugins
-
-You can use this operator to manage your FiftyOne plugins from within the App.
-
-This operator is essentially a wrapper around the following
-[plugin methods](https://docs.voxel51.com/plugins/index.html):
-
-```py
-import fiftyone.plugins as fop
-
-# Plugin enablement
-fop.list_plugins()
-fop.enable_plugin(name)
-fop.disable_plugin(name)
-
-# Plugin package requirements
-fop.load_plugin_requirements()
-fop.ensure_plugin_requirements()
-
-# Plugin installation
-fop.download_plugin()
-```
-
-where the operator's form allows you to navigate between the available actions.
