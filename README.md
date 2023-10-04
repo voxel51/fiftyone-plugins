@@ -237,7 +237,7 @@ Just follow these steps to add your plugin to this repository:
 
 ### Contributing to this repository 🙌
 
-You're also welcome to contribue to the plugins that live natively in this
+You're also welcome to contribute to the plugins that live natively in this
 repository. Check out the [contributions guide](CONTRIBUTING.md) for
 instructions.
 
