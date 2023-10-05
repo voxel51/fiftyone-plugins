@@ -528,6 +528,57 @@ class OpenHistogramsPanel(foo.Operator):
         )
         return {}
 
+class ResolveParamsExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_resolve_params",
+            label="Examples: Resolve Params",
+            dynamic=True,
+        )
+
+    def resolve_params(self, ctx, previous):
+        print(previous)
+        return {"msg": "Hello World!"}
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.str("msg", label="Message")
+        return types.Property(inputs)
+    
+    def execute(self, ctx):
+        return {"msg": ctx.params["msg"]}
+    
+class FileDropExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_file_drop",
+            label="Examples: File Drop",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        ten_mb = 1024*1024*10
+        file_drop = types.FileView(label="File Drop", max_size=ten_mb, max_size_error_message="File too large")
+        inputs.obj("file", view=file_drop)
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        return {"file": ctx.params['file']}
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        file_obj = types.Object()
+        file_obj.str("name", label="Name")
+        file_obj.str("type", label="Type")
+        file_obj.int("size", label="Size")
+        # also available:
+        # - file['contents'] which is a base64 encoded string
+        # - file['last_modified'] which is ms since epoch
+        outputs.add_property("file", types.Property(file_obj))
+        return types.Property(outputs)
 
 class SelectedLabelsOperator(foo.Operator):
     @property
@@ -714,3 +765,5 @@ def register(p):
     p.register(ExampleSetViewOperator)
     p.register(ExampleDelegatedOperator)
     p.register(ExampleSecretsOperator)
+    p.register(ResolveParamsExample)
+    p.register(FileDropExample)

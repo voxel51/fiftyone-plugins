@@ -26,5 +26,6 @@ operators:
   - example_set_view
   - example_delegated
   - example_secrets
+  - example_file_drop
 secrets:
   - FIFTYONE_EXAMPLE_SECRET
