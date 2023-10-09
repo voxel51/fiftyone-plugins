@@ -5,7 +5,7 @@ Thanks for your interest in contributing to `fiftyone-plugins`!
 ## Pre-commit hooks
 
 If you plan to contribute a PR, please check install the pre-commit hooks
-before commiting:
+before committing:
 
 ```shell
 pre-commit install

@@ -3,7 +3,7 @@ description: A collection of FiftyOne Zoo utilities
 version: 1.0.0
 fiftyone:
   version: ">=0.22"
-url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/zoo/README.md
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/zoo
 license: Apache 2.0
 operators:
   - load_zoo_dataset
