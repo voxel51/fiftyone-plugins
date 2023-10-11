@@ -34,33 +34,16 @@ def clean_task_id(task_id):
 def execute_in_parallel():
     # get all the queued operations
     queued_ops = svc.list_operations(run_state=ExecutionRunState.QUEUED)
-    logger.info(f"found : {len(queued_ops)} queued operations, filtering out duplicate datasets")
+    logger.info(f"found : {len(queued_ops)} queued operations")
     # iterate over the number of queued operations and create a new task to process each one
-    # don't execute multiple dags with the same dataset_id, for concurrency reasons.
-    # also consider not executing certain operations in parallel, if they are known to be
-    # resource intensive or have other side effects. (downloading the same model, for example)
 
-    # if more than one instance of this DAG is able to run (max_active_runs),
-    # then also consider checking for currently running operations (ExecutionRunState.RUNNING)
-    # dataset ids.
     max_parallel = 6
     logger.info(f"max parallel tasks: {max_parallel}")
 
-    dataset_ids = set()
-
-    # if more than one instance of this DAG is able to run (max_active_runs),
-    # then also consider checking for currently running operations (ExecutionRunState.RUNNING)
-    # dataset ids.
     for i, op in enumerate(queued_ops):
-        dataset_id = op.dataset_id
-        # only operate on one dataset at a time
-        if dataset_id in dataset_ids:
-            continue
-        # max possible parallel operations
-        if len(dataset_ids) >= max_parallel:
+        if i >= max_parallel:
             break
 
-        dataset_ids.add(dataset_id)
         dataset_name = f"{op.context.dataset_name}_" if op.context.dataset_name else ""
         task_name = f"{dataset_name}{op.operator}"
         task_id = clean_task_id(task_name)
