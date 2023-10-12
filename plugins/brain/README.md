@@ -36,7 +36,7 @@ session = fo.launch_app(dataset)
 
 ### compute_visualization
 
-You can use this operator to create embeddings visualuzations for your
+You can use this operator to create embeddings visualizations for your
 datasets.
 
 This operator is essentially a wrapper around

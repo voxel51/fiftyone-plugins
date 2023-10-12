@@ -16,5 +16,5 @@ python run_delegated_operations.py
 ```
 
 **Note:** FiftyOne Teams customers need to configure the execution environment
-with the varaibles and plugin sources outlined in
+with the variables and plugin sources outlined in
 [the documentation](https://docs.voxel51.com/teams/teams_plugins.html#setting-up-an-orchestrator).
