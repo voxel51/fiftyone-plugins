@@ -60,10 +60,6 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/zoo">@voxel51/zoo</a></b></td>
         <td>🌎 Download datasets and run inference with models from the FiftyOne Zoo, all without leaving the App</td>
     </tr>
-     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/plugin_builder">@voxel51/plugin_builder</a></b></td>
-        <td>🏗️ A plugin to build the components and skeletons for plugins!</td>
-    </tr>
 </table>
 
 ## Voxel51 Plugins
