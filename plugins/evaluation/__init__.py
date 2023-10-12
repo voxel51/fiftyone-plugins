@@ -992,7 +992,7 @@ class LoadEvaluationView(foo.Operator):
             "select_fields",
             default=False,
             label="Select fields",
-            description=("Exclude fields involved in other evaluations"),
+            description="Exclude fields involved in other evaluations",
         )
 
         view = types.View(label="Load evaluation view")
