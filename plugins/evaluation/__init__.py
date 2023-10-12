@@ -992,9 +992,7 @@ class LoadEvaluationView(foo.Operator):
             "select_fields",
             default=False,
             label="Select fields",
-            description=(
-                "Exclude fields involved in other evaluations"
-            ),
+            description=("Exclude fields involved in other evaluations"),
         )
 
         view = types.View(label="Load evaluation view")
@@ -1003,7 +1001,9 @@ class LoadEvaluationView(foo.Operator):
     def execute(self, ctx):
         eval_key = ctx.params["eval_key"]
         select_fields = ctx.params["select_fields"]
-        eval_view = ctx.dataset.load_evaluation_view(eval_key,select_fields=select_fields)
+        eval_view = ctx.dataset.load_evaluation_view(
+            eval_key, select_fields=select_fields
+        )
         ctx.trigger("set_view", params={"view": serialize_view(eval_view)})
 
 
