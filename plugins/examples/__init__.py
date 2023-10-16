@@ -521,6 +521,42 @@ class OpenHistogramsPanel(foo.Operator):
         )
         return {}
 
+class SelectedLabelsOperator(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_selected_labels",
+            label="Examples: Selected Labels",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.message(
+            "Number of Selected Labels",
+            label=f"Number of Selected Label: {len(ctx.selected_labels)}",
+        )
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        label_fields = [field['field'] for field in ctx.selected_labels]
+        return {
+            "num_selected_labels": len(ctx.selected_labels),
+            "label_fields": label_fields
+        }
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+
+        outputs.message(
+            "Number of Selected Labels",
+            label=f"Number of Selected Label: {len(ctx.selected_labels)}",
+        )
+
+        outputs.int("num_selected_labels", label="Num Selected Labels")
+        outputs.list("label_fields", types.String(), label="Label Fields")
+
+        return types.Property(outputs)
 
 def register(p):
     p.register(MessageExamples)
@@ -537,3 +573,4 @@ def register(p):
     p.register(MarkdownExample)
     p.register(CustomViewExample)
     p.register(OpenHistogramsPanel)
+    p.register(SelectedLabelsOperator)
