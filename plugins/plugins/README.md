@@ -1,4 +1,4 @@
-# Plugin Management
+# Plugin Management & Development
 
 A plugin that contains utilities for managing your FiftyOne plugins and
 building new plugins.
@@ -94,7 +94,7 @@ It currently supports the following component types:
 
 Each of these component types has a set of properties that can be configured.
 
-### `build_operator_skeleton`
+### build_operator_skeleton
 
 ![build_operator](https://github.com/voxel51/fiftyone-plugins/assets/12500356/436f17fa-acc7-4b7f-aa2e-d8edffc76c2e)
 
