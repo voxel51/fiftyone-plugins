@@ -5,12 +5,16 @@ I/O operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-import multiprocessing
+import base64
+import contextlib
+import multiprocessing.dummy
 import os
 
 import eta.core.utils as etau
 
 import fiftyone as fo
+import fiftyone.core.fields as fof
+import fiftyone.core.media as fom
 import fiftyone.core.storage as fos
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
@@ -86,18 +90,14 @@ def _import_samples_inputs(ctx, inputs):
     )
     import_type = ctx.params.get("import_type", None)
 
-    ready = False
     if import_type == "MEDIA_ONLY":
-        ready = _import_media_only_inputs(ctx, inputs)
-    elif import_type == "MEDIA_AND_LABELS":
-        ready = _import_media_and_labels_inputs(ctx, inputs)
-    elif import_type == "LABELS_ONLY":
-        ready = _import_labels_only_inputs(ctx, inputs)
+        return _import_media_only_inputs(ctx, inputs)
 
-    if ready and import_type in ("MEDIA_ONLY", "MEDIA_AND_LABELS"):
-        _upload_media_inputs(ctx, inputs)
+    if import_type == "MEDIA_AND_LABELS":
+        return _import_media_and_labels_inputs(ctx, inputs)
 
-    return ready
+    if import_type == "LABELS_ONLY":
+        return _import_labels_only_inputs(ctx, inputs)
 
 
 def _import_media_only_inputs(ctx, inputs):
@@ -105,6 +105,8 @@ def _import_media_only_inputs(ctx, inputs):
     style_choices = types.TabsView()
     style_choices.add_choice("DIRECTORY", label="Directory")
     style_choices.add_choice("GLOB_PATTERN", label="Glob pattern")
+    style_choices.add_choice("UPLOAD", label="Upload")
+
     inputs.enum(
         "style",
         style_choices.values(),
@@ -120,7 +122,7 @@ def _import_media_only_inputs(ctx, inputs):
             choose_dir=True,
             button_label="Choose a directory...",
         )
-        dir_prop = inputs.file(
+        prop = inputs.file(
             "directory",
             required=True,
             label="Directory",
@@ -133,17 +135,17 @@ def _import_media_only_inputs(ctx, inputs):
             n = len(_glob_files(directory=directory))
             if n > 0:
                 ready = True
-                dir_prop.view.caption = f"Found {n} files"
+                prop.view.caption = f"Found {n} files"
             else:
-                dir_prop.invalid = True
-                dir_prop.error_message = "No matching files"
+                prop.invalid = True
+                prop.error_message = "No matching files"
         else:
-            dir_prop.view.caption = None
-    else:
+            prop.view.caption = None
+    elif style == "GLOB_PATTERN":
         file_explorer = types.FileExplorerView(
             button_label="Provide a glob pattern...",
         )
-        glob_prop = inputs.file(
+        prop = inputs.file(
             "glob_patt",
             required=True,
             label="Glob pattern",
@@ -159,46 +161,125 @@ def _import_media_only_inputs(ctx, inputs):
             n = len(_glob_files(glob_patt=glob_patt))
             if n > 0:
                 ready = True
-                glob_prop.view.caption = f"Found {n} files"
+                prop.view.caption = f"Found {n} files"
             else:
-                glob_prop.invalid = True
-                glob_prop.error_message = "No matching files"
+                prop.invalid = True
+                prop.error_message = "No matching files"
         else:
-            glob_prop.view.caption = None
-
-    if ready:
-        inputs.list(
-            "tags",
-            types.String(),
-            default=None,
-            label="Tags",
-            description="An optional list of tags to attach to each new sample",
+            prop.view.caption = None
+    else:
+        inputs.obj(
+            "media_file",
+            required=True,
+            label="Media file",
+            description="Choose a media file to add to this dataset",
+            view=types.FileView(label="Media file"),
         )
 
-    return ready
+        ready = bool(ctx.params.get("media_file", None))
+
+    if not ready:
+        return False
+
+    inputs.list(
+        "tags",
+        types.String(),
+        default=None,
+        label="Tags",
+        description="An optional list of tags to give each new sample",
+    )
+
+    ready = _upload_media_inputs(ctx, inputs)
+    if not ready:
+        return False
+
+    return bool(ctx.params.get("media_file", None))
+
+
+def _get_import_types(dataset):
+    if dataset.media_type == fom.GROUP:
+        media_types = list(dataset.group_media_types.values())
+    elif dataset.media_type is not None:
+        media_types = [dataset.media_type]
+    else:
+        media_types = None
+
+    dataset_types = []
+    for d in _DATASET_TYPES:
+        if not d["import"]:
+            continue
+
+        if not (
+            d["media_types"] is None
+            or media_types is None
+            or set(media_types) & set(d["media_types"])
+        ):
+            continue
+
+        dataset_types.append(d["label"])
+
+    return sorted(dataset_types)
+
+
+def _get_dataset_type(dataset_type):
+    for d in _DATASET_TYPES:
+        if d["label"] == dataset_type:
+            return d
+
+    return {}
+
+
+def _requires_label_field(dataset_type):
+    d = _get_dataset_type(dataset_type)
+    return bool(d.get("label_types", None))
+
+
+def _get_labels_path_type(dataset_type):
+    d = _get_dataset_type(dataset_type)
+    return d.get("labels_path_type", None)
+
+
+def _get_labels_path_ext(dataset_type):
+    d = _get_dataset_type(dataset_type)
+    return d.get("labels_path_ext", None)
+
+
+def _get_docs_link(dataset_type, type):
+    d = _get_dataset_type(dataset_type)
+
+    if type == "import":
+        return d.get("import_docs", None)
+
+    if type == "export":
+        return d.get("export_docs", None)
 
 
 def _import_media_and_labels_inputs(ctx, inputs):
+    dataset_types = _get_import_types(ctx.dataset)
     inputs.enum(
         "dataset_type",
-        sorted(_DATASET_TYPES.keys()),
+        dataset_types,
         required=True,
         label="Dataset type",
         description="The type of data you're importing",
     )
 
     dataset_type = ctx.params.get("dataset_type", None)
+    if dataset_type is None:
+        return False
 
-    if (
-        dataset_type in _CLASSIFICATION_TYPES
-        or dataset_type in _DETECTION_TYPES
-        or dataset_type in _SEGMENTATION_TYPES
-    ):
+    docs_link = _get_docs_link(dataset_type, type="import")
+    inputs.view(
+        "docs", types.Notice(label=f"Importer documentation: {docs_link}")
+    )
+
+    if _requires_label_field(dataset_type):
         label_field_choices = types.AutocompleteView()
-        for field in _get_label_fields(ctx.dataset, dataset_type):
+        existing_fields = _get_label_fields(ctx.dataset, dataset_type)
+        for field in existing_fields:
             label_field_choices.add_choice(field, label=field)
 
-        inputs.str(
+        prop = inputs.str(
             "label_field",
             required=True,
             label="Label field",
@@ -208,71 +289,160 @@ def _import_media_and_labels_inputs(ctx, inputs):
             view=label_field_choices,
         )
 
-    file_explorer = types.FileExplorerView(
-        choose_dir=True,
-        button_label="Choose a directory...",
+        label_field = ctx.params.get("label_field", None)
+        if label_field is None:
+            return False
+
+        existing_field = ctx.dataset.get_field(label_field)
+        if existing_field is not None and label_field not in existing_fields:
+            prop.invalid = True
+            prop.error_message = (
+                f"Existing field '{label_field}' has unsupported type "
+                f"{existing_field}"
+            )
+            return False
+
+    tab_choices = types.TabsView()
+    tab_choices.add_choice("DIRECTORY", label="Directory")
+    tab_choices.add_choice("DATA_AND_LABELS", label="Data & Labels")
+
+    inputs.enum(
+        "tab",
+        tab_choices.values(),
+        default="DIRECTORY",
+        view=tab_choices,
     )
-    inputs.file(
-        "dataset_dir",
-        required=True,
-        label="Dataset directory",
-        description=(
-            "Choose the directory that contains the media and labels to add "
-            "to this dataset"
-        ),
-        view=file_explorer,
-    )
-    dataset_dir = _parse_path(ctx, "dataset_dir")
-    ready = bool(dataset_dir)
+    tab = ctx.params.get("tab", "DIRECTORY")
+
+    if tab == "DIRECTORY":
+        file_explorer = types.FileExplorerView(
+            choose_dir=True,
+            button_label="Choose a directory...",
+        )
+        inputs.file(
+            "dataset_dir",
+            required=True,
+            label="Dataset directory",
+            description=(
+                "Choose the directory that contains the media and labels to add "
+                "to this dataset"
+            ),
+            view=file_explorer,
+        )
+        dataset_dir = _parse_path(ctx, "dataset_dir")
+        if dataset_dir is None:
+            return False
+    else:
+        file_explorer = types.FileExplorerView(
+            choose_dir=True,
+            button_label="Choose a directory...",
+        )
+        inputs.file(
+            "data_path",
+            required=True,
+            label="Data directory",
+            description=(
+                "Choose the directory that contains the media to add to this "
+                "dataset"
+            ),
+            view=file_explorer,
+        )
+        data_path = _parse_path(ctx, "data_path")
+        if data_path is None:
+            return False
+
+        labels_path_type = _get_labels_path_type(dataset_type)
+
+        if labels_path_type == "directory":
+            file_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a directory...",
+            )
+            inputs.file(
+                "labels_path",
+                required=True,
+                label="Labels directory",
+                description=(
+                    "Choose the directory that contains the labels to add to "
+                    "this dataset"
+                ),
+                view=file_explorer,
+            )
+            labels_path = _parse_path(ctx, "labels_path")
+            if labels_path is None:
+                return False
+        elif labels_path_type == "file":
+            ext = _get_labels_path_ext(dataset_type)
+            file_explorer = types.FileExplorerView(
+                button_label="Choose a file..."
+            )
+            prop = inputs.file(
+                "labels_path",
+                required=True,
+                label="Labels path",
+                description=f"Choose a {ext} file to add to this dataset",
+                view=file_explorer,
+            )
+
+            labels_path = _parse_path(ctx, "labels_path")
+            if labels_path is None:
+                return False
+
+            if os.path.splitext(labels_path)[1] != ext:
+                prop.invalid = True
+                prop.error_message = f"Please provide a {ext} path"
+                return False
 
     _add_label_types(ctx, inputs, dataset_type)
 
-    # @todo allow customizing `data_path`, `labels_path`, etc?
+    inputs.bool(
+        "dynamic",
+        default=False,
+        label="Dynamic",
+        description=(
+            "Whether to declare dynamic attributes of embedded document "
+            "fields that are encountered"
+        ),
+        view=types.CheckboxView(),
+    )
 
-    if ready:
-        inputs.bool(
-            "dynamic",
-            default=False,
-            label="Dynamic",
-            description=(
-                "Whether to declare dynamic attributes of embedded document "
-                "fields that are encountered"
-            ),
-            view=types.CheckboxView(),
-        )
+    inputs.list(
+        "tags",
+        types.String(),
+        default=None,
+        label="Tags",
+        description="An optional list of tags to attach to each new sample",
+    )
 
-        inputs.list(
-            "tags",
-            types.String(),
-            default=None,
-            label="Tags",
-            description="An optional list of tags to attach to each new sample",
-        )
-
-    return ready
+    return _upload_media_inputs(ctx, inputs)
 
 
 def _import_labels_only_inputs(ctx, inputs):
+    dataset_types = _get_import_types(ctx.dataset)
     inputs.enum(
         "dataset_type",
-        sorted(_DATASET_TYPES.keys()),
+        dataset_types,
         required=True,
         label="Dataset type",
         description="The type of data you're importing",
     )
 
     dataset_type = ctx.params.get("dataset_type", None)
+    if dataset_type is None:
+        return False
 
-    if (
-        dataset_type in _CLASSIFICATION_TYPES
-        or dataset_type in _DETECTION_TYPES
-        or dataset_type in _SEGMENTATION_TYPES
-    ):
+    docs_link = _get_docs_link(dataset_type, type="import")
+    inputs.view(
+        "docs", types.Notice(label=f"Importer documentation: {docs_link}")
+    )
+
+    if _requires_label_field(dataset_type):
         label_field_choices = types.AutocompleteView()
-        for field in _get_label_fields(ctx.dataset, dataset_type):
+        existing_fields = _get_label_fields(ctx.dataset, dataset_type)
+        for field in existing_fields:
             label_field_choices.add_choice(field, label=field)
 
-        inputs.str(
+        prop = inputs.str(
             "label_field",
             required=True,
             label="Label field",
@@ -282,7 +452,22 @@ def _import_labels_only_inputs(ctx, inputs):
             view=label_field_choices,
         )
 
-    if dataset_type in _LABELS_DIR_TYPES:
+        label_field = ctx.params.get("label_field", None)
+        if label_field is None:
+            return False
+
+        existing_field = ctx.dataset.get_field(label_field)
+        if existing_field is not None and label_field not in existing_fields:
+            prop.invalid = True
+            prop.error_message = (
+                f"Existing field '{label_field}' has unsupported type "
+                f"{existing_field}"
+            )
+            return False
+
+    labels_path_type = _get_labels_path_type(dataset_type)
+
+    if labels_path_type == "directory":
         file_explorer = types.FileExplorerView(
             choose_dir=True,
             button_label="Choose a directory...",
@@ -298,21 +483,53 @@ def _import_labels_only_inputs(ctx, inputs):
             view=file_explorer,
         )
         labels_path = _parse_path(ctx, "labels_path")
-        ready = bool(labels_path)
-    elif dataset_type in _LABELS_FILE_TYPES:
-        file_explorer = types.FileExplorerView(button_label="Choose a file...")
-        inputs.file(
-            "labels_path",
-            required=True,
-            label="Labels path",
-            description=(
-                "Choose the file that contains the labels to add to this "
-                "dataset"
-            ),
-            view=file_explorer,
+        if labels_path is None:
+            return False
+    elif labels_path_type == "file":
+        tab_choices = types.TabsView()
+        tab_choices.add_choice("FILEPATH", label="Filepath")
+        tab_choices.add_choice("UPLOAD", label="Upload")
+
+        inputs.enum(
+            "tab",
+            tab_choices.values(),
+            default="FILEPATH",
+            view=tab_choices,
         )
-        labels_path = _parse_path(ctx, "labels_path")
-        ready = bool(labels_path)
+        tab = ctx.params.get("tab", "FILEPATH")
+
+        if tab == "FILEPATH":
+            ext = _get_labels_path_ext(dataset_type)
+            file_explorer = types.FileExplorerView(
+                button_label="Choose a file..."
+            )
+            prop = inputs.file(
+                "labels_path",
+                required=True,
+                label="Labels path",
+                description=f"Choose a {ext} file to add to this dataset",
+                view=file_explorer,
+            )
+
+            labels_path = _parse_path(ctx, "labels_path")
+            if labels_path is None:
+                return False
+
+            if os.path.splitext(labels_path)[1] != ext:
+                prop.invalid = True
+                prop.error_message = f"Please provide a {ext} path"
+                return False
+        else:
+            inputs.obj(
+                "labels_file",
+                required=True,
+                label="Labels file",
+                description="Choose a labels file to add to this dataset",
+                view=types.FileView(label="Labels file"),
+            )
+            labels_file = ctx.params.get("labels_file", None)
+            if not labels_file:
+                return False
     else:
         file_explorer = types.FileExplorerView(
             choose_dir=True,
@@ -322,24 +539,24 @@ def _import_labels_only_inputs(ctx, inputs):
             "dataset_dir",
             required=True,
             label="Dataset directory",
-            description=(
-                "Choose the directory that contains the data you wish to add "
-                "to this dataset"
-            ),
+            description="Choose a directory of labels to add to this dataset",
             view=file_explorer,
         )
         dataset_dir = _parse_path(ctx, "dataset_dir")
-        ready = bool(dataset_dir)
+        if dataset_dir is None:
+            return False
 
     _add_label_types(ctx, inputs, dataset_type)
 
-    return ready
+    can_delegate = bool(ctx.params.get("labels_file", None))
+
+    return can_delegate
 
 
 def _add_label_types(ctx, inputs, dataset_type):
-    label_types = _LABEL_TYPES.get(dataset_type, None)
+    label_types = _get_dataset_type(dataset_type).get("label_types", None)
 
-    if label_types is None or etau.is_str(label_types):
+    if label_types is None or len(label_types) <= 1:
         return
 
     label_type_choices = types.Choices()
@@ -359,18 +576,24 @@ def _add_label_types(ctx, inputs, dataset_type):
 
 
 def _upload_media_inputs(ctx, inputs):
-    inputs.bool(
-        "upload",
-        default=False,
-        required=False,
-        label="Upload media",
-        description=(
-            "You can optionally upload the media to another location before "
-            "adding it to the dataset. Would you like to do this?"
-        ),
-        view=types.CheckboxView(),
-    )
-    upload = ctx.params.get("upload", False)
+    style = ctx.params.get("style", None)
+
+    if style == "UPLOAD":
+        upload = True
+    else:
+        inputs.bool(
+            "upload",
+            default=False,
+            required=False,
+            label="Upload media",
+            description=(
+                "You can optionally upload the media to another location "
+                "before adding it to the dataset. Would you like to do this?"
+            ),
+            view=types.CheckboxView(),
+        )
+
+        upload = ctx.params.get("upload", False)
 
     if upload:
         file_explorer = types.FileExplorerView(
@@ -379,40 +602,69 @@ def _upload_media_inputs(ctx, inputs):
         )
         inputs.file(
             "upload_dir",
-            required=False,
+            required=True,
             label="Upload directory",
-            description=(
-                "Provide a directory into which to upload the selected media"
-            ),
+            description="Provide a directory into which to upload the media",
             view=file_explorer,
         )
         upload_dir = _parse_path(ctx, "upload_dir")
 
-        if upload_dir is not None:
-            inputs.bool(
-                "overwrite",
-                default=False,
-                required=False,
-                label="Overwrite existing",
-                description=(
-                    "Do you wish to overwrite existing media of the same name "
-                    "(True) or append a unique suffix when necessary to avoid "
-                    "name clashses (False)"
-                ),
-                view=types.CheckboxView(),
-            )
+        if upload_dir is None:
+            return False
+
+        inputs.bool(
+            "overwrite",
+            default=False,
+            required=False,
+            label="Overwrite existing",
+            description=(
+                "Do you wish to overwrite existing media of the same name "
+                "(True) or append a unique suffix when necessary to avoid "
+                "name clashses (False)"
+            ),
+            view=types.CheckboxView(),
+        )
+
+    return True
+
+
+def _upload_media_bytes(ctx):
+    media_obj = ctx.params["media_file"]
+    upload_dir = _parse_path(ctx, "upload_dir")
+    overwrite = ctx.params["overwrite"]
+
+    filename = media_obj["name"]
+    content = base64.b64decode(media_obj["content"])
+
+    if overwrite:
+        outpath = fos.join(upload_dir, filename)
+    else:
+        filename_maker = fou.UniqueFilenameMaker(output_dir=upload_dir)
+        outpath = filename_maker.get_output_path(input_path=filename)
+
+    fos.write_file(content, outpath)
+    return outpath
 
 
 def _import_media_only(ctx):
+    style = ctx.params.get("style", None)
+    tags = ctx.params.get("tags", None)
+
+    if style == "UPLOAD":
+        filepath = _upload_media_bytes(ctx)
+
+        sample = fo.Sample(filepath=filepath, tags=tags)
+        ctx.dataset.add_sample(sample)
+
+        return
+
     directory = _parse_path(ctx, "directory")
-    if ctx.params.get("style", None) != "DIRECTORY":
+    if style != "DIRECTORY":
         directory = None
 
     glob_patt = _parse_path(ctx, "glob_patt")
-    if ctx.params.get("style", None) != "GLOB_PATTERN":
+    if style != "GLOB_PATTERN":
         glob_patt = None
-
-    tags = ctx.params.get("tags", None)
 
     filepaths = _glob_files(directory=directory, glob_patt=glob_patt)
     num_total = len(filepaths)
@@ -441,20 +693,22 @@ def _import_media_only(ctx):
 
             progress = num_added / num_total
             label = f"Loaded {num_added} of {num_total}"
-            yield _set_progress(ctx, progress, label=label)
+            yield ctx.trigger(
+                "set_progress", dict(progress=progress, label=label)
+            )
 
 
 def _import_media_and_labels(ctx):
     dataset_type = ctx.params["dataset_type"]
-    dataset_type = _DATASET_TYPES[dataset_type]
+    dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
 
-    dataset_dir = ctx.params["dataset_dir"]["absolute_path"]
+    dataset_dir = _parse_path(ctx, "dataset_dir")
+    data_path = _parse_path(ctx, "data_path")
+    labels_path = _parse_path(ctx, "labels_path")
     label_field = ctx.params.get("label_field", None)
+    label_types = ctx.params.get("label_types", None)
     tags = ctx.params.get("tags", None)
     dynamic = ctx.params.get("dynamic", False)
-
-    # Extras
-    label_types = ctx.params.get("label_types", None)
 
     kwargs = {}
     if label_types is not None:
@@ -463,6 +717,8 @@ def _import_media_and_labels(ctx):
     ctx.dataset.add_dir(
         dataset_dir=dataset_dir,
         dataset_type=dataset_type,
+        data_path=data_path,
+        labels_path=labels_path,
         label_field=label_field,
         tags=tags,
         dynamic=dynamic,
@@ -473,10 +729,22 @@ def _import_media_and_labels(ctx):
     yield
 
 
+def _upload_labels_bytes(ctx, tmp_dir):
+    labels_obj = ctx.params["labels_file"]
+
+    filename = labels_obj["name"]
+    content = base64.b64decode(labels_obj["content"])
+
+    outpath = fos.join(tmp_dir, filename)
+    fos.write_file(content, outpath)
+    return outpath
+
+
 def _import_labels_only(ctx):
     dataset_type = ctx.params["dataset_type"]
-    dataset_type = _DATASET_TYPES[dataset_type]
+    dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
 
+    labels_file = ctx.params.get("labels_file", None)
     labels_path = _parse_path(ctx, "labels_path")
     dataset_dir = _parse_path(ctx, "dataset_dir")
     label_field = ctx.params.get("label_field", None)
@@ -489,27 +757,32 @@ def _import_labels_only(ctx):
     if label_types is not None:
         kwargs["label_types"] = label_types
 
-    if labels_path is not None:
-        data_path = {
-            os.path.basename(p): p for p in ctx.dataset.values("filepath")
-        }
-        ctx.dataset.merge_dir(
-            data_path=data_path,
-            labels_path=labels_path,
-            dataset_type=dataset_type,
-            label_field=label_field,
-            dynamic=dynamic,
-            **kwargs,
-        )
+    with contextlib.ExitStack() as exit_context:
+        if labels_file is not None:
+            tmp_dir = exit_context.enter_context(fos.TempDir())
+            labels_path = _upload_labels_bytes(ctx, tmp_dir)
 
-    if dataset_dir is not None:
-        ctx.dataset.merge_dir(
-            dataset_dir=dataset_dir,
-            dataset_type=dataset_type,
-            label_field=label_field,
-            dynamic=dynamic,
-            **kwargs,
-        )
+        if labels_path is not None:
+            data_path = {
+                os.path.basename(p): p for p in ctx.dataset.values("filepath")
+            }
+            ctx.dataset.merge_dir(
+                data_path=data_path,
+                labels_path=labels_path,
+                dataset_type=dataset_type,
+                label_field=label_field,
+                dynamic=dynamic,
+                **kwargs,
+            )
+
+        if dataset_dir is not None:
+            ctx.dataset.merge_dir(
+                dataset_dir=dataset_dir,
+                dataset_type=dataset_type,
+                label_field=label_field,
+                dynamic=dynamic,
+                **kwargs,
+            )
 
     return
     yield
@@ -539,7 +812,14 @@ def _upload_media_tasks(ctx, filepaths):
 def _upload_media(ctx, tasks):
     num_uploaded = 0
     num_total = len(tasks)
-    num_workers = fo.config.max_thread_pool_workers or 16
+
+    # @todo switch to this when `fiftyone==0.22.2` is released
+    # num_workers = fou.recommend_thread_pool_workers()
+
+    if hasattr(fou, "recommend_thread_pool_workers"):
+        num_workers = fou.recommend_thread_pool_workers()
+    else:
+        num_workers = fo.config.max_thread_pool_workers or 8
 
     with multiprocessing.dummy.Pool(processes=num_workers) as pool:
         for _ in pool.imap_unordered(_do_upload_media, tasks):
@@ -547,7 +827,9 @@ def _upload_media(ctx, tasks):
             if num_uploaded % 10 == 0:
                 progress = num_uploaded / num_total
                 label = f"Uploaded {num_uploaded} of {num_total}"
-                yield _set_progress(ctx, progress, label=label)
+                yield ctx.trigger(
+                    "set_progress", dict(progress=progress, label=label)
+                )
 
 
 def _do_upload_media(task):
@@ -1092,34 +1374,7 @@ class ExportSamples(foo.Operator):
         return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
-        target = ctx.params.get("target", None)
-        export_dir = ctx.params["export_dir"]["absolute_path"]
-        export_type = ctx.params["export_type"]
-        dataset_type = ctx.params.get("dataset_type", None)
-        label_field = ctx.params.get("label_field", None)
-
-        target_view = _get_target_view(ctx, target)
-        export_media = True
-
-        if export_type == "MEDIA_ONLY":
-            dataset_type = fot.MediaDirectory
-            label_field = None
-        elif export_type == "FILEPATHS_ONLY":
-            dataset_type = fot.CSVDataset
-            label_field = "filepath"
-            export_media = False
-        elif export_type == "LABELS_ONLY":
-            dataset_type = _DATASET_TYPES[dataset_type]
-            export_media = False
-        else:
-            dataset_type = _DATASET_TYPES[dataset_type]
-
-        target_view.export(
-            export_dir=export_dir,
-            dataset_type=dataset_type,
-            label_field=label_field,
-            export_media=export_media,
-        )
+        _export_samples(ctx)
 
 
 def _export_samples_inputs(ctx, inputs):
@@ -1202,59 +1457,149 @@ def _export_samples_inputs(ctx, inputs):
     if export_type is None:
         return False
 
-    if export_type in ("LABELS_ONLY", "MEDIA_AND_LABELS"):
-        dataset_type_choices = _get_labeled_dataset_types(target_view)
+    dataset_type = None
+    fields = None
+
+    if export_type == "FILEPATHS_ONLY":
+        export_type = "LABELS_ONLY"
+        dataset_type = "CSV"
+        fields = ["filepath"]
+    elif export_type in ("LABELS_ONLY", "MEDIA_AND_LABELS"):
+        dataset_types = _get_export_types(
+            target_view, export_type, allow_coercion=True
+        )
         inputs.enum(
             "dataset_type",
-            dataset_type_choices,
+            dataset_types,
             required=True,
             label="Label format",
             description="The label format in which to export",
         )
 
         dataset_type = ctx.params.get("dataset_type", None)
-        if dataset_type == "CSV Dataset":
+        if dataset_type is None:
+            return False
+
+        docs_link = _get_docs_link(dataset_type, type="export")
+        inputs.view(
+            "docs", types.Notice(label=f"Exporter documentation: {docs_link}")
+        )
+
+        if dataset_type == "CSV":
             field_choices = types.Dropdown(multiple=True)
             for field in _get_csv_fields(target_view):
                 field_choices.add_choice(field, label=field)
 
             inputs.list(
-                "label_field",
+                "csv_fields",
                 types.String(),
                 required=True,
                 label="Fields",
                 description="Field(s) to include as columns of the CSV",
                 view=field_choices,
             )
-        elif dataset_type not in ("FiftyOne Dataset", None):
-            label_field_choices = types.Dropdown()
-            for field in _get_label_fields(target_view, dataset_type):
+
+            fields = ctx.params.get("csv_fields", None)
+            if not fields:
+                return False
+        elif _requires_label_field(dataset_type):
+            multiple = _can_export_multiple_fields(dataset_type)
+            label_field_choices = types.Dropdown(multiple=multiple)
+            for field in _get_label_fields(
+                target_view, dataset_type, allow_coercion=True
+            ):
                 label_field_choices.add_choice(field, label=field)
 
-            inputs.enum(
-                "label_field",
-                label_field_choices.values(),
-                required=True,
-                label="Label field",
-                description="The field containing the labels to export",
-                view=label_field_choices,
-            )
+            if multiple:
+                inputs.list(
+                    "label_fields",
+                    types.String(),
+                    required=True,
+                    label="Label fields",
+                    description="The field(s) containing the labels to export",
+                    view=label_field_choices,
+                )
 
-    if export_type is not None:
+                fields = ctx.params.get("label_fields", None)
+            else:
+                inputs.enum(
+                    "label_field",
+                    label_field_choices.values(),
+                    required=True,
+                    label="Label field",
+                    description="The field containing the labels to export",
+                    view=label_field_choices,
+                )
+
+                fields = ctx.params.get("label_field", None)
+
+            if fields is None:
+                return False
+
+    if _can_export_abs_paths(dataset_type):
+        inputs.bool(
+            "abs_paths",
+            default=False,
+            label="Absolute paths",
+            description=(
+                "Store absolute paths to the media in the exported labels?"
+            ),
+            view=types.CheckboxView(),
+        )
+
+    labels_path_type = _get_labels_path_type(dataset_type)
+
+    if labels_path_type == "file":
+        ext = _get_labels_path_ext(dataset_type)
+        file_explorer = types.FileExplorerView(button_label="Choose a file...")
+        prop = inputs.file(
+            "labels_path",
+            required=True,
+            label="Labels path",
+            description=f"Choose a {ext} path to write the labels",
+            view=file_explorer,
+        )
+
+        labels_path = _parse_path(ctx, "labels_path")
+        if labels_path is None:
+            return False
+
+        if os.path.splitext(labels_path)[1] != ext:
+            prop.invalid = True
+            prop.error_message = f"Please provide a {ext} path"
+            return False
+
+        if fos.isfile(labels_path):
+            inputs.bool(
+                "overwrite",
+                default=True,
+                label="File already exists. Overwrite it?",
+                view=types.CheckboxView(),
+            )
+            overwrite = ctx.params.get("overwrite", True)
+
+            if not overwrite:
+                prop.invalid = True
+                prop.error_message = "The specified file already exists"
+                return False
+    elif labels_path_type == "directory":
         file_explorer = types.FileExplorerView(
             choose_dir=True,
             button_label="Choose a directory...",
         )
-        export_prop = inputs.file(
-            "export_dir",
+        prop = inputs.file(
+            "labels_path",
             required=True,
             label="Directory",
             description="Choose a directory at which to write the export",
             view=file_explorer,
         )
-        export_dir = _parse_path(ctx, "export_dir")
 
-        if export_dir is not None and fos.isdir(export_dir):
+        labels_path = _parse_path(ctx, "labels_path")
+        if labels_path is None:
+            return False
+
+        if fos.isdir(labels_path):
             inputs.bool(
                 "overwrite",
                 default=True,
@@ -1264,29 +1609,113 @@ def _export_samples_inputs(ctx, inputs):
             overwrite = ctx.params.get("overwrite", True)
 
             if not overwrite:
-                export_prop.invalid = True
-                export_prop.error_message = (
-                    "The specifieid export directory already exists"
-                )
+                prop.invalid = True
+                prop.error_message = "The specified directory already exists"
+                return False
     else:
-        export_dir = None
-
-    if export_dir is not None:
-        label_field = ctx.params.get("label_field", None)
-        size_bytes = _estimate_export_size(
-            target_view, export_type, label_field
+        file_explorer = types.FileExplorerView(
+            choose_dir=True,
+            button_label="Choose a directory...",
         )
-        size_str = etau.to_human_bytes_str(size_bytes)
-        label = f"Estimated export size: {size_str}"
-        inputs.view("estimate", types.Notice(label=label))
+        prop = inputs.file(
+            "export_dir",
+            required=True,
+            label="Directory",
+            description="Choose a directory at which to write the export",
+            view=file_explorer,
+        )
 
-    if export_dir is None:
-        return False
+        export_dir = _parse_path(ctx, "export_dir")
+        if export_dir is None:
+            return False
+
+        if fos.isdir(export_dir):
+            inputs.bool(
+                "overwrite",
+                default=True,
+                label="Directory already exists. Overwrite it?",
+                view=types.CheckboxView(),
+            )
+            overwrite = ctx.params.get("overwrite", True)
+
+            if not overwrite:
+                prop.invalid = True
+                prop.error_message = "The specified directory already exists"
+                return False
+
+    size_bytes = _estimate_export_size(target_view, export_type, fields)
+    size_str = etau.to_human_bytes_str(size_bytes)
+    label = f"Estimated export size: {size_str}"
+    inputs.view("estimate", types.Notice(label=label))
 
     return True
 
 
-def _estimate_export_size(view, export_type, label_field):
+def _export_samples(ctx):
+    target = ctx.params.get("target", None)
+    export_dir = _parse_path(ctx, "export_dir")
+    labels_path = _parse_path(ctx, "labels_path")
+    export_type = ctx.params["export_type"]
+    dataset_type = ctx.params.get("dataset_type", None)
+    label_field = ctx.params.get("label_field", None)
+    label_fields = ctx.params.get("label_fields", None)
+    csv_fields = ctx.params.get("csv_fields", None)
+    abs_paths = ctx.params.get("abs_paths", None)
+
+    if _can_export_multiple_fields(dataset_type):
+        label_field = label_fields
+
+    target_view = _get_target_view(ctx, target)
+    kwargs = {}
+
+    if export_type == "FILEPATHS_ONLY":
+        dataset_type = fot.CSVDataset
+        csv_fields = ["filepath"]
+        export_media = False
+    elif export_type == "MEDIA_ONLY":
+        if target_view.media_type == fom.IMAGE:
+            dataset_type = fot.ImageDirectory
+        elif target_view.media_type == fom.VIDEO:
+            dataset_type = fot.VideoDirectory
+        else:
+            dataset_type = fot.MediaDirectory
+
+        labels_path = None
+        label_field = None
+        export_media = True
+    elif export_type == "LABELS_ONLY":
+        dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
+        export_media = False
+    else:
+        dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
+        labels_path = None
+        export_media = True
+
+    if labels_path is not None:
+        export_dir = None
+
+    if dataset_type is fot.CSVDataset:
+        kwargs["fields"] = csv_fields
+        label_field = None
+
+    if dataset_type is fot.GeoJSONDataset:
+        kwargs["location_field"] = label_field
+        label_field = None
+
+    if abs_paths is not None:
+        kwargs["abs_paths"] = abs_paths
+
+    target_view.export(
+        export_dir=export_dir,
+        dataset_type=dataset_type,
+        labels_path=labels_path,
+        label_field=label_field,
+        export_media=export_media,
+        **kwargs,
+    )
+
+
+def _estimate_export_size(view, export_type, fields):
     size_bytes = 0
 
     # Estimate media size
@@ -1300,12 +1729,12 @@ def _estimate_export_size(view, export_type, label_field):
             media_size = view.sum("metadata.size_bytes")
             size_bytes += (num_total / num_valid) * media_size
 
-    if export_type == "FILEPATHS_ONLY":
-        label_field = "filepath"
-
     # Estimate labels size
-    if label_field:
-        stats = view.select_fields(label_field).stats()
+    if export_type != "MEDIA_ONLY":
+        if fields:
+            view = view.select_fields(fields)
+
+        stats = view.stats()
         size_bytes += stats["samples_bytes"]
 
     return size_bytes
@@ -1315,47 +1744,17 @@ def _get_csv_fields(view):
     for path, field in view.get_field_schema().items():
         if isinstance(field, fo.EmbeddedDocumentField):
             for _path, _field in field.get_field_schema().items():
-                if not isinstance(_field, (fo.ListField, fo.DictField)):
+                if _is_valid_csv_field(_field):
                     yield path + "." + _path
-        elif not isinstance(field, (fo.ListField, fo.DictField)):
+        elif _is_valid_csv_field(field):
             yield path
 
 
-def _get_labeled_dataset_types(view):
-    label_types = set(
-        view.get_field(field).document_type
-        for field in _get_fields_with_type(view, fo.Label)
-    )
+def _is_valid_csv_field(field):
+    if isinstance(field, fo.ListField):
+        field = field.field
 
-    dataset_types = []
-
-    if fo.Classification in label_types:
-        dataset_types.extend(_CLASSIFICATION_TYPES)
-
-    if fo.Detections in label_types:
-        dataset_types.extend(_DETECTION_TYPES)
-
-    if fo.Segmentation in label_types:
-        dataset_types.extend(_SEGMENTATION_TYPES)
-
-    dataset_types.extend(_OTHER_TYPES)
-
-    return sorted(set(dataset_types))
-
-
-def _get_label_fields(view, dataset_type):
-    label_fields = []
-
-    if dataset_type in _CLASSIFICATION_TYPES:
-        label_fields.extend(_get_fields_with_type(view, fo.Classification))
-
-    if dataset_type in _DETECTION_TYPES:
-        label_fields.extend(_get_fields_with_type(view, fo.Detections))
-
-    if dataset_type in _SEGMENTATION_TYPES:
-        label_fields.extend(_get_fields_with_type(view, fo.Segmentation))
-
-    return sorted(set(label_fields))
+    return isinstance(field, fof._PRIMITIVE_FIELDS)
 
 
 def _get_fields_with_type(view, type):
@@ -1365,67 +1764,375 @@ def _get_fields_with_type(view, type):
     return view.get_field_schema(embedded_doc_type=type).keys()
 
 
-# @todo add import-only types
-# @todo add video types
+def _get_export_types(view, export_type, allow_coercion=False):
+    label_types = set(
+        view.get_field(field).document_type
+        for field in _get_fields_with_type(view, fo.Label)
+    )
 
-_DATASET_TYPES = {
-    # Classification
-    "Image Classification Directory Tree": fot.ImageClassificationDirectoryTree,
-    "TF Image Classification": fot.TFImageClassificationDataset,
-    # Detection
-    "COCO": fot.COCODetectionDataset,
-    "VOC": fot.VOCDetectionDataset,
-    "KITTI": fot.KITTIDetectionDataset,
-    "YOLOv4": fot.YOLOv4Dataset,
-    "YOLOv5": fot.YOLOv5Dataset,
-    "TF Object Detection": fot.TFObjectDetectionDataset,
-    "CVAT Image": fot.CVATImageDataset,
-    # Segmentation
-    "Image Segmentation": fot.ImageSegmentationDirectory,
-    # Other
-    "FiftyOne Dataset": fot.FiftyOneDataset,
-    "CSV Dataset": fot.CSVDataset,
+    label_types = set(
+        k for k, v in _LABEL_TYPES_MAP.items() if v in label_types
+    )
+
+    # Label type coercion
+    if allow_coercion:
+        # Single label -> list coercion
+        for label_type in _LABEL_LIST_TYPES:
+            if label_type[:-1] in label_types:
+                label_types.add(label_type)
+
+        # Object patches -> image classifications
+        if view.media_type == fom.IMAGE and (
+            {"detections", "polylines", "keypoints"} & set(label_types)
+        ):
+            label_types.add("classification")
+
+        # Video clips -> video classifications
+        if view.media_type == fom.VIDEO and (
+            {"temporal detections"} & set(label_types)
+        ):
+            label_types.add("classification")
+
+    labels_only = export_type == "LABELS_ONLY"
+
+    dataset_types = []
+    for d in _DATASET_TYPES:
+        if not d["export"]:
+            continue
+
+        if d["media_types"] and view.media_type not in d["media_types"]:
+            continue
+
+        if labels_only and not d["export_labels_only"]:
+            continue
+
+        _label_types = d.get("label_types", None)
+        if _label_types is None or set(label_types) & set(_label_types):
+            dataset_types.append(d["label"])
+
+    return sorted(dataset_types)
+
+
+def _can_export_multiple_fields(dataset_type):
+    d = _get_dataset_type(dataset_type)
+    return d.get("export_multiple_fields", False)
+
+
+def _can_export_abs_paths(dataset_type):
+    d = _get_dataset_type(dataset_type)
+    return d.get("export_abs_paths", False)
+
+
+def _get_label_fields(view, dataset_type, allow_coercion=False):
+    d = _get_dataset_type(dataset_type)
+    label_types = d.get("label_types", None)
+
+    if not label_types:
+        return []
+
+    label_types = set(label_types)
+
+    # Label type coercion
+    if allow_coercion:
+        # Object patches -> image classification
+        if view.media_type == fom.IMAGE and "classification" in label_types:
+            label_types.update({"detections", "polylines", "keypoints"})
+
+        # Video clips -> video classification
+        if view.media_type == fom.VIDEO and "classification" in label_types:
+            label_types.add("temporal detections")
+
+        # Single label -> list coercion
+        for label_type in _LABEL_LIST_TYPES:
+            if label_type in label_types:
+                label_types.add(label_type[:-1])
+
+    label_fields = set()
+    for label_type, label_cls in _LABEL_TYPES_MAP.items():
+        if label_type in label_types:
+            label_fields.update(_get_fields_with_type(view, label_cls))
+
+    return sorted(label_fields)
+
+
+_LABEL_LIST_TYPES = (
+    "classifications",
+    "detections",
+    "polylines",
+    "keypoints",
+    "temporal detections",
+)
+
+_LABEL_TYPES_MAP = {
+    "classification": fo.Classification,
+    "classifications": fo.Classifications,
+    "detection": fo.Detection,
+    "detections": fo.Detections,
+    "instance": fo.Detection,
+    "instances": fo.Detections,
+    "polyline": fo.Polyline,
+    "polylines": fo.Polylines,
+    "keypoint": fo.Keypoint,
+    "keypoints": fo.Keypoints,
+    "temporal detection": fo.TemporalDetection,
+    "temporal detections": fo.TemporalDetections,
+    "segmentation": fo.Segmentation,
+    "heatmap": fo.Heatmap,
+    "geolocation": fo.GeoLocation,
 }
 
-_LABEL_TYPES = {
-    "COCO": ["detections", "segmentations", "keypoints"],
-}
-
-_CLASSIFICATION_TYPES = [
-    "Image Classification Directory Tree",
-    "TF Image Classification",
-]
-
-_DETECTION_TYPES = [
-    "COCO",
-    "VOC",
-    "KITTI",
-    "YOLOv4",
-    "YOLOv5",
-    "TF Object Detection",
-    "CVAT Image",
-]
-
-_SEGMENTATION_TYPES = [
-    "Image Segmentation",
-]
-
-_OTHER_TYPES = [
-    "FiftyOne Dataset",
-    "CSV Dataset",
-]
-
-_LABELS_FILE_TYPES = [
-    "COCO",
-    "CVAT Image",
-    "CSV Dataset",
-]
-
-_LABELS_DIR_TYPES = [
-    "VOC",
-    "KITTI",
-    "YOLOv4",
-    "Image Segmentation",
+_DATASET_TYPES = [
+    {
+        "label": "Image Classification Directory Tree",
+        "dataset_type": fot.ImageClassificationDirectoryTree,
+        "media_types": [fom.IMAGE],
+        "label_types": ["classification"],
+        "import": True,
+        "export": True,
+        "export_labels_only": False,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#imageclassificationdirectorytree",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#imageclassificationdirectorytree",
+    },
+    {
+        "label": "Video Classification Directory Tree",
+        "dataset_type": fot.VideoClassificationDirectoryTree,
+        "media_types": [fom.VIDEO],
+        "label_types": ["classification"],
+        "import": True,
+        "export": True,
+        "export_labels_only": False,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#videoclassificationdirectorytree",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#videoclassificationdirectorytree",
+    },
+    {
+        "label": "TF Image Classification",
+        "dataset_type": fot.TFImageClassificationDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["classification"],
+        "import": True,
+        "export": True,
+        "export_labels_only": False,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#tfimageclassificationdataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tfimageclassificationdataset",
+    },
+    {
+        "label": "COCO",
+        "dataset_type": fot.COCODetectionDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["detections", "segmentations", "keypoints"],
+        "labels_path_type": "file",
+        "labels_path_ext": ".json",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": False,
+        "export_abs_paths": True,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#cocodetectiondataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cocodetectiondataset",
+    },
+    {
+        "label": "VOC",
+        "dataset_type": fot.VOCDetectionDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["detections"],
+        "labels_path_type": "directory",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#vocdetectiondataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#vocdetectiondataset",
+    },
+    {
+        "label": "KITTI",
+        "dataset_type": fot.KITTIDetectionDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["detections"],
+        "labels_path_type": "directory",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#kittidetectiondataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#kittidetectiondataset",
+    },
+    {
+        "label": "YOLOv4",
+        "dataset_type": fot.YOLOv4Dataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["detections"],
+        "labels_path_type": "directory",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#yolov4dataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov4dataset",
+    },
+    {
+        "label": "YOLOv5",
+        "dataset_type": fot.YOLOv5Dataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["detections"],
+        "import": True,
+        "export": True,
+        "export_labels_only": False,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#yolov5dataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov5dataset",
+    },
+    {
+        "label": "TF Object Detection",
+        "dataset_type": fot.TFObjectDetectionDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["detections"],
+        "import": True,
+        "export": True,
+        "export_labels_only": False,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#tfobjectdetectiondataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tfobjectdetectiondataset",
+    },
+    {
+        "label": "CVAT Image",
+        "dataset_type": fot.CVATImageDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": [
+            "classifications",
+            "detections",
+            "polylines",
+            "keypoints",
+        ],
+        "labels_path_type": "file",
+        "labels_path_ext": ".xml",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": True,
+        "export_abs_paths": True,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#cvatimagedataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cvatimagedataset",
+    },
+    {
+        "label": "CVAT Video",
+        "dataset_type": fot.CVATVideoDataset,
+        "media_types": [fom.VIDEO],
+        "label_types": None,  # @todo frame_label_types
+        "labels_path_type": "directory",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": True,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#cvatvideodataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cvatvideodataset",
+    },
+    {
+        "label": "OpenLABEL Image",
+        "dataset_type": fot.OpenLABELImageDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": None,  # all
+        "labels_path_type": "directory",
+        "import": True,
+        "export": False,  # no export
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#openlabelimagedataset",
+    },
+    {
+        "label": "OpenLABEL Video",
+        "dataset_type": fot.OpenLABELVideoDataset,
+        "media_types": [fom.VIDEO],
+        "label_types": None,  # all
+        "labels_path_type": "directory",
+        "import": True,
+        "export": False,  # no export
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#openlabelvideodataset",
+    },
+    {
+        "label": "Image Segmentation",
+        "dataset_type": fot.ImageSegmentationDirectory,
+        "media_types": [fom.IMAGE],
+        "label_types": ["segmentation"],
+        "labels_path_type": "directory",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#imagesegmentationdirectory",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#imagesegmentationdirectory",
+    },
+    {
+        "label": "CSV",
+        "dataset_type": fot.CSVDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": None,  # all
+        "labels_path_type": "file",
+        "labels_path_ext": ".csv",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": True,
+        "export_abs_paths": True,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#csvdataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#csvdataset",
+    },
+    {
+        "label": "DICOM",
+        "dataset_type": fot.DICOMDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": None,  # all
+        "import": True,
+        "export": False,  # no export
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#dicomdataset",
+    },
+    {
+        "label": "GeoJSON",
+        "dataset_type": fot.GeoJSONDataset,
+        "media_types": fom.MEDIA_TYPES,
+        "label_types": ["geolocation"],
+        "labels_path_type": "file",
+        "labels_path_ext": ".json",
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": False,
+        "export_abs_paths": True,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#geojsondataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#geojsondataset",
+    },
+    {
+        "label": "GeoTIFF",
+        "dataset_type": fot.GeoTIFFDataset,
+        "media_types": [fom.IMAGE],
+        "label_types": ["geolocation"],
+        "import": True,
+        "export": False,  # no export
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#geotiffdataset",
+    },
+    {
+        "label": "FiftyOne Dataset",
+        "dataset_type": fot.FiftyOneDataset,
+        "media_types": None,  # all
+        "label_types": None,  # all
+        "import": True,
+        "export": True,
+        "export_labels_only": True,
+        "export_multiple_fields": False,
+        "export_abs_paths": False,
+        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#fiftyonedataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#fiftyonedataset",
+    },
 ]
 
 
@@ -1454,7 +2161,7 @@ class DrawLabels(foo.Operator):
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
-        output_dir = ctx.params["output_dir"]["absolute_path"]
+        output_dir = _parse_path(ctx, "output_dir")
         label_fields = ctx.params.get("label_fields", None)
         overwrite = ctx.params.get("overwrite", False)
 
@@ -1570,21 +2277,6 @@ def _get_target_view(ctx, target):
         return ctx.dataset
 
     return ctx.view
-
-
-def _set_progress(ctx, progress, label=None):
-    # https://github.com/voxel51/fiftyone/pull/3516
-    # return ctx.trigger("set_progress", dict(progress=progress, label=label))
-
-    loading = types.Object()
-    loading.float("progress", view=types.ProgressView(label=label))
-    return ctx.trigger(
-        "show_output",
-        dict(
-            outputs=types.Property(loading).to_json(),
-            results={"progress": progress},
-        ),
-    )
 
 
 def _execution_mode(ctx, inputs):
