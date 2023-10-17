@@ -15,6 +15,9 @@ The above command is effectively syntax sugar for running the
 python run_delegated_operations.py
 ```
 
-**Note:** FiftyOne Teams customers need to configure the execution environment
-with the varaibles and plugin sources outlined in
-[the documentation](https://docs.voxel51.com/teams/teams_plugins.html#setting-up-an-orchestrator).
+## FiftyOne Teams Notes
+
+[FiftyOne Teams](https://docs.voxel51.com/teams/index.html) customers need to
+configure the execution environment with the variables and plugin sources
+outlined in
+[the docs](https://docs.voxel51.com/teams/teams_plugins.html#setting-up-an-orchestrator).
