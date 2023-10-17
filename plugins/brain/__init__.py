@@ -1022,12 +1022,22 @@ class LoadBrainView(foo.Operator):
         run_type = get_brain_run_type(ctx, inputs)
         get_brain_key(ctx, inputs, run_type=run_type)
 
+        inputs.bool(
+            "select_fields",
+            default=False,
+            label="Select fields",
+            description="Exclude fields involved in other brain runs?",
+        )
+
         view = types.View(label="Load brain view")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         brain_key = ctx.params["brain_key"]
-        view = ctx.dataset.load_brain_view(brain_key)
+        select_fields = ctx.params["select_fields"]
+        view = ctx.dataset.load_brain_view(
+            brain_key, select_fields=select_fields
+        )
         ctx.trigger("set_view", params={"view": serialize_view(view)})
 
 
@@ -1156,7 +1166,7 @@ def get_brain_run_type(ctx, inputs):
         "run_type",
         label="Run type",
         description=(
-            "You can optionally choose a specific brain run type of interest "
+            "Optionally choose a specific brain run type of interest "
             "to narrow your search"
         ),
         view=choices,
@@ -1180,7 +1190,7 @@ _BRAIN_RUN_TYPES = {
     "mistakenness": MistakennessMethod,
     "similarity": Similarity,
     "uniqueness": Uniqueness,
-    "visualiazation": Visualization,
+    "visualization": Visualization,
 }
 
 
