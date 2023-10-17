@@ -160,6 +160,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/reverse-image-search-plugin">@jacobmarks/reverse_image_search</a></b></td>
         <td>⏪ Find the images in your dataset most similar to an image from filesystem or the internet!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/concept-space-traversal-plugin">@jacobmarks/concept_space_traversal</a></b></td>
+        <td>🌌 Navigate concept space with CLIP, vector search, and FiftyOne!</td>
+    </tr>
 </table>
 
 ## Using Plugins

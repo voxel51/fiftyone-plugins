@@ -5,8 +5,9 @@ Utility operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import contextlib
 import json
-import multiprocessing
+import multiprocessing.dummy
 
 import fiftyone as fo
 import fiftyone.core.media as fom
@@ -683,14 +684,17 @@ class ComputeMetadata(foo.Operator):
     def execute(self, ctx):
         target = ctx.params.get("target", None)
         overwrite = ctx.params.get("overwrite", False)
+        num_workers = ctx.params.get("num_workers", None)
         delegate = ctx.params.get("delegate", False)
 
         view = _get_target_view(ctx, target)
 
         if delegate:
-            view.compute_metadata(overwrite=overwrite)
+            view.compute_metadata(overwrite=overwrite, num_workers=num_workers)
         else:
-            for update in _compute_metadata(ctx, view, overwrite=overwrite):
+            for update in _compute_metadata_generator(
+                ctx, view, overwrite=overwrite, num_workers=num_workers
+            ):
                 yield update
 
         yield ctx.trigger("reload_dataset")
@@ -773,11 +777,27 @@ def _compute_metadata_inputs(ctx, inputs):
         status.invalid = True
         return False
 
+    inputs.int(
+        "num_workers",
+        default=None,
+        required=False,
+        label="Num workers",
+        description="An optional number of workers to use",
+    )
+
     return True
 
 
-def _compute_metadata(ctx, sample_collection, overwrite=False):
-    num_workers = multiprocessing.cpu_count()
+def _compute_metadata_generator(
+    ctx, sample_collection, overwrite=False, num_workers=None
+):
+    # @todo switch to this when `fiftyone==0.22.2` is released
+    # num_workers = fou.recommend_thread_pool_workers(num_workers)
+
+    if hasattr(fou, "recommend_thread_pool_workers"):
+        num_workers = fou.recommend_thread_pool_workers(num_workers)
+    elif num_workers is None:
+        num_workers = fo.config.max_thread_pool_workers or 8
 
     if not overwrite:
         sample_collection = sample_collection.exists("metadata", False)
@@ -796,21 +816,27 @@ def _compute_metadata(ctx, sample_collection, overwrite=False):
     view = sample_collection.select_fields()
 
     num_computed = 0
-    with fou.ProgressBar(total=num_total) as pb:
-        with multiprocessing.dummy.Pool(processes=num_workers) as pool:
-            # with fou.get_multiprocessing_context().Pool(processes=num_workers) as pool:
-            for sample_id, metadata in pb(
-                pool.imap_unordered(_do_compute_metadata, inputs)
-            ):
-                sample = view[sample_id]
-                sample.metadata = metadata
-                sample.save()
+    with contextlib.ExitStack() as exit_context:
+        pb = fou.ProgressBar(total=num_total)
+        exit_context.enter_context(pb)
 
-                num_computed += 1
-                if num_computed % 10 == 0:
-                    progress = num_computed / num_total
-                    label = f"Computed {num_computed} of {num_total}"
-                    yield _set_progress(ctx, progress, label=label)
+        if num_workers > 1:
+            pool = multiprocessing.dummy.Pool(processes=num_workers)
+            exit_context.enter_context(pool)
+            tasks = pool.imap_unordered(_do_compute_metadata, inputs)
+        else:
+            tasks = map(_do_compute_metadata, inputs)
+
+        for sample_id, metadata in pb(tasks):
+            sample = view[sample_id]
+            sample.metadata = metadata
+            sample.save()
+
+            num_computed += 1
+            if num_computed % 10 == 0:
+                progress = num_computed / num_total
+                label = f"Computed {num_computed} of {num_total}"
+                yield _set_progress(ctx, progress, label=label)
 
 
 def _do_compute_metadata(args):
@@ -874,6 +900,8 @@ class GenerateThumbnails(foo.Operator):
         thumbnail_path = ctx.params["thumbnail_path"]
         output_dir = ctx.params["output_dir"]["absolute_path"]
         overwrite = ctx.params.get("overwrite", False)
+        num_workers = ctx.params.get("num_workers", None)
+        delegate = ctx.params.get("delegate", False)
 
         view = _get_target_view(ctx, target)
 
@@ -882,11 +910,16 @@ class GenerateThumbnails(foo.Operator):
 
         size = (width or -1, height or -1)
 
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 1
+
         foui.transform_images(
             view,
             size=size,
             output_field=thumbnail_path,
             output_dir=output_dir,
+            num_workers=num_workers,
             skip_failures=True,
         )
 
@@ -1060,6 +1093,14 @@ def _generate_thumbnails_inputs(ctx, inputs):
         )
         status2.invalid = True
         return False
+
+    inputs.int(
+        "num_workers",
+        default=None,
+        required=False,
+        label="Num workers",
+        description="An optional number of workers to use",
+    )
 
     return True
 
