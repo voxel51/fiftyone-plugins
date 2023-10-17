@@ -146,7 +146,19 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/zero-shot-prediction-plugin">@jacobmarks/zero_shot_prediction</a></b></td>
-        <td>👓 Run zero-shot (open vocabulary) prediction on your data!</td>
+        <td>🔮 Run zero-shot (open vocabulary) prediction on your data!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/active-learning-plugin">@jacobmarks/active_learning</a></b></td>
+        <td>🏃 Accelerate your data labeling with Active Learning!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/reverse-image-search-plugin">@jacobmarks/reverse_image_search</a></b></td>
+        <td>⏪ Find the images in your dataset most similar to an image from filesystem or the internet!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/concept-space-traversal-plugin">@jacobmarks/concept_space_traversal</a></b></td>
+        <td>🌌 Navigate concept space with CLIP, vector search, and FiftyOne!</td>
     </tr>
 </table>
 
@@ -233,7 +245,7 @@ Just follow these steps to add your plugin to this repository:
 
 ### Contributing to this repository 🙌
 
-You're also welcome to contribue to the plugins that live natively in this
+You're also welcome to contribute to the plugins that live natively in this
 repository. Check out the [contributions guide](CONTRIBUTING.md) for
 instructions.
 

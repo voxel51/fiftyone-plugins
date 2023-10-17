@@ -2,8 +2,8 @@ name: "@voxel51/io"
 description: A collection of import/export utilities
 version: 1.0.0
 fiftyone:
-  version: "*"
-url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/io/README.md
+  version: ">=0.22"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/io
 license: Apache 2.0
 operators:
   - import_samples

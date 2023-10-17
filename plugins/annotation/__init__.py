@@ -5,11 +5,14 @@ Annotation operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import contextlib
 import json
+import threading
 
 from bson import json_util
 
 import fiftyone as fo
+import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.utils.annotations as foua
@@ -46,7 +49,6 @@ class RequestAnnotations(foo.Operator):
         backend = kwargs.pop("backend")
         kwargs.pop("delegate")
 
-        # Parse label schema
         kwargs.pop("schema_type")
         label_schema = kwargs.pop("label_schema", None)
         label_schema_fields = kwargs.pop("label_schema_fields", None)
@@ -57,19 +59,28 @@ class RequestAnnotations(foo.Operator):
 
         _inject_annotation_secrets(ctx)
 
-        # Parse backend-specific parameters
         _get_backend(backend).parse_parameters(ctx, kwargs)
-
-        # Remove None or [] values
         kwargs = {k: v for k, v in kwargs.items() if v not in (None, [])}
 
         target_view = _get_target_view(ctx, target)
-        target_view.annotate(
-            anno_key,
-            label_schema=label_schema,
-            backend=backend,
-            **kwargs,
-        )
+
+        # @todo switch to this when `fiftyone==0.22.2` is released
+        # with threading.Lock():
+        # with fou.SetAttributes(fo.config, max_process_pool_workers=1):
+
+        with contextlib.ExitStack() as exit_context:
+            if hasattr(fo.config, "max_process_pool_workers"):
+                # Don't allow using multiprocessing to compute metadata
+                ctx = fou.SetAttributes(fo.config, max_process_pool_workers=1)
+                exit_context.enter_context(threading.Lock())
+                exit_context.enter_context(ctx)
+
+            target_view.annotate(
+                anno_key,
+                label_schema=label_schema,
+                backend=backend,
+                **kwargs,
+            )
 
     def resolve_output(self, ctx):
         outputs = types.Object()

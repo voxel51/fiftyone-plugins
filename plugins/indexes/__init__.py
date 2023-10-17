@@ -78,6 +78,27 @@ def _manage_indexes(ctx, inputs):
         ),
     )
 
+    obj = types.Object()
+    obj.str(
+        "field_name",
+        label="Field name",
+        description="The field name or compound index name",
+        view=types.MarkdownView(read_only=True, space=4),
+    )
+    obj.str(
+        "default",
+        label="Default",
+        description="Whether the index is a default index",
+        view=types.MarkdownView(read_only=True, space=4),
+    )
+    obj.str(
+        "unique",
+        label="Unique",
+        description="Whether the index has a uniqueness constraint",
+        view=types.MarkdownView(read_only=True, space=4),
+    )
+    inputs.define_property("header", obj)
+
     for name in sorted(indexes):
         prop_name = name.replace(".", "_")  # prop names can't contain "."
         default = name in default_indexes
@@ -91,21 +112,17 @@ def _manage_indexes(ctx, inputs):
         obj.str(
             "field_name",
             default=name,
-            view=types.LabelValueView(label="Field name", space=4),
+            view=types.MarkdownView(read_only=True, space=4),
         )
         obj.bool(
             "default",
-            label="Default",
-            description="Whether this is a default index",
             default=default,
-            view=types.View(space=4, read_only=True),
+            view=types.CheckboxView(read_only=True, space=4),
         )
         obj.bool(
             "unique",
-            label="unique",
-            description="Whether the index has a uniqueness constraint",
             default=unique,
-            view=types.View(space=4, read_only=True),
+            view=types.CheckboxView(read_only=True, space=4),
         )
         inputs.define_property(prop_name, obj)
 

@@ -2,8 +2,8 @@ name: "@voxel51/annotation"
 description: Utilities for integrating FiftyOne with annotation tools
 version: 1.0.0
 fiftyone:
-  version: "*"
-url: https://github.com/voxel51/fiftyone-plugins/blob/main/plugins/annotation/README.md
+  version: ">=0.22"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/annotation
 license: Apache 2.0
 operators:
   - request_annotations

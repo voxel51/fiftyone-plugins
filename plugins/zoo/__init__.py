@@ -123,7 +123,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
     )
 
     name = ctx.params.get("name", None)
-    if name is None:
+    if name is None or name not in zoo_datasets:
         return False
 
     zoo_dataset = zoo_datasets[name]
@@ -435,10 +435,15 @@ class ApplyZooModel(foo.Operator):
         skip_failures = ctx.params.get("skip_failures", True)
         output_dir = ctx.params.get("output_dir", None)
         rel_dir = ctx.params.get("rel_dir", None)
+        delegate = ctx.params.get("delegate", False)
 
         target_view = _get_target_view(ctx, target)
 
         model = foz.load_zoo_model(model)
+
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 1
 
         if embeddings and patches_field is not None:
             target_view.compute_patch_embeddings(
