@@ -50,7 +50,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/plugins">@voxel51/plugins</a></b></td>
-        <td>🧩 Utilities for managing your FiftyOne plugins</td>
+        <td>🧩 Utilities for managing and building FiftyOne plugins</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/utils">@voxel51/utils</a></b></td>

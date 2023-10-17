@@ -1,7 +1,7 @@
 # Plugin Management & Development
 
 A plugin that contains utilities for managing your FiftyOne plugins and
-building new plugins.
+building new ones.
 
 ## Installation
 
@@ -81,16 +81,16 @@ where the operator's form allows you to navigate between the available actions.
 
 ![plugin_builder_component](https://github.com/voxel51/fiftyone-plugins/assets/12500356/19f1af29-7642-4b13-8317-01ba2a263e03)
 
-This operator walks you through the process of choosing a component type for a
-given type of input, and selecting the component's properties.
+This operator walks you through the process of building a component for a given
+type of input, and selecting the component's properties.
 
 It currently supports the following component types:
 
-1. `radio groups`: A way of selecting one of a set of mutually exclusive
-   options
-2. `booleans`: A way of selecting a true/false value
-3. `floats`: A way of selecting a floating point number
-4. `message`: A way of displaying a message to the user
+-   `radio groups`: A way of selecting one of a set of mutually exclusive
+    options
+-   `booleans`: A way of selecting a true/false value
+-   `floats`: A way of selecting a floating point number
+-   `message`: A way of displaying a message to the user
 
 Each of these component types has a set of properties that can be configured.
 
@@ -98,8 +98,7 @@ Each of these component types has a set of properties that can be configured.
 
 ![build_operator](https://github.com/voxel51/fiftyone-plugins/assets/12500356/436f17fa-acc7-4b7f-aa2e-d8edffc76c2e)
 
-This operator walks you through the process of creating an operator. It then
-generates a skeleton of the code for the operator.
+This operator walks you through the process of _creating_ an operator.
 
-Pressing the `Execute` button will add the plugin in the location of your
-choice!
+You can use the UI to interactively define your operator, preview the skeleton
+code directly in the App, and even write the generated code to disk!
