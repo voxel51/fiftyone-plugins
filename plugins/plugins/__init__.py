@@ -14,7 +14,6 @@ except ImportError:
 
 import itertools
 import multiprocessing
-import os
 from packaging.requirements import Requirement
 from packaging.version import Version
 import re
@@ -22,6 +21,7 @@ from textwrap import dedent
 import traceback
 
 import fiftyone as fo
+import fiftyone.core.storage as fos
 import fiftyone.constants as foc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -543,24 +543,46 @@ def _check_package_requirement(req_str):
     return req_str, version, satisfied
 
 
-radio_group_view_options = {
-    "Dropdown": ("types.DropdownView", types.DropdownView),
-    "Radio": ("types.RadioGroupView", types.RadioView),
-    "Tabs": ("types.TabsView", types.TabsView),
-    "Autocomplete": ("types.AutocompleteView", types.AutocompleteView),
-}
+class BuildPluginComponent(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="build_plugin_component",
+            label="Build plugin component",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
 
-boolean_view_options = {
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _create_view_type_input(inputs)
+        view_type = ctx.params.get("view_type", None)
+
+        if view_type is not None:
+            view_options = VIEW_TYPE_TO_OPTIONS[view_type]
+            _create_options_input(inputs, view_options, view_type)
+            _create_view_code(ctx, inputs, view_type)
+
+        view = types.View(label="Build plugin component")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        pass
+
+
+BOOLEAN_VIEW_OPTIONS = {
     "Checkbox": ("types.CheckboxView", types.CheckboxView),
     "Switch": ("types.SwitchView", types.SwitchView),
 }
 
-float_view_options = {
+FLOAT_VIEW_OPTIONS = {
     "Slider": ("types.SliderView", types.SliderView),
     "Field": ("types.FieldView", types.FieldView),
 }
 
-message_view_options = {
+MESSAGE_VIEW_OPTIONS = {
     "Message": None,
     "Success": None,
     "Warning": None,
@@ -568,34 +590,34 @@ message_view_options = {
     "Header": None,
 }
 
+RADIO_GROUP_VIEW_OPTIONS = {
+    "Dropdown": ("types.DropdownView", types.DropdownView),
+    "Radio": ("types.RadioGroupView", types.RadioView),
+    "Tabs": ("types.TabsView", types.TabsView),
+    "Autocomplete": ("types.AutocompleteView", types.AutocompleteView),
+}
 
-view_type_to_options = {
-    "radio_group": radio_group_view_options,
-    "boolean": boolean_view_options,
-    "float": float_view_options,
-    "message": message_view_options,
+VIEW_TYPE_TO_OPTIONS = {
+    "Boolean": BOOLEAN_VIEW_OPTIONS,
+    "Float": FLOAT_VIEW_OPTIONS,
+    "Message": MESSAGE_VIEW_OPTIONS,
+    "Radio group": RADIO_GROUP_VIEW_OPTIONS,
 }
 
 
 def _create_view_type_input(inputs):
-    inputs.str(
-        "view_type_header",
-        view=types.Header(
-            label="View Type",
-            description="Select the type of view you want to create",
-            divider=True,
-        ),
-    )
+    radio_group = types.RadioGroup()
+    for key in sorted(VIEW_TYPE_TO_OPTIONS.keys()):
+        radio_group.add_choice(key, label=key)
 
-    vt_radio_group = types.RadioGroup()
-    for key, _ in view_type_to_options.items():
-        vt_radio_group.add_choice(key, label=key)
     inputs.enum(
         "view_type",
-        vt_radio_group.values(),
-        view=types.RadioView(),
+        radio_group.values(),
+        label="Component type",
+        description="Select a type of component to create",
         required=True,
-        default=vt_radio_group.choices[0].value,
+        default=radio_group.choices[0].value,
+        view=types.RadioView(),
     )
 
 
@@ -604,153 +626,103 @@ def _create_options_input(inputs, options_dict, view_type):
     for key, _ in options_dict.items():
         oi_radio_group.add_choice(key.capitalize(), label=key.capitalize())
 
-    if view_type == "radio_group":
-        inputs.message(
-            "radio_view_message",
-            "Select the type of radio group you want to create",
+    if view_type == "Boolean":
+        inputs.str(
+            "boolean_config",
+            view=types.Header(
+                label="Boolean configuration",
+                description="Use the options below to configure a boolean property",
+                divider=True,
+            ),
         )
-        inputs.enum(
-            "radio_view_type",
-            oi_radio_group.values(),
-            view=types.RadioView(),
-            default=oi_radio_group.choices[0].value,
-            required=True,
-        )
-    elif view_type == "boolean":
-        inputs.message(
-            "boolean_view_message",
-            "Select the type of boolean component you want to create",
-        )
+
         inputs.enum(
             "boolean_view_type",
             oi_radio_group.values(),
-            view=types.RadioView(),
+            label="Boolean type",
             default=oi_radio_group.choices[0].value,
             required=True,
+            view=types.RadioView(),
         )
-    elif view_type == "float":
-        inputs.message(
-            "float_view_message",
-            "Select the type of float component you want to create",
+    elif view_type == "Float":
+        inputs.str(
+            "float_config",
+            view=types.Header(
+                label="Float configuration",
+                description="Use the options below to configure a float property",
+                divider=True,
+            ),
         )
+
         inputs.enum(
             "float_view_type",
             oi_radio_group.values(),
-            view=types.RadioView(),
+            label="Float type",
             default=oi_radio_group.choices[0].value,
             required=True,
+            view=types.RadioView(),
         )
-    elif view_type == "message":
-        inputs.message(
-            "message_view_message",
-            "Select the type of message component you want to create",
+    elif view_type == "Message":
+        inputs.str(
+            "message_config",
+            view=types.Header(
+                label="Message configuration",
+                description="Use the options below to configure a message property",
+                divider=True,
+            ),
         )
+
         inputs.enum(
             "message_view_type",
             oi_radio_group.values(),
-            view=types.RadioView(),
+            label="Message type",
             default=oi_radio_group.choices[0].value,
             required=True,
+            view=types.RadioView(),
+        )
+    elif view_type == "Radio group":
+        inputs.str(
+            "radio_config",
+            view=types.Header(
+                label="Radio group configuration",
+                description="Use the options below to configure a radio group",
+                divider=True,
+            ),
+        )
+
+        inputs.enum(
+            "radio_view_type",
+            oi_radio_group.values(),
+            label="Radio group type",
+            required=True,
+            default=oi_radio_group.choices[0].value,
+            view=types.RadioView(),
         )
 
 
 def _create_view_code(ctx, inputs, view_type):
-    if view_type == "radio_group":
-        _create_radio_group_code(ctx, inputs)
-    elif view_type == "boolean":
+    if view_type == "Boolean":
         _create_boolean_code(ctx, inputs)
-    elif view_type == "float":
+    elif view_type == "Float":
         _create_float_code(ctx, inputs)
-    elif view_type == "message":
+    elif view_type == "Message":
         _create_message_code(ctx, inputs)
+    elif view_type == "Radio group":
+        _create_radio_group_code(ctx, inputs)
 
 
-#### Radio Props ####
-def _create_radio_props(inputs):
-    obj = types.Object()
-    obj.bool(
-        "has_default",
-        label="Set default?",
-        default=False,
-        view=types.CheckboxView(space=2),
-    )
-    obj.bool(
-        "required",
-        label="Required?",
-        default=False,
-        view=types.CheckboxView(space=3),
-    )
-    inputs.define_property("radio_props", obj)
-
-
-#### Radio Group ####
-def _create_radio_group_code(ctx, inputs):
-    view_type = ctx.params.get("radio_view_type", "Dropdown")
-
-    _create_radio_props(inputs)
-    view_text, view_realization = radio_group_view_options[view_type]
-    rbp = ctx.params.get("radio_props", {})
-    has_default = rbp.get("has_default", False)
-    required = rbp.get("required", False)
-
-    if has_default:
-        default = "aaa"
-        default_code = f"    default='{default}',\n    "
-    else:
-        default = None
-        default_code = ""
-
-    code = f"""
-    my_choices = ["aaa", "abc", "ace"] # replace with your choices
-
-    my_radio_group = types.RadioGroup()
-
-    for choice in my_choices:
-        my_radio_group.add_choice(choice, label=choice)
-
-    inputs.enum(
-        "my_radio_group",
-        my_radio_group.values(),
-        label="My radio groups label",
-        description="My radio groups description",
-        view={view_text}(),
-    {default_code}    required={required},
-    )"""
+def _create_boolean_code(ctx, inputs):
+    view_type = ctx.params.get("boolean_view_type", "Checkbox")
+    view_text, view_realization = BOOLEAN_VIEW_OPTIONS[view_type]
 
     inputs.str(
-        f"radio_group_code_{view_type}_{has_default}_{default}_{required}",
-        label="Radio Group Code",
-        default=dedent(code),
-        view=types.CodeView(language="python"),
-    )
-
-    inputs.str(
-        "radio_groups_preview",
+        "boolean_code",
         view=types.Header(
-            label=f"Radio Groups Preview",
-            description="Preview of the radio groups you created above",
+            label="Boolean code",
+            description="Here's the code for the boolean you created",
             divider=True,
         ),
     )
-
-    radio_groups_preview = types.RadioGroup()
-    for choice in ["aaa", "abc", "ace"]:
-        radio_groups_preview.add_choice(choice, label=choice)
-    inputs.enum(
-        f"radio_groups_preview_{default}",
-        radio_groups_preview.values(),
-        label="My radio groups label",
-        description="My radio groups description",
-        view=view_realization(),
-        default=default,
-        required=required,
-    )
-
-
-#### Boolean ####
-def _create_boolean_code(ctx, inputs):
-    view_type = ctx.params.get("boolean_view_type", "Checkbox")
-    view_text, view_realization = boolean_view_options[view_type]
 
     has_default = ctx.params.get("boolean_view_has_default", False)
     if has_default:
@@ -770,16 +742,15 @@ def _create_boolean_code(ctx, inputs):
 
     inputs.str(
         f"boolean_code_{view_type}",
-        label="Boolean Code",
-        default=dedent(code),
+        default=_dedent_code(code),
         view=types.CodeView(language="python"),
     )
 
     inputs.str(
         "boolean_preview_header",
         view=types.Header(
-            label=f"Boolean Preview",
-            description="Preview of the boolean you created above",
+            label="Boolean preview",
+            description="Here's a preview of the boolean you created",
             divider=True,
         ),
     )
@@ -793,7 +764,6 @@ def _create_boolean_code(ctx, inputs):
     )
 
 
-#### Float Props ####
 def _create_float_props(inputs):
     obj = types.Object()
     obj.float(
@@ -823,10 +793,9 @@ def _create_float_props(inputs):
     inputs.define_property("float_props", obj)
 
 
-#### Float ####
 def _create_float_code(ctx, inputs):
     view_type = ctx.params.get("float_view_type", "Slider")
-    view_text, view_realization = float_view_options[view_type]
+    view_text, view_realization = FLOAT_VIEW_OPTIONS[view_type]
 
     _create_float_props(inputs)
     float_props = ctx.params.get("float_props", {})
@@ -851,6 +820,15 @@ def _create_float_code(ctx, inputs):
     else:
         raise ValueError("Invalid view type")
 
+    inputs.str(
+        "float_code",
+        view=types.Header(
+            label="Float code",
+            description="Here's the code for the float you created",
+            divider=True,
+        ),
+    )
+
     default_code = f"\n    default={default}" if default is not None else ""
 
     if len(componentsPropsDict) == 0:
@@ -870,16 +848,15 @@ def _create_float_code(ctx, inputs):
 
     inputs.str(
         f"float_code_{view_type}_{min}_{max}_{step}_{default}",
-        label="Float Code",
-        default=dedent(code),
+        default=_dedent_code(code),
         view=types.CodeView(language="python"),
     )
 
     inputs.str(
         "float_preview_header",
         view=types.Header(
-            label=f"Float Preview",
-            description="Preview of the float you created above",
+            label="Float preview",
+            description="Here's a preview of the float you created",
             divider=True,
         ),
     )
@@ -893,27 +870,32 @@ def _create_float_code(ctx, inputs):
     )
 
 
-#### Message ####
-
-
 def _create_message_code(ctx, inputs):
     view_type = ctx.params.get("message_view_type", "Message")
 
     inputs.str(
         "message_label",
-        label="Message Label",
-        default="Message Label",
+        label="Message label",
+        default="Message label",
     )
     inputs.str(
         "message_description",
-        label="Message Description",
-        default="Message Description",
+        label="Message description",
+        default="Message description",
+    )
+
+    inputs.str(
+        "message_code",
+        view=types.Header(
+            label="Message code",
+            description="Here's the code for the message you created",
+            divider=True,
+        ),
     )
 
     label = ctx.params.get("message_label", "Message Label")
     description = ctx.params.get("message_description", "Message Description")
 
-    ## Code
     if view_type == "Message":
         code = f"""
         inputs.message(
@@ -950,22 +932,19 @@ def _create_message_code(ctx, inputs):
 
     inputs.str(
         f"message_code_{view_type}_{label}_{description}",
-        label="Message Code",
-        default=dedent(code),
+        default=_dedent_code(code),
         view=types.CodeView(language="python"),
     )
 
-    ## Header
     inputs.str(
         "message_preview_header",
         view=types.Header(
-            label=f"Message Preview",
-            description="Preview of the message you created above",
+            label="Message preview",
+            description="Here's a preview of the message you created",
             divider=True,
         ),
     )
 
-    ## Preview
     if view_type == "Message":
         inputs.message(
             f"message_{label}_{description}", label, description=description
@@ -992,45 +971,143 @@ def _create_message_code(ctx, inputs):
         )
 
 
-class BuildAComponent(foo.Operator):
+def _create_radio_props(inputs):
+    obj = types.Object()
+    obj.bool(
+        "has_default",
+        label="Set default?",
+        default=False,
+        view=types.CheckboxView(space=2),
+    )
+    obj.bool(
+        "required",
+        label="Required?",
+        default=False,
+        view=types.CheckboxView(space=3),
+    )
+    inputs.define_property("radio_props", obj)
+
+
+def _create_radio_group_code(ctx, inputs):
+    view_type = ctx.params.get("radio_view_type", "Dropdown")
+
+    _create_radio_props(inputs)
+    view_text, view_realization = RADIO_GROUP_VIEW_OPTIONS[view_type]
+    rbp = ctx.params.get("radio_props", {})
+    has_default = rbp.get("has_default", False)
+    required = rbp.get("required", False)
+
+    if has_default:
+        default = "aaa"
+        default_code = f"    default='{default}',\n    "
+    else:
+        default = None
+        default_code = ""
+
+    inputs.str(
+        "radio_group_code",
+        view=types.Header(
+            label="Radio group code",
+            description="Here's the code for the radio group you created",
+            divider=True,
+        ),
+    )
+
+    code = f"""
+    my_choices = ["aaa", "abc", "ace"] # replace with your choices
+
+    my_radio_group = types.RadioGroup()
+
+    for choice in my_choices:
+        my_radio_group.add_choice(choice, label=choice)
+
+    inputs.enum(
+        "my_radio_group",
+        my_radio_group.values(),
+        label="My radio group label",
+        description="My radio group description",
+        view={view_text}(),
+    {default_code}    required={required},
+    )"""
+
+    inputs.str(
+        f"radio_group_code_{view_type}_{has_default}_{default}_{required}",
+        default=_dedent_code(code),
+        view=types.CodeView(language="python"),
+    )
+
+    inputs.str(
+        "radio_group_preview",
+        view=types.Header(
+            label="Radio group preview",
+            description="Here's a preview of the radio group you created",
+            divider=True,
+        ),
+    )
+
+    radio_group_preview = types.RadioGroup()
+    for choice in ["aaa", "abc", "ace"]:
+        radio_group_preview.add_choice(choice, label=choice)
+
+    inputs.enum(
+        f"radio_group_preview_{default}",
+        radio_group_preview.values(),
+        label="My radio group label",
+        description="My radio group description",
+        view=view_realization(),
+        default=default,
+        required=required,
+    )
+
+
+class BuildOperatorSkeleton(foo.Operator):
     @property
     def config(self):
-        _config = foo.OperatorConfig(
-            name="build_component",
-            label="Plugin Builder: create your perfect plugin component!",
-            description="Manage plugins",
+        return foo.OperatorConfig(
+            name="build_operator_skeleton",
+            label="Build operator skeleton",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
-        _config.icon = "/assets/build_icon.svg"
-        return _config
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        form_view = types.View(
-            label="Build a Plugin",
-            description="Create your perfect plugin!",
-        )
 
-        _create_view_type_input(inputs)
-        view_type = ctx.params.get("view_type", None)
-        if view_type is None:
-            return types.Property(inputs, view=form_view)
+        _operator_skeleton_tabs_input(inputs)
 
-        view_options = view_type_to_options[view_type]
-        _create_options_input(inputs, view_options, view_type)
-        _create_view_code(ctx, inputs, view_type)
+        main_tab = ctx.params.get("operator_skeleton_tab", "1️⃣ Config")
+        if "Config" in main_tab:
+            _operator_skeleton_config_flow(ctx, inputs)
+            _operator_skeleton_placement_flow(ctx, inputs)
+        elif "Input" in main_tab:
+            _operator_skeleton_io_flow(ctx, inputs)
+        elif "Execution" in main_tab:
+            _operator_skeleton_execution_flow(ctx, inputs)
+            _operator_skeleton_delegation_flow(ctx, inputs)
+        elif "Code" in main_tab:
+            _operator_skeleton_view_code_flow(ctx, inputs)
+        else:
+            _create_skeleton(ctx, inputs)
 
-        return types.Property(inputs, view=form_view)
+        view = types.View(label="Build operator skeleton")
+        return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        pass
+        plugin_dir = _parse_plugin_dir(ctx)
+
+        # Create __init__.py
+        init = _create_operator_skeleton_code(ctx)
+        init_path = fos.join(plugin_dir, "__init__.py")
+        fos.write_file(init, init_path)
+
+        # Create fiftyone.yml
+        yml = _create_fiftyone_yml_code(ctx)
+        yml_path = fos.join(plugin_dir, "fiftyone.yml")
+        fos.write_file(yml, yml_path)
 
 
-#################################################
-############### Operator Skeleton ###############
-#################################################
-
-operator_skeleton_tabs = (
+OPERATOR_SKELETON_TABS = (
     "1️⃣ Config & Placement",
     "2️⃣ Input & Output",
     "3️⃣ Execution & Delegation",
@@ -1041,32 +1118,23 @@ operator_skeleton_tabs = (
 
 def _operator_skeleton_tabs_input(inputs):
     os_group = types.RadioGroup()
-    for choice in operator_skeleton_tabs:
-        os_group.add_choice(choice, label=choice)
+    for tab in OPERATOR_SKELETON_TABS:
+        os_group.add_choice(tab, label=tab)
 
     inputs.enum(
         "operator_skeleton_tab",
         os_group.values(),
-        label="Skeleton Creation",
-        description="Walk through the steps to create a Python operator skeleton",
+        label="Skeleton creation",
+        description="Walk through the steps to create an operator skeleton",
         view=types.TabsView(),
-        default=operator_skeleton_tabs[0],
+        default=OPERATOR_SKELETON_TABS[0],
     )
 
 
 def _operator_skeleton_config_flow(ctx, inputs):
     inputs.str(
-        "operator_skeleton_config_header",
-        view=types.Header(
-            label="Config",
-            description="Configure your operator",
-            divider=True,
-        ),
-    )
-
-    inputs.str(
         "operator_name",
-        label="Operator Name",
+        label="Operator name",
         default="my_operator",
         description="The name of your operator",
         required=True,
@@ -1074,15 +1142,16 @@ def _operator_skeleton_config_flow(ctx, inputs):
 
     inputs.str(
         "operator_label",
-        label="Operator Label",
-        default="My Operator",
+        label="Operator label",
+        default="My operator",
         description="The label of your operator",
+        required=True,
     )
 
     inputs.str(
         "operator_description",
-        label="Operator Description",
-        default="My Operator Description",
+        label="Operator description",
+        default="My operator description",
         description="The description of your operator",
     )
 
@@ -1091,7 +1160,7 @@ def _operator_skeleton_config_flow(ctx, inputs):
         "operator_dynamic",
         label="Dynamic?",
         default=False,
-        view=types.CheckboxView(space=2),
+        view=types.CheckboxView(space=3),
     )
 
     obj.bool(
@@ -1105,14 +1174,14 @@ def _operator_skeleton_config_flow(ctx, inputs):
         "unlisted",
         label="Unlisted?",
         default=False,
-        view=types.CheckboxView(space=2),
+        view=types.CheckboxView(space=3),
     )
 
     obj.bool(
         "on_startup",
         label="On startup?",
         default=False,
-        view=types.CheckboxView(space=2),
+        view=types.CheckboxView(space=3),
     )
 
     icon_obj = types.Object()
@@ -1120,7 +1189,7 @@ def _operator_skeleton_config_flow(ctx, inputs):
         "config_icon",
         label="Icon?",
         default=True,
-        view=types.CheckboxView(space=2),
+        view=types.CheckboxView(space=3),
     )
 
     icon_obj.bool(
@@ -1143,9 +1212,9 @@ def _operator_skeleton_config_flow(ctx, inputs):
 
 def _create_operator_config_code(ctx):
     operator_name = ctx.params.get("operator_name", "my_operator")
-    operator_label = ctx.params.get("operator_label", "My Operator")
+    operator_label = ctx.params.get("operator_label", "My operator")
     operator_description = ctx.params.get(
-        "operator_description", "My Operator Description"
+        "operator_description", "My operator description"
     )
 
     config_bool_props = ctx.params.get("config_bool_props", {})
@@ -1162,11 +1231,10 @@ def _create_operator_config_code(ctx):
     code = f"""
     @property
     def config(self):
-        _config = foo.OperatorConfig(
+        return foo.OperatorConfig(
             name="{operator_name}",
             label="{operator_label}",
-            description="{operator_description}",
-        """
+            description="{operator_description}","""
 
     if dynamic:
         code += f"""
@@ -1180,38 +1248,23 @@ def _create_operator_config_code(ctx):
     if on_startup:
         code += f"""
             on_startup={on_startup},"""
+    if config_icon:
+        code += f"""
+            icon="/path/to/icon.svg","""
+    if config_light_icon:
+        code += f"""
+            light_icon="/path/to/light_icon.svg","""
+    if config_dark_icon:
+        code += f"""
+            dark_icon="/path/to/dark_icon.svg","""
 
     code += f"""
         )"""
 
-    icon_lines = []
-    if config_icon:
-        icon_lines.append('_config.icon = "/path/to/icon.svg"')
-    if config_light_icon:
-        icon_lines.append('_config.light_icon = "/path/to/light_icon.svg"')
-    if config_dark_icon:
-        icon_lines.append('_config.dark_icon = "/path/to/dark_icon.svg"')
-
-    if icon_lines:
-        code += "\n        " + "\n        ".join(icon_lines)
-
-    code += f"""
-        return _config
-    """
-
-    return dedent(code).replace("\n\n", "\n")
+    return _dedent_code(code)
 
 
 def _operator_skeleton_io_flow(ctx, inputs):
-    inputs.str(
-        "operator_skeleton_io_header",
-        view=types.Header(
-            label="Input",
-            description="Configure your operator's input and output",
-            divider=True,
-        ),
-    )
-
     inputs.bool(
         "operator_input_has_input",
         label="Has input?",
@@ -1247,6 +1300,7 @@ def _operator_skeleton_input_code(ctx):
             inputs = types.Object()
 
             ### Add your inputs here ###
+
             _execution_mode(ctx, inputs)
             return types.Property(inputs)
         """
@@ -1263,7 +1317,8 @@ def _operator_skeleton_input_code(ctx):
         def resolve_input(self, ctx):
             pass
         """
-    return dedent(code).replace("\n\n", "\n")
+
+    return _dedent_code(code)
 
 
 TRIGGER_CHOICES = (
@@ -1273,30 +1328,19 @@ TRIGGER_CHOICES = (
     "Open A Panel",
 )
 
-LAYOUT_CHOICES = (
-    "Horizontal",
-    "Vertical",
-)
+LAYOUT_CHOICES = ("Horizontal", "Vertical")
 
-
-def _get_panel_choices():
-    return ("Embeddings", "Histograms")
+PANEL_CHOICES = ("Embeddings", "Histograms")
 
 
 def _operator_skeleton_execution_flow(ctx, inputs):
-    inputs.str(
-        "operator_skeleton_execution_header",
-        view=types.Header(
-            label="Execution",
-            description="Configure your operator's execution",
-            divider=True,
-        ),
-    )
-
     inputs.bool(
         "operator_execution_has_trigger",
         label="Has trigger?",
-        description="Check this if you want the execution of your operator to trigger on a specific event",
+        description=(
+            "Check this if you want the execution of your operator to "
+            "trigger another operation"
+        ),
         default=False,
         view=types.CheckboxView(),
     )
@@ -1304,14 +1348,6 @@ def _operator_skeleton_execution_flow(ctx, inputs):
     has_trigger = ctx.params.get("operator_execution_has_trigger", False)
 
     if has_trigger:
-        inputs.view(
-            "header",
-            types.Header(
-                label="Trigger Details",
-                description="You can trigger any operator! Here are some common choices:",
-            ),
-        )
-
         trigger_group = types.RadioGroup()
         for choice in TRIGGER_CHOICES:
             trigger_group.add_choice(choice, label=choice)
@@ -1319,7 +1355,8 @@ def _operator_skeleton_execution_flow(ctx, inputs):
         inputs.enum(
             "operator_execution_trigger",
             trigger_group.values(),
-            label="trigger_type",
+            label="Trigger operator",
+            description="You can trigger any operator! Here are some common choices",
             default=TRIGGER_CHOICES[0],
             view=types.DropdownView(),
         )
@@ -1330,14 +1367,14 @@ def _operator_skeleton_execution_flow(ctx, inputs):
 
         if trigger_type == "Open A Panel":
             panel_group = types.RadioGroup()
-            for choice in _get_panel_choices():
+            for choice in PANEL_CHOICES:
                 panel_group.add_choice(choice, label=choice)
 
             inputs.enum(
                 "operator_execution_trigger_panel",
                 panel_group.values(),
                 label="panel_type",
-                default=_get_panel_choices()[0],
+                default=PANEL_CHOICES[0],
                 view=types.DropdownView(),
             )
 
@@ -1387,13 +1424,13 @@ def _operator_skeleton_execution_code(ctx):
 
                 ctx.trigger(
                     "set_view",
-                    params=dict(view=serialize_view(view)),
+                    params=dict(view=_serialize_view(view)),
                 )
                 return {}
             """
         elif trigger_type == "Open A Panel":
             panel_type = ctx.params.get(
-                "operator_execution_trigger_panel", _get_panel_choices()[0]
+                "operator_execution_trigger_panel", PANEL_CHOICES[0]
             )
             layout_type = ctx.params.get(
                 "operator_execution_trigger_layout", LAYOUT_CHOICES[0]
@@ -1422,21 +1459,12 @@ def _operator_skeleton_execution_code(ctx):
         
             return {}
         """
-    return dedent(code).replace("\n\n", "\n")
+
+    return _dedent_code(code)
 
 
 def _operator_skeleton_delegation_flow(ctx, inputs):
-    inputs.str(
-        "operator_skeleton_delegation_header",
-        view=types.Header(
-            label="Delegation",
-            description="Configure your operator's delegation",
-            divider=True,
-        ),
-    )
-
     delegation_choices = ("False", "True", "User Choice")
-
     degelation_group = types.RadioGroup()
     for choice in delegation_choices:
         degelation_group.add_choice(choice, label=choice)
@@ -1445,6 +1473,10 @@ def _operator_skeleton_delegation_flow(ctx, inputs):
         "delegated_execution_choices",
         degelation_group.values(),
         label="Delegate execution?",
+        description=(
+            "Should this operator be executed immediately or delegated for "
+            "execution on an orchestrator"
+        ),
         view=types.RadioView(),
         default="False",
     )
@@ -1510,7 +1542,7 @@ def _operator_skeleton_delegation_code(ctx):
     else:
         raise ValueError("Invalid delegation choice")
 
-    return dedent(code).replace("\n\n", "\n")
+    return _dedent_code(code)
 
 
 def _operator_skeleton_output_code(ctx):
@@ -1527,7 +1559,8 @@ def _operator_skeleton_output_code(ctx):
         """
     else:
         code = ""
-    return dedent(code).replace("\n\n", "\n")
+
+    return _dedent_code(code)
 
 
 PLACEMENTS = (
@@ -1542,8 +1575,10 @@ def _operator_skeleton_placement_flow(ctx, inputs):
         "operator_skeleton_placement_header",
         view=types.Header(
             label="Placement",
-            description="Configure your operator's placement",
-            divider=True,
+            description=(
+                "You can optionally place buttons, etc in the App to trigger "
+                "operators"
+            ),
         ),
     )
 
@@ -1569,27 +1604,30 @@ def _operator_skeleton_placement_flow(ctx, inputs):
 
         inputs.str(
             "placement_label",
-            label="Placement Label",
-            default="My Placement Label",
+            label="Placement label",
+            default="My placement label",
         )
 
         inputs.bool(
             "placement_has_icon",
-            label="Placement Icon?",
+            label="Placement icon?",
             default=True,
         )
 
         inputs.str(
             "placement_icon",
-            label="Placement Icon",
+            label="Placement icon",
             default="/path/to/icon.svg",
         )
 
         inputs.bool(
             "placement_prompt",
-            label="Placement Prompt?",
+            label="Placement prompt?",
             default=False,
-            description="If checked, the user will be prompted when the button is clicked",
+            description=(
+                "If checked, the user will be prompted when the button is "
+                "clicked"
+            ),
         )
 
 
@@ -1620,21 +1658,17 @@ def _operator_skeleton_placement_code(ctx):
         """
     else:
         code = ""
-    return dedent(code).replace("\n\n", "\n")
+
+    return _dedent_code(code)
 
 
-def indent_code(code):
-    # Remove any common leading whitespace
-    dedented_code = dedent(code)
-
-    # Add 4 spaces to the beginning of each line
-    indented_code = "    " + dedented_code.replace("\n", "\n    ")
-
-    return indented_code
+def _dedent_code(code):
+    return dedent(code).strip()
 
 
-def replace_extra_newlines(text):
-    return re.sub(r"\n{3,}", "\n\n", text)
+def _indent_code(code):
+    dedented_code = _dedent_code(code)
+    return "    " + dedented_code.replace("\n", "\n    ")
 
 
 def _create_operator_class_name(ctx):
@@ -1644,14 +1678,14 @@ def _create_operator_class_name(ctx):
 
 
 SERIALIZE_VIEW_CODE = """
-def serialize_view(view):
+def _serialize_view(view):
     return json.loads(json_util.dumps(view._serialize()))
 """
 
 
 def _create_class_header(ctx):
     class_name = _create_operator_class_name(ctx)
-    return f"class {class_name}(foo.Operator):" + "\n"
+    return f"class {class_name}(foo.Operator):"
 
 
 def _create_footer(ctx):
@@ -1660,187 +1694,157 @@ def _create_footer(ctx):
     def register(plugin):
         plugin.register({class_name})
     """
-    return dedent(footer_code)
+    return _dedent_code(footer_code)
 
 
 def _create_operator_skeleton_code(ctx):
-    code = _create_operator_config_code(ctx)
-    code += "\n\n"
-    code += _operator_skeleton_input_code(ctx)
-    code += "\n\n"
-    code += _operator_skeleton_execution_code(ctx)
-    code += "\n\n"
-    code += _operator_skeleton_delegation_code(ctx)
-    code += "\n\n"
-    code += _operator_skeleton_output_code(ctx)
-    code += "\n\n"
-    code += _operator_skeleton_placement_code(ctx)
-
-    code = replace_extra_newlines(indent_code(code))
-
-    class_header = _create_class_header(ctx)
+    set_view = ctx.params.get("operator_execution_trigger", None) == "Set View"
+    user_choice = (
+        ctx.params.get("delegated_execution_choices", None) == "User Choice"
+    )
 
     header = ""
-    set_view = ctx.params.get("operator_execution_trigger", None) == "Set View"
+
     if set_view:
         header += "import json\n"
-        header += "from bson import json_util\n"
-    header += IMPORTS_CODE
-    if ctx.params.get("delegated_execution_choices", "False") == "User Choice":
-        header += EXECUTION_MODE_CODE
+        header += "from bson import json_util\n\n"
+
+    header += IMPORTS_CODE.strip() + "\n\n\n"
+    header += _create_class_header(ctx) + "\n"
+
+    chunks = [
+        _create_operator_config_code(ctx),
+        _operator_skeleton_input_code(ctx),
+        _operator_skeleton_placement_code(ctx),
+        _operator_skeleton_delegation_code(ctx),
+        _operator_skeleton_execution_code(ctx),
+        _operator_skeleton_output_code(ctx),
+    ]
+    body = _indent_code("\n\n".join([c for c in chunks if c])) + "\n\n\n"
+
+    if user_choice:
+        body += EXECUTION_MODE_CODE.strip() + "\n\n\n"
+
     if set_view:
-        header += "\n\n"
-        header += SERIALIZE_VIEW_CODE
-    header += "\n\n"
-    header += class_header
-    footer = _create_footer(ctx)
-    return replace_extra_newlines(header + code + footer)
+        body += SERIALIZE_VIEW_CODE.strip() + "\n\n\n"
+
+    footer = _create_footer(ctx) + "\n"
+
+    return header + body + footer
 
 
 def _operator_skeleton_view_code_flow(ctx, inputs):
     inputs.str(
-        "operator_skeleton_view_code_header",
-        view=types.Header(
-            label="Preview Operator Skeleton",
-            divider=True,
-        ),
-    )
-
-    inputs.str(
         "operator_skeleton_view_code",
-        label="Python Code",
-        description="Preview of your `__init__.py` file",
+        label="Python code",
+        description="Here's your __init__.py!",
         default=_create_operator_skeleton_code(ctx),
         view=types.CodeView(language="python", readOnly=True),
     )
 
 
-def _get_fo_plugins_dir():
-    return os.environ["FIFTYONE_PLUGINS_DIR"]
-
-
 def _create_skeleton(ctx, inputs):
     inputs.str(
-        "create_plugin_header",
-        view=types.Header(
-            label="Create Plugin Template",
-            divider=True,
-        ),
-    )
-
-    file_explorer = types.FileExplorerView(
-        choose_dir=True,
-        button_label="Choose a directory in which to create your plugin",
-        choose_button_label="Accept",
-    )
-
-    inputs.file(
-        "directory",
-        label="Directory",
-        description="Choose a directory",
-        view=file_explorer,
-    )
-
-    # default_plugin_directory = _get_fo_plugins_dir()
-    # plugin_directory = ctx.params.get("directory", {}).get("absolute_path", default_plugin_directory)
-
-    inputs.str(
-        "plugin_subdirectory",
-        label="Directory to Create",
-        default=ctx.params.get("operator_name", "my_operator"),
-    )
-
-    inputs.str(
         "plugin_name",
-        label="Plugin Name",
+        label="Plugin name",
         default="@github_username/plugin_name",
+        description="The name of your plugin",
         required=True,
-        description="The name of your plugin. Use the format @github_username/plugin_name",
     )
 
     inputs.str(
         "plugin_description",
-        label="Plugin Description",
-        default="My Plugin Description",
+        label="Plugin description",
         description="The description of your plugin",
-        required=True,
+        default="My plugin description",
     )
+
+    inputs.str(
+        "plugin_dir_header",
+        view=types.Header(
+            label="Plugin directory",
+            description="Choose where to write your plugin's source",
+        ),
+    )
+
+    tab_choices = types.TabsView()
+    tab_choices.add_choice("PLUGIN", label="Plugins directory")
+    tab_choices.add_choice("OTHER", label="Other directory")
+    inputs.enum(
+        "location",
+        tab_choices.values(),
+        default="PLUGIN",
+        view=tab_choices,
+    )
+    tab = ctx.params.get("location", "PLUGIN")
+
+    if tab == "PLUGIN":
+        inputs.str(
+            "plugin_subdir",
+            description=(
+                "Choose a subdirectory of your plugins directory to write "
+                "this plugin"
+            ),
+            default="plugin_name",
+            required=True,
+        )
+    else:
+        file_explorer = types.FileExplorerView(
+            choose_dir=True,
+            button_label="Choose a directory...",
+        )
+
+        inputs.file(
+            "plugin_dir",
+            required=True,
+            description="Choose a directory in which to create the plugin",
+            view=file_explorer,
+        )
+
+    plugin_dir = _parse_plugin_dir(ctx)
+    if tab == "PLUGIN" and plugin_dir is not None:
+        inputs.view(
+            "confirmation",
+            types.Notice(
+                label=f"Plugin files will be written to {plugin_dir}"
+            ),
+        )
+
+
+def _parse_plugin_dir(ctx):
+    tab = ctx.params.get("location", "PLUGIN")
+    if tab == "PLUGIN":
+        plugin_subdir = ctx.params.get("plugin_subdir", None)
+        if plugin_subdir:
+            plugin_dir = fos.join(fo.config.plugins_dir, plugin_subdir)
+        else:
+            plugin_dir = None
+    else:
+        plugin_dir = ctx.params.get("plugin_dir", {}).get(
+            "absolute_path", None
+        )
+
+    return plugin_dir
 
 
 def _create_fiftyone_yml_code(ctx):
-    plugin_name = ctx.params.get("plugin_name", "@github_username/plugin_name")
+    plugin_name = ctx.params["plugin_name"]
     plugin_description = ctx.params.get(
-        "plugin_description", "My Plugin Description"
+        "plugin_description", "My plugin description"
     )
     operator_name = ctx.params.get("operator_name", "my_operator")
     yml_code = f"""
     name: "{plugin_name}"
-    version: "0.0.1"
+    version: "0.1.0"
     description: "{plugin_description}"
     operators:
       - {operator_name}
     """
-    return dedent(yml_code).replace("\n\n", "\n")
-
-
-class BuildOperatorSkeleton(foo.Operator):
-    @property
-    def config(self):
-        _config = foo.OperatorConfig(
-            name="build_operator_skeleton",
-            label="Plugin Builder: create a Python operator!",
-            description="Create a Python operator skeleton",
-            dynamic=True,
-        )
-        _config.icon = "/assets/build_icon.svg"
-        return _config
-
-    def resolve_input(self, ctx):
-        inputs = types.Object()
-        form_view = types.View(
-            label="Build an operator skeleton",
-            description="Walk through the steps to create a Python operator skeleton",
-        )
-
-        _operator_skeleton_tabs_input(inputs)
-
-        main_tab = ctx.params.get("operator_skeleton_tab", "1️⃣ Config")
-        if "Config" in main_tab:
-            _operator_skeleton_config_flow(ctx, inputs)
-            _operator_skeleton_placement_flow(ctx, inputs)
-        elif "Input" in main_tab:
-            _operator_skeleton_io_flow(ctx, inputs)
-        elif "Execution" in main_tab:
-            _operator_skeleton_execution_flow(ctx, inputs)
-            _operator_skeleton_delegation_flow(ctx, inputs)
-        elif "Code" in main_tab:
-            _operator_skeleton_view_code_flow(ctx, inputs)
-        else:
-            _create_skeleton(ctx, inputs)
-        return types.Property(inputs, view=form_view)
-
-    def execute(self, ctx):
-        default_plugin_directory = _get_fo_plugins_dir()
-        plugin_directory = ctx.params.get("directory", {}).get(
-            "absolute_path", default_plugin_directory
-        )
-        subdir = ctx.params.get("plugin_subdirectory", "my_operator")
-        full_path = os.path.join(plugin_directory, subdir)
-        os.makedirs(full_path, exist_ok=True)
-
-        # Create __init__.py
-        init_path = os.path.join(full_path, "__init__.py")
-        with open(init_path, "w") as f:
-            f.write(_create_operator_skeleton_code(ctx))
-
-        # Create fiftyone.yml
-        yml_path = os.path.join(full_path, "fiftyone.yml")
-        with open(yml_path, "w") as f:
-            f.write(_create_fiftyone_yml_code(ctx))
+    return _dedent_code(yml_code) + "\n"
 
 
 def register(p):
     p.register(InstallPlugin)
     p.register(ManagePlugins)
-    p.register(BuildAComponent)
+    p.register(BuildPluginComponent)
     p.register(BuildOperatorSkeleton)
