@@ -556,6 +556,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         ),
         caption="https://docs.voxel51.com/user_guide/model_zoo/models.html",
         view=model_choices,
+        required=True,
     )
 
     model = ctx.params.get("model", None)
