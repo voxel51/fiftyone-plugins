@@ -77,7 +77,7 @@ fop.ensure_plugin_requirements(name)
 
 where the operator's form allows you to navigate between the available actions.
 
-### build_component
+### build_plugin_component
 
 ![plugin_builder_component](https://github.com/voxel51/fiftyone-plugins/assets/12500356/19f1af29-7642-4b13-8317-01ba2a263e03)
 
@@ -86,11 +86,11 @@ type of input, and selecting the component's properties.
 
 It currently supports the following component types:
 
--   `radio groups`: A way of selecting one of a set of mutually exclusive
+-   **Boolean**: A way of selecting a true/false value
+-   **Float**: A way of selecting a floating point number
+-   **Message**: A way of displaying a message to the user
+-   **Radio group**: A way of selecting one of a set of mutually exclusive
     options
--   `booleans`: A way of selecting a true/false value
--   `floats`: A way of selecting a floating point number
--   `message`: A way of displaying a message to the user
 
 Each of these component types has a set of properties that can be configured.
 
