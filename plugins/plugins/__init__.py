@@ -1649,8 +1649,8 @@ def _operator_skeleton_placement_code(ctx):
         def resolve_placement(self, ctx):
             return types.Placement(
                 types.Places.{placement},
-                label = "{placement_label}"
-                icon = {placement_icon}
+                label = "{placement_label}",
+                icon = {placement_icon},
                 prompt = {placement_prompt}
             )
         """
