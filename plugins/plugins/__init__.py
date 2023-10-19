@@ -5,7 +5,6 @@ Plugin management operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-import functools
 
 try:
     from importlib import metadata
@@ -16,7 +15,6 @@ import itertools
 import multiprocessing
 from packaging.requirements import Requirement
 from packaging.version import Version
-import re
 from textwrap import dedent
 import traceback
 
@@ -1651,9 +1649,9 @@ def _operator_skeleton_placement_code(ctx):
         def resolve_placement(self, ctx):
             return types.Placement(
                 types.Places.{placement},
-                label = "{placement_label}"
-                icon = {placement_icon}
-                prompt = {placement_prompt}
+                label="{placement_label}",
+                icon={placement_icon},
+                prompt={placement_prompt}
             )
         """
     else:
