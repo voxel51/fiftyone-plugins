@@ -5,7 +5,6 @@ Plugin management operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-import functools
 
 try:
     from importlib import metadata
@@ -16,7 +15,6 @@ import itertools
 import multiprocessing
 from packaging.requirements import Requirement
 from packaging.version import Version
-import re
 from textwrap import dedent
 import traceback
 
