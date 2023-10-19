@@ -13,4 +13,3 @@ operators:
   - delete_dataset
   - compute_metadata
   - generate_thumbnails
-  - manage_plugins

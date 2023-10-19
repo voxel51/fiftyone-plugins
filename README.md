@@ -49,6 +49,10 @@ Want to showcase your own plugin here? See the
         <td>📈 Utilities working with FiftyOne database indexes</td>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/plugins">@voxel51/plugins</a></b></td>
+        <td>🧩 Utilities for managing and building FiftyOne plugins</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/utils">@voxel51/utils</a></b></td>
         <td>⚒️ Call your favorite SDK utilities from the App</td>
     </tr>
