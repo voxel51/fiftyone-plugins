@@ -101,7 +101,6 @@ def _import_samples_inputs(ctx, inputs):
 
 
 def _import_media_only_inputs(ctx, inputs):
-    # Choose input type
     style_choices = types.TabsView()
     style_choices.add_choice("DIRECTORY", label="Directory")
     style_choices.add_choice("GLOB_PATTERN", label="Glob pattern")
@@ -193,7 +192,8 @@ def _import_media_only_inputs(ctx, inputs):
     if not ready:
         return False
 
-    return bool(ctx.params.get("media_file", None))
+    # Don't allow delegation when uploading files
+    return style != "UPLOAD"
 
 
 def _get_import_types(dataset):
@@ -466,6 +466,7 @@ def _import_labels_only_inputs(ctx, inputs):
             return False
 
     labels_path_type = _get_labels_path_type(dataset_type)
+    tab = None
 
     if labels_path_type == "directory":
         file_explorer = types.FileExplorerView(
@@ -548,9 +549,8 @@ def _import_labels_only_inputs(ctx, inputs):
 
     _add_label_types(ctx, inputs, dataset_type)
 
-    can_delegate = bool(ctx.params.get("labels_file", None))
-
-    return can_delegate
+    # Don't allow delegation when uploading files
+    return tab != "UPLOAD"
 
 
 def _add_label_types(ctx, inputs, dataset_type):
