@@ -632,9 +632,11 @@ def _upload_media_bytes(ctx):
     media_obj = ctx.params["media_file"]
     upload_dir = _parse_path(ctx, "upload_dir")
     overwrite = ctx.params["overwrite"]
-
     filename = media_obj["name"]
-    content = base64.b64decode(media_obj["content"])
+
+    # format is data:image/jpeg;base64,XXX
+    contents = media_obj["contents"].split("base64,", 1)[1]
+    contents = base64.b64decode(contents)
 
     if overwrite:
         outpath = fos.join(upload_dir, filename)
@@ -642,7 +644,7 @@ def _upload_media_bytes(ctx):
         filename_maker = fou.UniqueFilenameMaker(output_dir=upload_dir)
         outpath = filename_maker.get_output_path(input_path=filename)
 
-    fos.write_file(content, outpath)
+    fos.write_file(contents, outpath)
     return outpath
 
 
@@ -731,12 +733,14 @@ def _import_media_and_labels(ctx):
 
 def _upload_labels_bytes(ctx, tmp_dir):
     labels_obj = ctx.params["labels_file"]
-
     filename = labels_obj["name"]
-    content = base64.b64decode(labels_obj["content"])
+
+    # format is data:application/json;base64,XXX
+    contents = labels_obj["contents"].split("base64,", 1)[1]
+    contents = base64.b64decode(contents)
 
     outpath = fos.join(tmp_dir, filename)
-    fos.write_file(content, outpath)
+    fos.write_file(contents, outpath)
     return outpath
 
 
