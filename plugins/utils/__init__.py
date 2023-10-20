@@ -143,7 +143,7 @@ class EditDatasetInfo(foo.Operator):
 
     def execute(self, ctx):
         name = ctx.params.get("name", None)
-        description = ctx.params.get("description", None)
+        description = ctx.params.get("description", None) or None
         persistent = ctx.params.get("persistent", None)
         tags = ctx.params.get("tags", None)
         info = ctx.params.get("info", None)
@@ -153,13 +153,15 @@ class EditDatasetInfo(foo.Operator):
         mask_targets = ctx.params.get("mask_targets", None)
         default_mask_targets = ctx.params.get("default_mask_targets", None)
         skeletons = ctx.params.get("skeletons", None)
-        default_skeleton = ctx.params.get("default_skeleton", None)
+        default_skeleton = ctx.params.get("default_skeleton", None) or None
 
         if name is not None:
             ctx.dataset.name = name
 
         if description is not None:
             ctx.dataset.description = description
+        elif ctx.dataset.description is not None:
+            ctx.dataset.description = None
 
         if persistent is not None:
             ctx.dataset.persistent = persistent
@@ -187,14 +189,16 @@ class EditDatasetInfo(foo.Operator):
 
         if skeletons is not None:
             ctx.dataset.skeletons = {
-                field: fo.KeypointSkeleton.from_json(skeleton)
+                field: fo.KeypointSkeleton.from_dict(skeleton)
                 for field, skeleton in json.loads(skeletons).items()
             }
 
         if default_skeleton is not None:
-            ctx.dataset.default_skeleton = fo.KeypointSkeleton.from_json(
+            ctx.dataset.default_skeleton = fo.KeypointSkeleton.from_dict(
                 json.loads(default_skeleton)
             )
+        elif ctx.dataset.default_skeleton is not None:
+            ctx.dataset.default_skeleton = None
 
         ctx.trigger("reload_dataset")
 
@@ -223,47 +227,62 @@ def _dataset_info_inputs(ctx, inputs):
     ## name
 
     name = ctx.params.get("name", None)
-    edited_name = name != ctx.dataset.name
+    edited_name = (
+        "name" in ctx.params and name is not None and name != ctx.dataset.name
+    )
+    if edited_name:
+        num_changed += 1
 
     if tab_choice == "BASIC":
-        name_prop = inputs.str(
+        prop = inputs.str(
             "name",
             default=ctx.dataset.name,
             required=True,
             label="Name" + (" (edited)" if edited_name else ""),
             description="The name of the dataset",
         )
-    else:
-        name_prop = None
 
-    if edited_name:
-        if name and fo.dataset_exists(name) and name_prop is not None:
-            name_prop.invalid = True
-            name_prop.error_message = f"Dataset {name} already exists"
-        else:
-            num_changed += 1
+        if name and edited_name:
+            try:
+                _ = fou.to_slug(name)
+            except ValueError as e:
+                prop.invalid = True
+                prop.error_message = str(e)
+
+            if fo.dataset_exists(name):
+                prop.invalid = True
+                prop.error_message = f"Dataset {name} already exists"
 
     ## description
 
     description = ctx.params.get("description", None) or None
-    edited_description = description != ctx.dataset.description
+    edited_description = (
+        "description" in ctx.params
+        # can be None
+        and description != ctx.dataset.description
+    )
+    if edited_description:
+        num_changed += 1
 
     if tab_choice == "BASIC":
         inputs.str(
             "description",
             default=ctx.dataset.description,
-            required=False,
+            required=False,  # can be None
             label="Description" + (" (edited)" if edited_description else ""),
             description="A description for the dataset",
         )
 
-    if edited_description:
-        num_changed += 1
-
     ## persistent
 
     persistent = ctx.params.get("persistent", None)
-    edited_persistent = persistent != ctx.dataset.persistent
+    edited_persistent = (
+        "persistent" in ctx.params
+        and persistent is not None
+        and persistent != ctx.dataset.persistent
+    )
+    if edited_persistent:
+        num_changed += 1
 
     if tab_choice == "BASIC":
         inputs.bool(
@@ -276,13 +295,14 @@ def _dataset_info_inputs(ctx, inputs):
             ),
         )
 
-    if edited_persistent:
-        num_changed += 1
-
     ## tags
 
-    tags = ctx.params.get("tags", None) or []
-    edited_tags = tags != ctx.dataset.tags
+    tags = ctx.params.get("tags", None)
+    edited_tags = (
+        "tags" in ctx.params and tags is not None and tags != ctx.dataset.tags
+    )
+    if edited_tags:
+        num_changed += 1
 
     if tab_choice == "BASIC":
         inputs.list(
@@ -294,42 +314,67 @@ def _dataset_info_inputs(ctx, inputs):
             description="A list of tags for the dataset",
         )
 
-    if edited_tags:
-        num_changed += 1
-
     ## info
 
-    info, valid = _parse_field(ctx, "info", default={})
-    edited_info = info != ctx.dataset.info
+    info, valid = _parse_field(ctx, "info", type=dict)
+    edited_info = (
+        "info" in ctx.params and info is not None and info != ctx.dataset.info
+    )
+    if edited_info:
+        num_changed += 1
 
     if tab_choice == "INFO":
-        info_prop = inputs.str(
+        inputs.view(
+            "info_help",
+            view=types.Notice(
+                label=(
+                    "For more information about dataset info, see: "
+                    "https://docs.voxel51.com/user_guide/using_datasets.html#storing-info"
+                )
+            ),
+        )
+
+        prop = inputs.str(
             "info",
-            default=json.dumps(ctx.dataset.info, indent=4),
+            default=_serialize(ctx.dataset.info),
             required=True,
             label="Info" + (" (edited)" if edited_info else ""),
             description="A dict of info associated with the dataset",
             view=types.CodeView(),
         )
-    else:
-        info_prop = None
 
-    if edited_info:
-        if not valid and info_prop is not None:
-            info_prop.invalid = True
-            info_prop.error_message = "Invalid info"
-        else:
-            num_changed += 1
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid info"
 
     ## app_config
 
-    app_config, valid = _parse_field(ctx, "app_config", default={})
+    app_config, valid = _parse_field(ctx, "app_config", type=dict)
+    if app_config is not None:
+        try:
+            app_config = fo.DatasetAppConfig.from_dict(app_config)
+        except:
+            valid = False
     edited_app_config = (
-        fo.DatasetAppConfig.from_dict(app_config) != ctx.dataset.app_config
+        "app_config" in ctx.params
+        and app_config is not None
+        and app_config != ctx.dataset.app_config
     )
+    if edited_app_config:
+        num_changed += 1
 
     if tab_choice == "APP_CONFIG":
-        app_config_prop = inputs.str(
+        inputs.view(
+            "app_config_help",
+            view=types.Notice(
+                label=(
+                    "For more information about dataset App configs, see: "
+                    "https://docs.voxel51.com/user_guide/using_datasets.html#dataset-app-config"
+                )
+            ),
+        )
+
+        prop = inputs.str(
             "app_config",
             default=ctx.dataset.app_config.to_json(pretty_print=4),
             required=True,
@@ -340,25 +385,36 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=types.CodeView(),
         )
-    else:
-        app_config_prop = None
 
-    if edited_app_config:
-        if not valid and app_config_prop is not None:
-            app_config_prop.invalid = True
-            app_config_prop.error_message = "Invalid App config"
-        else:
-            num_changed += 1
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid App config"
 
     ## classes
 
-    classes, valid = _parse_field(ctx, "classes", default={})
-    edited_classes = classes != ctx.dataset.classes
+    classes, valid = _parse_field(ctx, "classes", type=dict)
+    edited_classes = (
+        "classes" in ctx.params
+        and classes is not None
+        and classes != ctx.dataset.classes
+    )
+    if edited_classes:
+        num_changed += 1
 
     if tab_choice == "CLASSES":
-        classes_prop = inputs.str(
+        inputs.view(
+            "classes_help",
+            view=types.Notice(
+                label=(
+                    "For more information about class lists, see: "
+                    "https://docs.voxel51.com/user_guide/using_datasets.html#storing-class-lists"
+                )
+            ),
+        )
+
+        prop = inputs.str(
             "classes",
-            default=json.dumps(ctx.dataset.classes, indent=4),
+            default=_serialize(ctx.dataset.classes),
             required=True,
             label="Classes" + (" (edited)" if edited_classes else ""),
             description=(
@@ -367,27 +423,26 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=types.CodeView(),
         )
-    else:
-        classes_prop = None
 
-    if edited_classes:
-        if not valid and classes_prop is not None:
-            classes_prop.invalid = True
-            classes_prop.error_message = "Invalid classes"
-        else:
-            num_changed += 1
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid classes"
 
     ## default_classes
 
-    default_classes, valid = _parse_field(
-        ctx, "default_classes", type=list, default=[]
+    default_classes, valid = _parse_field(ctx, "default_classes", type=list)
+    edited_default_classes = (
+        "default_classes" in ctx.params
+        and default_classes is not None
+        and default_classes != ctx.dataset.default_classes
     )
-    edited_default_classes = default_classes != ctx.dataset.default_classes
+    if edited_default_classes:
+        num_changed += 1
 
     if tab_choice == "CLASSES":
-        default_classes_prop = inputs.str(
+        prop = inputs.str(
             "default_classes",
-            default=json.dumps(ctx.dataset.default_classes, indent=4),
+            default=_serialize(ctx.dataset.default_classes),
             required=True,
             label="Default classes"
             + (" (edited)" if edited_default_classes else ""),
@@ -397,25 +452,36 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=types.CodeView(),
         )
-    else:
-        default_classes_prop = None
 
-    if edited_default_classes:
-        if not valid and default_classes_prop is not None:
-            default_classes_prop.invalid = True
-            default_classes_prop.error_message = "Invalid default classes"
-        else:
-            num_changed += 1
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid default classes"
 
     ## mask_targets
 
-    mask_targets, valid = _parse_field(ctx, "mask_targets", default={})
-    edited_mask_targets = mask_targets != ctx.dataset.mask_targets
+    mask_targets, valid = _parse_field(ctx, "mask_targets", type=dict)
+    edited_mask_targets = (
+        "mask_targets" in ctx.params
+        and mask_targets is not None
+        and mask_targets != ctx.dataset.mask_targets
+    )
+    if edited_mask_targets:
+        num_changed += 1
 
     if tab_choice == "MASK_TARGETS":
-        mask_targets_prop = inputs.str(
+        inputs.view(
+            "mask_targets_help",
+            view=types.Notice(
+                label=(
+                    "For more information about mask targets, see: "
+                    "https://docs.voxel51.com/user_guide/using_datasets.html#storing-mask-targets"
+                )
+            ),
+        )
+
+        prop = inputs.str(
             "mask_targets",
-            default=json.dumps(ctx.dataset.mask_targets, indent=4),
+            default=_serialize(ctx.dataset.mask_targets),
             required=True,
             label="Mask targets"
             + (" (edited)" if edited_mask_targets else ""),
@@ -427,27 +493,27 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=types.CodeView(),
         )
-
-    if edited_mask_targets:
         if not valid:
-            mask_targets_prop.invalid = True
-            mask_targets_prop.error_message = "Invalid mask targets"
-        else:
-            num_changed += 1
+            prop.invalid = True
+            prop.error_message = "Invalid mask targets"
 
     ## default_mask_targets
 
     default_mask_targets, valid = _parse_field(
-        ctx, "default_mask_targets", default={}
+        ctx, "default_mask_targets", type=dict
     )
     edited_default_mask_targets = (
-        default_mask_targets != ctx.dataset.default_mask_targets
+        "default_mask_targets" in ctx.params
+        and default_mask_targets is not None
+        and default_mask_targets != ctx.dataset.default_mask_targets
     )
+    if edited_default_mask_targets:
+        num_changed += 1
 
     if tab_choice == "MASK_TARGETS":
-        default_mask_targets_prop = inputs.str(
+        prop = inputs.str(
             "default_mask_targets",
-            default=json.dumps(ctx.dataset.default_mask_targets, indent=4),
+            default=_serialize(ctx.dataset.default_mask_targets),
             required=True,
             label="Default mask targets"
             + (" (edited)" if edited_default_mask_targets else ""),
@@ -459,27 +525,54 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=types.CodeView(),
         )
-    else:
-        default_mask_targets_prop = None
 
-    if edited_default_mask_targets:
-        if not valid and default_mask_targets_prop is not None:
-            default_mask_targets_prop.invalid = True
-            default_mask_targets_prop.error_message = (
-                "Invalid default mask targets"
-            )
-        else:
-            num_changed += 1
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid default mask targets"
 
     ## skeletons
 
-    skeletons, valid = _parse_field(ctx, "skeletons", default={})
-    edited_skeletons = skeletons != ctx.dataset.skeletons
+    skeletons, valid = _parse_field(ctx, "skeletons", type=dict)
+    if skeletons is not None:
+        try:
+            skeletons = {
+                field: fo.KeypointSkeleton.from_dict(skeleton)
+                for field, skeleton in skeletons.items()
+            }
+        except:
+            valid = False
+    edited_skeletons = (
+        "skeletons" in ctx.params
+        and skeletons is not None
+        and skeletons != ctx.dataset.skeletons
+    )
+    if edited_skeletons:
+        num_changed += 1
 
     if tab_choice == "SKELETONS":
-        skeletons_prop = inputs.str(
+        inputs.view(
+            "skeletons_help",
+            view=types.Notice(
+                label=(
+                    "For more information about keypoint skeletons, see: "
+                    "https://docs.voxel51.com/user_guide/using_datasets.html#storing-keypoint-skeletons"
+                )
+            ),
+        )
+
+        if ctx.dataset.skeletons is not None:
+            default = _serialize(
+                {
+                    field: skeleton.to_dict()
+                    for field, skeleton in ctx.dataset.skeletons.items()
+                }
+            )
+        else:
+            default = None
+
+        prop = inputs.str(
             "skeletons",
-            default=json.dumps(ctx.dataset.skeletons, indent=4),
+            default=default,
             required=True,
             label="Skeletons" + (" (edited)" if edited_skeletons else ""),
             description=(
@@ -490,28 +583,37 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=types.CodeView(),
         )
-    else:
-        skeletons_prop = None
 
-    if edited_skeletons:
-        if not valid and skeletons_prop is not None:
-            skeletons_prop.invalid = True
-            skeletons_prop.error_message = "Invalid skeletons"
-        else:
-            num_changed += 1
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid skeletons"
 
     ## default_skeleton
 
-    default_skeleton, valid = _parse_field(
-        ctx, "default_skeleton", default=None
+    default_skeleton, valid = _parse_field(ctx, "default_skeleton", type=dict)
+    if default_skeleton is not None:
+        try:
+            default_skeleton = fo.KeypointSkeleton.from_dict(default_skeleton)
+        except:
+            valid = False
+    edited_default_skeleton = (
+        "default_skeleton" in ctx.params
+        # can be None
+        and default_skeleton != ctx.dataset.default_skeleton
     )
-    edited_default_skeleton = default_skeleton != ctx.dataset.default_skeleton
+    if edited_default_skeleton:
+        num_changed += 1
 
     if tab_choice == "SKELETONS":
-        default_skeleton_prop = inputs.str(
+        if ctx.dataset.default_skeleton is not None:
+            default = _serialize(ctx.dataset.default_skeleton.to_dict())
+        else:
+            default = None
+
+        prop = inputs.str(
             "default_skeleton",
-            default=json.dumps(ctx.dataset.default_skeleton, indent=4),
-            required=True,
+            default=default,
+            required=False,  # can be None
             label="Default skeleton"
             + (" (edited)" if edited_default_skeleton else ""),
             description=(
@@ -521,17 +623,21 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=types.CodeView(),
         )
-    else:
-        default_skeleton_prop = None
 
-    if edited_default_skeleton:
-        if not valid and default_skeleton_prop is not None:
-            default_skeleton_prop.invalid = True
-            default_skeleton_prop.error_message = "Invalid default skeleton"
-        else:
-            num_changed += 1
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid default skeleton"
 
-    ## final
+    ## edits
+
+    inputs.str(
+        "edits",
+        view=types.Header(
+            label="Edits",
+            description="Any changes you've made above are summarized here",
+            divider=True,
+        ),
+    )
 
     if num_changed > 0:
         view = types.Warning(
@@ -540,10 +646,16 @@ def _dataset_info_inputs(ctx, inputs):
     else:
         view = types.Notice(label="You have not made any edits")
 
-    status_prop = inputs.view("status", view)
-
+    prop = inputs.view("status", view)
     if num_changed == 0:
-        status_prop.invalid = True
+        prop.invalid = True
+
+
+def _serialize(value):
+    if value is None:
+        return None
+
+    return json.dumps(value, indent=4)
 
 
 def _parse_field(ctx, name, type=dict, default=None):
