@@ -84,7 +84,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         for tag in zoo_dataset.tags or []:
             datasets_by_tag[tag].add(name)
 
-    tag_choices = types.Dropdown(multiple=True)
+    tag_choices = types.DropdownView(multiple=True)
     for tag in sorted(datasets_by_tag.keys()):
         tag_choices.add_choice(tag, label=tag)
 
@@ -131,7 +131,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
     _get_source_dir(ctx, inputs, zoo_dataset)
 
     if zoo_dataset.has_splits:
-        split_choices = types.Dropdown(multiple=True)
+        split_choices = types.DropdownView(multiple=True)
         for split in zoo_dataset.supported_splits:
             split_choices.add_choice(split, label=split)
 
@@ -521,7 +521,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         for tag in model.tags or []:
             models_by_tag[tag].add(model.name)
 
-    tag_choices = types.Dropdown(multiple=True)
+    tag_choices = types.DropdownView(multiple=True)
     for tag in sorted(models_by_tag.keys()):
         tag_choices.add_choice(tag, label=tag)
 
@@ -540,15 +540,16 @@ def _apply_zoo_model_inputs(ctx, inputs):
     if tags:
         model_names = set.intersection(*[models_by_tag[tag] for tag in tags])
     else:
-        model_names = [model.name for model in manifest]
+        model_names = set(model.name for model in manifest)
 
-    model_choices = types.DropdownView()
+    model_choices = types.AutocompleteView()
     for name in sorted(model_names):
         model_choices.add_choice(name, label=name)
 
     inputs.enum(
         "model",
         model_choices.values(),
+        required=True,
         label="Model",
         description=(
             "The name of a model from the FiftyOne Model Zoo to use to "
@@ -556,11 +557,10 @@ def _apply_zoo_model_inputs(ctx, inputs):
         ),
         caption="https://docs.voxel51.com/user_guide/model_zoo/models.html",
         view=model_choices,
-        required=True,
     )
 
     model = ctx.params.get("model", None)
-    if model is None:
+    if model is None or model not in model_names:
         return False
 
     zoo_model = fozm.get_zoo_model(model)

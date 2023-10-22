@@ -60,11 +60,11 @@ class CreateDataset(foo.Operator):
         return types.Property(inputs, view=types.View(label="Create dataset"))
 
     def execute(self, ctx):
-        name = ctx.params.get("name", None)
+        name = ctx.params.get("name", None) or None
         persistent = ctx.params.get("persistent", False)
 
-        fo.Dataset(name, persistent=persistent)
-        ctx.trigger("open_dataset", dict(dataset=name))
+        dataset = fo.Dataset(name, persistent=persistent)
+        ctx.trigger("open_dataset", dict(dataset=dataset.name))
 
 
 class LoadDataset(foo.Operator):
@@ -948,7 +948,9 @@ def _compute_metadata_generator(
             if num_computed % 10 == 0:
                 progress = num_computed / num_total
                 label = f"Computed {num_computed} of {num_total}"
-                yield _set_progress(ctx, progress, label=label)
+                yield ctx.trigger(
+                    "set_progress", dict(progress=progress, label=label)
+                )
 
 
 def _do_compute_metadata(args):
@@ -1240,21 +1242,6 @@ def _get_target_view(ctx, target):
         return ctx.dataset
 
     return ctx.view
-
-
-def _set_progress(ctx, progress, label=None):
-    # https://github.com/voxel51/fiftyone/pull/3516
-    # return ctx.trigger("set_progress", dict(progress=progress, label=label))
-
-    loading = types.Object()
-    loading.float("progress", view=types.ProgressView(label=label))
-    return ctx.trigger(
-        "show_output",
-        dict(
-            outputs=types.Property(loading).to_json(),
-            results={"progress": progress},
-        ),
-    )
 
 
 def _execution_mode(ctx, inputs):
