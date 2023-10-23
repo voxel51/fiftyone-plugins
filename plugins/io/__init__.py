@@ -905,6 +905,9 @@ class MergeSamples(foo.Operator):
             overwrite_info=overwrite_info,
         )
 
+        if dst_dataset is ctx.dataset:
+            ctx.trigger("reload_dataset")
+
 
 def _merge_samples_inputs(ctx, inputs):
     ready = _get_src_dst_collections(ctx, inputs)
@@ -979,7 +982,8 @@ def _get_src_dst_collections(ctx, inputs):
             view=src_selector,
         )
 
-        if not ctx.params.get("src_dataset", None):
+        src_dataset = ctx.params.get("src_dataset", None)
+        if src_dataset is None or src_dataset not in dataset_names:
             return False
 
     #
@@ -1027,7 +1031,8 @@ def _get_src_dst_collections(ctx, inputs):
             view=dst_selector,
         )
 
-        if not ctx.params.get("dst_dataset", None):
+        dst_dataset = ctx.params.get("dst_dataset", None)
+        if dst_dataset is None or dst_dataset not in dataset_names:
             return False
 
     return True
@@ -1162,6 +1167,18 @@ def _get_merge_parameters(ctx, inputs):
             "Whether to dynamically add new fields encountered to the dataset "
             "schema. If False, an error is raised if a sample's schema is not "
             "a subset of the dataset schema"
+        ),
+        view=types.CheckboxView(),
+    )
+
+    inputs.bool(
+        "dynamic",
+        required=True,
+        default=False,
+        label="Dynamic",
+        description=(
+            "Whether to declare dynamic attributes of embedded document "
+            "fields that are encountered"
         ),
         view=types.CheckboxView(),
     )
