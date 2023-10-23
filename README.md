@@ -168,6 +168,14 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/concept-space-traversal-plugin">@jacobmarks/concept_space_traversal</a></b></td>
         <td>🌌 Navigate concept space with CLIP, vector search, and FiftyOne!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/audio-retrieval-plugin">@jacobmarks/audio_retrieval</a></b></td>
+        <td>🔊 Find the images in your dataset most similar to an audio file!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/semantic-document-search-plugin">@jacobmarks/semantic_document_search</a></b></td>
+        <td>🔎 Perform semantic search on text in your documents!</td>
+    </tr>
 </table>
 
 ## Using Plugins
