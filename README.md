@@ -149,6 +149,10 @@ Want to showcase your own plugin here? See the
         <td>👓 Run optical character recognition with PyTesseract!</td>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/brimoor/pdf-loader">@brimoor/pdf-loader</a></b></td>
+        <td>📄 Load your PDF documents into FiftyOne as per-page images</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/jacobmarks/zero-shot-prediction-plugin">@jacobmarks/zero_shot_prediction</a></b></td>
         <td>🔮 Run zero-shot (open vocabulary) prediction on your data!</td>
     </tr>
