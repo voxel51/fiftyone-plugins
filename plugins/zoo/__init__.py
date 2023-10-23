@@ -443,7 +443,7 @@ class ApplyZooModel(foo.Operator):
 
         # No multiprocessing allowed when running synchronously
         if not delegate:
-            num_workers = 1
+            num_workers = 0
 
         if embeddings and patches_field is not None:
             target_view.compute_patch_embeddings(

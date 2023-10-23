@@ -1026,7 +1026,7 @@ class GenerateThumbnails(foo.Operator):
 
         # No multiprocessing allowed when running synchronously
         if not delegate:
-            num_workers = 1
+            num_workers = 0
 
         foui.transform_images(
             view,
