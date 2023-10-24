@@ -1,0 +1,9 @@
+name: "@voxel51/delegated"
+description: Utilities for working with delegated operations
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/delegated
+license: Apache 2.0
+operators:
+  - list_delegated_operations
