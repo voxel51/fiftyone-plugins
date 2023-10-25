@@ -6,7 +6,6 @@ FiftyOne delegated operations.
 |
 """
 from bson import ObjectId
-import humanize
 
 import fiftyone as fo
 import fiftyone.operators as foo
@@ -72,8 +71,9 @@ def _list_delegated_operations_inputs(ctx, inputs):
     else:
         ready = _list_delegated_operations_runs(ctx, inputs)
 
-    prop = inputs.str("hidden", view=types.HiddenView(read_only=True))
-    prop.invalid = not ready
+    if not ready:
+        prop = inputs.str("hidden", view=types.HiddenView(read_only=True))
+        prop.invalid = True
 
 
 def _list_delegated_operations_options(ctx, inputs):
@@ -255,11 +255,11 @@ def _list_delegated_operations_runs(ctx, inputs):
         )
         obj.str(
             "scheduled",
-            default=humanize.naturaltime(op.queued_at),
+            default=_format_datetime(op.queued_at),
             view=types.MarkdownView(read_only=True, space=space2),
         )
         if cleanup:
-            obj.str(
+            obj.bool(
                 "action",
                 default=False,
                 view=types.CheckboxView(space=space2),
@@ -324,9 +324,9 @@ def _list_delegated_operations_runs(ctx, inputs):
         )
 
     okay = all(state in allowed_states for state in selected_run_states)
-    prop.invalid = not okay
 
     if not okay:
+        prop.invalid = True
         if action == "FAIL":
             prop.error_message = (
                 "You can only mark Queued or Running operations as failed"
@@ -372,6 +372,16 @@ def _parse_reverse(reverse):
         return None
 
     return SortDirection.ASCENDING if reverse else SortDirection.DESCENDING
+
+
+def _format_datetime(datetime):
+    try:
+        import humanize
+        import pytz
+
+        return humanize.naturaltime(datetime.replace(tzinfo=pytz.utc))
+    except ImportError:
+        return str(datetime.replace(microsecond=0))
 
 
 def register(p):
