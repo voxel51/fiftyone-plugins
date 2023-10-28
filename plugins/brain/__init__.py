@@ -609,6 +609,115 @@ class MongoDBBackend(SimilarityBackend):
         )
 
 
+class SortBySimilarity(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="sort_by_similarity",
+            label="Sort by similarity",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_placement(self, ctx):
+        if ctx.selected:
+            label = "Sort by image similarity"
+            icon = "/assets/wallpaper.svg"
+        else:
+            label = "Sort by text similarity"
+            icon = "/assets/search.svg"
+
+        return types.Placement(
+            types.Places.SAMPLES_GRID_ACTIONS,
+            types.Button(label=label, icon=icon),
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        if ctx.selected:
+            sort_by_image_similarity(ctx, inputs)
+            label = "Sort by image similarity"
+        else:
+            sort_by_text_similarity(ctx, inputs)
+            label = "Sort by text similarity"
+
+        view = types.View(label=label)
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        brain_key = ctx.params["brain_key"]
+        k = ctx.params["k"]
+
+        _inject_brain_secrets(ctx)
+        target_view = _get_target_view(ctx, target)
+
+        if ctx.selected:
+            query = ctx.selected
+        else:
+            query = ctx.params["query"]
+
+        view = target_view.sort_by_similarity(query, k=k, brain_key=brain_key)
+        ctx.trigger("set_view", params={"view": serialize_view(view)})
+
+
+def sort_by_image_similarity(ctx, inputs):
+    get_target_view(ctx, inputs, allow_selected=False)
+
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="similarity",
+        error_message="This dataset has no similarity indexes",
+    )
+
+    if not brain_key:
+        return
+
+    inputs.int(
+        "k",
+        default=25,
+        required=True,
+        label="Number of matches",
+        description="Choose how many similar samples to show",
+    )
+
+
+def sort_by_text_similarity(ctx, inputs):
+    get_target_view(ctx, inputs, allow_selected=False)
+
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="similarity",
+        supports_prompts=True,
+        error_message=(
+            "This dataset has no similarity indexes that support text "
+            "prompts"
+        ),
+    )
+
+    if not brain_key:
+        return
+
+    inputs.str(
+        "query",
+        required=True,
+        label="Text prompt",
+        description="Show similar samples to the given text prompt",
+    )
+
+    inputs.int(
+        "k",
+        default=25,
+        required=True,
+        label="Number of matches",
+        description="Choose how many similar samples to show",
+    )
+
+
 class ComputeUniqueness(foo.Operator):
     @property
     def config(self):
@@ -1126,9 +1235,9 @@ def get_new_brain_key(
     return brain_key
 
 
-def get_target_view(ctx, inputs):
+def get_target_view(ctx, inputs, allow_selected=True):
     has_view = ctx.view != ctx.dataset.view()
-    has_selected = bool(ctx.selected)
+    has_selected = allow_selected and bool(ctx.selected)
     default_target = None
 
     if has_view or has_selected:
@@ -1434,17 +1543,20 @@ def get_brain_key(
     description="Select a brain key",
     run_type=None,
     show_default=True,
+    error_message=None,
+    **kwargs,
 ):
     type = _BRAIN_RUN_TYPES.get(run_type, None)
-    brain_keys = ctx.dataset.list_brain_runs(type=type)
+    brain_keys = ctx.dataset.list_brain_runs(type=type, **kwargs)
 
     if not brain_keys:
-        message = "This dataset has no brain runs"
-        if run_type is not None:
-            message += f" of type {run_type}"
+        if error_message is None:
+            error_message = "This dataset has no brain runs"
+            if run_type is not None:
+                error_message += f" of type {run_type}"
 
         warning = types.Warning(
-            label=message,
+            label=error_message,
             description="https://docs.voxel51.com/user_guide/brain.html",
         )
         prop = inputs.view("warning", warning)
@@ -1512,6 +1624,7 @@ def _execution_mode(ctx, inputs):
 def register(p):
     p.register(ComputeVisualization)
     p.register(ComputeSimilarity)
+    p.register(SortBySimilarity)
     p.register(ComputeUniqueness)
     p.register(ComputeMistakenness)
     p.register(ComputeHardness)
