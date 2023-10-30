@@ -180,6 +180,12 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/allenleetc/model-comparison">@allenleetc/model-comparison</a></b></td>
         <td> ⚖️ Compare two object detection models!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/ehofesmann/filter-values-plugin">@ehofesmann/filter_values</a></b></td>
+        <td>🔎 Filter a field of your FiftyOne dataset by one or more values.</td>
+    </tr>    
+
+    
 </table>
 
 ## Using Plugins
