@@ -176,6 +176,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/semantic-document-search-plugin">@jacobmarks/semantic_document_search</a></b></td>
         <td>🔎 Perform semantic search on text in your documents!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/allenleetc/model-comparison">@allenleetc/model-comparison</a></b></td>
+        <td> ⚖️ Compare two object detection models!</td>
+    </tr>
 </table>
 
 ## Using Plugins
