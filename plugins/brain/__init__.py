@@ -547,7 +547,7 @@ class RedisBackend(SimilarityBackend):
             label="Metric",
             description=(
                 "The embedding distance metric to use when creating a new "
-                "table"
+                "index"
             ),
             view=metric_choices,
         )
@@ -585,8 +585,27 @@ class MongoDBBackend(SimilarityBackend):
             label="Index name",
             required=True,
             description=(
-                "The name of the MongoDB Atlas vector search index to use"
+                "An optional name of a MongoDB vector search index to use or "
+                "create"
             ),
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("cosine", label="cosine")
+        metric_choices.add_choice("dotproduct", label="dotproduct")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="cosine",
+            required=True,
+            label="Metric",
+            description=(
+                "The embedding distance metric to use when creating a new "
+                "index"
+            ),
+            view=metric_choices,
         )
 
 
