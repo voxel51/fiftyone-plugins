@@ -664,8 +664,6 @@ class SortBySimilarity(foo.Operator):
 
 
 def sort_by_image_similarity(ctx, inputs):
-    get_target_view(ctx, inputs, allow_selected=False)
-
     brain_key = get_brain_key(
         ctx,
         inputs,
@@ -675,6 +673,8 @@ def sort_by_image_similarity(ctx, inputs):
 
     if not brain_key:
         return
+
+    get_target_view(ctx, inputs, allow_selected=False)
 
     inputs.int(
         "k",
@@ -686,8 +686,6 @@ def sort_by_image_similarity(ctx, inputs):
 
 
 def sort_by_text_similarity(ctx, inputs):
-    get_target_view(ctx, inputs, allow_selected=False)
-
     brain_key = get_brain_key(
         ctx,
         inputs,
@@ -701,6 +699,8 @@ def sort_by_text_similarity(ctx, inputs):
 
     if not brain_key:
         return
+
+    get_target_view(ctx, inputs, allow_selected=False)
 
     inputs.str(
         "query",
