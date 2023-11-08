@@ -188,6 +188,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/gpt4-vision-plugin">@jacobmarks/gpt4_vision</a></b></td>
         <td><img src="https://raw.githubusercontent.com/voxel51/voxelgpt/main/assets/icon-dark.svg" width="14" height="14" alt="gpt icon"> Chat with your images using GPT-4 Vision!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/swheaton/fiftyone-media-anonymization-plugin">@swheaton/anonymize</a></b></td>
+        <td>🥸 Anonymize/blur images based on a FiftyOne Detections field.</td>
+    </tr>
     
 
     
