@@ -183,7 +183,12 @@ Want to showcase your own plugin here? See the
     <tr>
         <td><b><a href="https://github.com/ehofesmann/filter-values-plugin">@ehofesmann/filter_values</a></b></td>
         <td>🔎 Filter a field of your FiftyOne dataset by one or more values.</td>
-    </tr>    
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/gpt4-vision-plugin">@jacobmarks/gpt4_vision</a></b></td>
+        <td><img src="https://raw.githubusercontent.com/voxel51/voxelgpt/main/assets/icon-dark.svg" width="14" height="14" alt="gpt icon"> Chat with your images using GPT-4 Vision!</td>
+    </tr>
+    
 
     
 </table>
