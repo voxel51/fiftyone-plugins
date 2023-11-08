@@ -22,3 +22,4 @@ operators:
   - example_open_embeddings_panel
   - example_open_histograms_panel
   - example_selected_labels
+  - example_current_sample
