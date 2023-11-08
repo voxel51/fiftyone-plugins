@@ -694,6 +694,45 @@ class ExampleSecretsOperator(foo.Operator):
             )
 
 
+class CurrentSampleExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_current_sample",
+            label="Examples: Current Sample"
+        )
+    
+    def execute(self, ctx):
+        if ctx.current_sample is None:
+            return {"result": {"message": "No sample provided. Select a sample to see the result."}}
+        sample = ctx.dataset[ctx.current_sample]
+        current_group = None
+        group = None
+        group_field = ctx.dataset.group_field
+        # Grouped dataset
+        if ctx.dataset.media_type == "group":
+            current_group = sample[group_field].id
+            group = ctx.dataset.get_group(current_group)
+
+        # Dynamic groups
+        if ctx.view._is_dynamic_groups:
+            current_group = sample[group_field]
+            group = ctx.view.get_dynamic_group(current_group)
+
+        return {
+            "result": {
+                "current_sample": ctx.current_sample,
+                "sample": sample.to_dict() if sample else None,
+                "current_group": current_group,
+                # "group": group
+            }
+        }
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.obj("result", label="Result", view=types.JSONView())
+        return types.Property(outputs)
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -714,3 +753,4 @@ def register(p):
     p.register(ExampleSetViewOperator)
     p.register(ExampleDelegatedOperator)
     p.register(ExampleSecretsOperator)
+    p.register(CurrentSampleExample)
