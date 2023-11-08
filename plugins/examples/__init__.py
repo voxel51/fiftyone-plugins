@@ -527,27 +527,6 @@ class OpenHistogramsPanel(foo.Operator):
             params=dict(name="Histograms", isActive=True, layout="horizontal"),
         )
         return {}
-
-class ResolveParamsExample(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="example_resolve_params",
-            label="Examples: Resolve Params",
-            dynamic=True,
-        )
-
-    def resolve_params(self, ctx, previous):
-        print(previous)
-        return {"msg": "Hello World!"}
-    
-    def resolve_input(self, ctx):
-        inputs = types.Object()
-        inputs.str("msg", label="Message")
-        return types.Property(inputs)
-    
-    def execute(self, ctx):
-        return {"msg": ctx.params["msg"]}
     
 class FileDropExample(foo.Operator):
     @property
@@ -765,5 +744,4 @@ def register(p):
     p.register(ExampleSetViewOperator)
     p.register(ExampleDelegatedOperator)
     p.register(ExampleSecretsOperator)
-    p.register(ResolveParamsExample)
     p.register(FileDropExample)
