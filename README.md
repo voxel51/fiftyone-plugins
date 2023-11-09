@@ -186,7 +186,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/gpt4-vision-plugin">@jacobmarks/gpt4_vision</a></b></td>
-        <td><img src="https://raw.githubusercontent.com/voxel51/voxelgpt/main/assets/icon-dark.svg" width="14" height="14" alt="gpt icon"> Chat with your images using GPT-4 Vision!</td>
+        <td>🤖 Chat with your images using GPT-4 Vision!</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/swheaton/fiftyone-media-anonymization-plugin">@swheaton/anonymize</a></b></td>
@@ -194,7 +194,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/double-band-filter-plugin">@jacobmarks/double_band_filter</a></b></td>
-        <td><img src="https://raw.githubusercontent.com/jacobmarks/double-band-filter-plugin/main/assets/icon.svg" width="14" height="14" alt="filter icon"> Filter on two numeric ranges simultaneously!</td>
+        <td><img src="https://raw.githubusercontent.com/jacobmarks/double-band-filter-plugin/main/assets/icon_grey.svg" width="14" height="14" alt="filter icon"> Filter on two numeric ranges simultaneously!</td>
     </tr>
     
     
