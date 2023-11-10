@@ -2,6 +2,8 @@
 
 A plugin that contains utilities for working with FiftyOne database indexes.
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/68e172d2-1eb8-4c0c-879b-402787e1ecb8
+
 ## Installation
 
 ```shell
