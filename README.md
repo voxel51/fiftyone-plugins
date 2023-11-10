@@ -1,6 +1,17 @@
 # FiftyOne Plugins 🔌🚀
 
-A curated collection of
+FiftyOne provides a powerful
+[plugin framework](https://docs.voxel51.com/plugins/index.html) that allows for
+extending and customizing the functionality of the tool.
+
+With plugins, you can add new functionality to the FiftyOne App, create
+integrations with other tools and APIs, render custom panels, and add custom
+buttons to menus. You can even schedule long running tasks from within the App
+that execute on a connected workflow orchestration tool like Apache Airflow!
+
+## Table of Contents
+
+This repository contains a curated collection of
 [FiftyOne Plugins](https://docs.voxel51.com/plugins/index.html), organized into
 the following categories:
 
@@ -196,10 +207,6 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/double-band-filter-plugin">@jacobmarks/double_band_filter</a></b></td>
         <td><img src="https://raw.githubusercontent.com/jacobmarks/double-band-filter-plugin/main/assets/icon_grey.svg" width="14" height="14" alt="filter icon"> Filter on two numeric ranges simultaneously!</td>
     </tr>
-    
-    
-
-    
 </table>
 
 ## Using Plugins
