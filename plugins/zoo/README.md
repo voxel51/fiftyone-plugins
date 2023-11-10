@@ -5,6 +5,8 @@ A plugin that contains utilities for working with the
 and
 [FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/index.html).
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/939a8999-ec70-4cf1-ade2-453334bbc77a
+
 ## Installation
 
 ```shell
