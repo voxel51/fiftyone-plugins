@@ -7,7 +7,13 @@ extending and customizing the functionality of the tool.
 With plugins, you can add new functionality to the FiftyOne App, create
 integrations with other tools and APIs, render custom panels, and add custom
 buttons to menus. You can even schedule long running tasks from within the App
-that execute on a connected workflow orchestration tool like Apache Airflow!
+that execute on a connected workflow orchestration tool like Apache Airflow.
+
+For example, here's a taste of what you can do with the 
+[@voxel51/brain](https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain)
+plugin!
+
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/128d9fbd-9835-49e8-bbb9-93ea5093871f
 
 ## Table of Contents
 
