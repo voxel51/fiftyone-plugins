@@ -1,6 +1,8 @@
 # I/O Plugin
 
-A plugin that contains standard import/export utilities.
+A plugin that contains a collection of helpful import/export utilities.
+
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/7a8186fb-636f-4f7d-9ac7-8822a76cfded
 
 ## Installation
 
