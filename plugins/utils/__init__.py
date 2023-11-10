@@ -894,7 +894,7 @@ def _compute_metadata_inputs(ctx, inputs):
         default=None,
         required=False,
         label="Num workers",
-        description="An optional number of workers to use",
+        description="An optional number of threads to use",
     )
 
     return True
@@ -903,7 +903,7 @@ def _compute_metadata_inputs(ctx, inputs):
 def _compute_metadata_generator(
     ctx, sample_collection, overwrite=False, num_workers=None
 ):
-    # @todo switch to this when `fiftyone==0.22.2` is released
+    # @todo can switch to this if we require `fiftyone>=0.22.2`
     # num_workers = fou.recommend_thread_pool_workers(num_workers)
 
     if hasattr(fou, "recommend_thread_pool_workers"):
@@ -919,38 +919,38 @@ def _compute_metadata_generator(
         _allow_missing=True,
     )
 
-    inputs = list(zip(ids, filepaths, media_types))
-    num_total = len(inputs)
-
+    num_total = len(ids)
     if num_total == 0:
         return
 
-    view = sample_collection.select_fields()
+    inputs = zip(ids, filepaths, media_types)
+    values = {}
 
-    num_computed = 0
-    with contextlib.ExitStack() as exit_context:
-        pb = fou.ProgressBar(total=num_total)
-        exit_context.enter_context(pb)
+    try:
+        num_computed = 0
+        with contextlib.ExitStack() as exit_context:
+            pb = fou.ProgressBar(total=num_total)
+            exit_context.enter_context(pb)
 
-        if num_workers > 1:
-            pool = multiprocessing.dummy.Pool(processes=num_workers)
-            exit_context.enter_context(pool)
-            tasks = pool.imap_unordered(_do_compute_metadata, inputs)
-        else:
-            tasks = map(_do_compute_metadata, inputs)
+            if num_workers > 1:
+                pool = multiprocessing.dummy.Pool(processes=num_workers)
+                exit_context.enter_context(pool)
+                tasks = pool.imap_unordered(_do_compute_metadata, inputs)
+            else:
+                tasks = map(_do_compute_metadata, inputs)
 
-        for sample_id, metadata in pb(tasks):
-            sample = view[sample_id]
-            sample.metadata = metadata
-            sample.save()
+            for sample_id, metadata in pb(tasks):
+                values[sample_id] = metadata
 
-            num_computed += 1
-            if num_computed % 10 == 0:
-                progress = num_computed / num_total
-                label = f"Computed {num_computed} of {num_total}"
-                yield ctx.trigger(
-                    "set_progress", dict(progress=progress, label=label)
-                )
+                num_computed += 1
+                if num_computed % 10 == 0:
+                    progress = num_computed / num_total
+                    label = f"Computed {num_computed} of {num_total}"
+                    yield ctx.trigger(
+                        "set_progress", dict(progress=progress, label=label)
+                    )
+    finally:
+        sample_collection.set_values("metadata", values, key_field="id")
 
 
 def _do_compute_metadata(args):
