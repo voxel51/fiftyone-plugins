@@ -576,19 +576,12 @@ class CurrentSampleExample(foo.Operator):
         # Grouped dataset
         if ctx.dataset.media_type == "group":
             current_group = sample[group_field].id
-            group = ctx.dataset.get_group(current_group)
-
-        # Dynamic groups
-        if ctx.view._is_dynamic_groups:
-            current_group = sample[group_field]
-            group = ctx.view.get_dynamic_group(current_group)
 
         return {
             "result": {
                 "current_sample": ctx.current_sample,
                 "sample": sample.to_dict() if sample else None,
-                "current_group": current_group,
-                # "group": group
+                "current_group": current_group
             }
         }
 
