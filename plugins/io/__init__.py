@@ -811,7 +811,7 @@ def _upload_media(ctx, tasks):
     num_uploaded = 0
     num_total = len(tasks)
 
-    # @todo switch to this when `fiftyone==0.22.2` is released
+    # @todo can switch to this if we require `fiftyone>=0.22.2`
     # num_workers = fou.recommend_thread_pool_workers()
 
     if hasattr(fou, "recommend_thread_pool_workers"):
