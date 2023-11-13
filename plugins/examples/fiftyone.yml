@@ -22,3 +22,9 @@ operators:
   - example_open_embeddings_panel
   - example_open_histograms_panel
   - example_selected_labels
+  - example_selected_samples
+  - example_set_view
+  - example_delegated
+  - example_secrets
+secrets:
+  - FIFTYONE_EXAMPLE_SECRET

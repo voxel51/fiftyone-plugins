@@ -4,6 +4,13 @@ import fiftyone as fo
 import asyncio
 import json
 
+from bson import json_util
+
+
+def serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
+
+
 ###
 # Messages
 ###
@@ -521,6 +528,7 @@ class OpenHistogramsPanel(foo.Operator):
         )
         return {}
 
+
 class SelectedLabelsOperator(foo.Operator):
     @property
     def config(self):
@@ -539,10 +547,10 @@ class SelectedLabelsOperator(foo.Operator):
         return types.Property(inputs)
 
     def execute(self, ctx):
-        label_fields = [field['field'] for field in ctx.selected_labels]
+        label_fields = [field["field"] for field in ctx.selected_labels]
         return {
             "num_selected_labels": len(ctx.selected_labels),
-            "label_fields": label_fields
+            "label_fields": label_fields,
         }
 
     def resolve_output(self, ctx):
@@ -557,6 +565,134 @@ class SelectedLabelsOperator(foo.Operator):
         outputs.list("label_fields", types.String(), label="Label Fields")
 
         return types.Property(outputs)
+
+
+class SelectedSamplesOperator(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_selected_samples",
+            label="Examples: Selected Samples",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.message(
+            "Number of Selected Samples",
+            label=f"Number of Selected Samples: {len(ctx.selected)}",
+        )
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        return {"num_selected_samples": len(ctx.selected)}
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+
+        outputs.message(
+            "Number of Selected Samples",
+            label=f"Number of Selected Samples: {len(ctx.selected)}",
+        )
+
+        outputs.int("num_selected_samples", label="Num Selected Samples")
+
+        return types.Property(outputs)
+
+
+class ExampleSetViewOperator(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_set_view",
+            label="Examples: Set View",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.message(
+            "Set View",
+            label="Set View",
+        )
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        view = ctx.dataset.take(10)
+        ctx.trigger(
+            "set_view",
+            params=dict(view=serialize_view(view)),
+        )
+
+
+class ExampleDelegatedOperator(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_delegated",
+            label="Examples: Delegated",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.message(
+            "Delegated Operator",
+            label="Delegated Operator",
+            description=(
+                "This operation will be queued. Launch from CLI with"
+                "`fiftyone delegated launch`"
+            ),
+        )
+        return types.Property(inputs)
+
+    def resolve_delegation(self, ctx):
+        return True
+
+    def execute(self, ctx):
+        import time
+
+        for i in range(10):
+            time.sleep(1)
+            print(f"Delegated execution in progress: {i+1}0% Complete")
+
+
+class ExampleSecretsOperator(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_secrets",
+            label="Examples: Secrets",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.message(
+            "Secrets Operator",
+            label="Secrets Operator",
+            description=(
+                "This operator allows you to test the `secrets` feature in "
+                "delegated operators. Export the secret `FIFTYONE_EXAMPLE_SECRET` "
+                "to your environment (with whatever value you'd like!) and "
+                "launch this operator with `fiftyone delegated launch`"
+            ),
+        )
+        return types.Property(inputs)
+
+    def resolve_delegation(self, ctx):
+        return True
+
+    def execute(self, ctx):
+        for key, value in getattr(ctx, "secrets", {}).items():
+            if key == "FIFTYONE_EXAMPLE_SECRET":
+                print(f"The delegated operator has access to the secret!")
+            break
+        else:
+            print(
+                f"The delegated operator does not have access to the secret."
+            )
+
 
 def register(p):
     p.register(MessageExamples)
@@ -574,3 +710,7 @@ def register(p):
     p.register(CustomViewExample)
     p.register(OpenHistogramsPanel)
     p.register(SelectedLabelsOperator)
+    p.register(SelectedSamplesOperator)
+    p.register(ExampleSetViewOperator)
+    p.register(ExampleDelegatedOperator)
+    p.register(ExampleSecretsOperator)
