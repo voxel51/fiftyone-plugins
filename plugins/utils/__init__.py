@@ -147,7 +147,7 @@ class EditDatasetInfo(foo.Operator):
         persistent = ctx.params.get("persistent", None)
         tags = ctx.params.get("tags", None)
         info = ctx.params.get("info", None)
-        app_config = ctx.params.get("app_config", None)
+        app_config = _parse_app_config(ctx)
         classes = ctx.params.get("classes", None)
         default_classes = ctx.params.get("default_classes", None)
         mask_targets = ctx.params.get("mask_targets", None)
@@ -156,47 +156,66 @@ class EditDatasetInfo(foo.Operator):
         default_skeleton = ctx.params.get("default_skeleton", None) or None
 
         if name is not None:
-            ctx.dataset.name = name
+            if name != ctx.dataset.name:
+                ctx.dataset.name = name
 
         if description is not None:
-            ctx.dataset.description = description
+            if description != ctx.dataset.description:
+                ctx.dataset.description = description
         elif ctx.dataset.description is not None:
             ctx.dataset.description = None
 
         if persistent is not None:
-            ctx.dataset.persistent = persistent
+            if persistent != ctx.dataset.persistent:
+                ctx.dataset.persistent = persistent
 
         if tags is not None:
-            ctx.dataset.tags = tags
+            if tags != ctx.dataset.tags:
+                ctx.dataset.tags = tags
 
         if info is not None:
-            ctx.dataset.info = json.loads(info)
+            info = json.loads(info)
+            if info != ctx.dataset.info:
+                ctx.dataset.info = info
 
         if app_config is not None:
-            ctx.dataset.app_config = fo.DatasetAppConfig.from_json(app_config)
+            if app_config != ctx.dataset.app_config:
+                ctx.dataset.app_config = app_config
 
         if classes is not None:
-            ctx.dataset.classes = json.loads(classes)
+            classes = json.loads(classes)
+            if classes != ctx.dataset.classes:
+                ctx.dataset.classes = classes
 
         if default_classes is not None:
-            ctx.dataset.default_classes = json.loads(default_classes)
+            default_classes = json.loads(default_classes)
+            if default_classes != ctx.dataset.default_classes:
+                ctx.dataset.default_classes = default_classes
 
         if mask_targets is not None:
-            ctx.dataset.mask_targets = json.loads(mask_targets)
+            mask_targets = json.loads(mask_targets)
+            if mask_targets != ctx.dataset.mask_targets:
+                ctx.dataset.mask_targets = mask_targets
 
         if default_mask_targets is not None:
-            ctx.dataset.default_mask_targets = json.loads(default_mask_targets)
+            default_mask_targets = json.loads(default_mask_targets)
+            if default_mask_targets != ctx.dataset.default_mask_targets:
+                ctx.dataset.default_mask_targets = default_mask_targets
 
         if skeletons is not None:
-            ctx.dataset.skeletons = {
+            skeletons = {
                 field: fo.KeypointSkeleton.from_dict(skeleton)
                 for field, skeleton in json.loads(skeletons).items()
             }
+            if skeletons != ctx.dataset.skeletons:
+                ctx.dataset.skeletons = skeletons
 
         if default_skeleton is not None:
-            ctx.dataset.default_skeleton = fo.KeypointSkeleton.from_dict(
+            default_skeleton = fo.KeypointSkeleton.from_dict(
                 json.loads(default_skeleton)
             )
+            if default_skeleton != ctx.dataset.default_skeleton:
+                ctx.dataset.default_skeleton = default_skeleton
         elif ctx.dataset.default_skeleton is not None:
             ctx.dataset.default_skeleton = None
 
@@ -227,9 +246,7 @@ def _dataset_info_inputs(ctx, inputs):
     ## name
 
     name = ctx.params.get("name", None)
-    edited_name = (
-        "name" in ctx.params and name is not None and name != ctx.dataset.name
-    )
+    edited_name = name is not None and name != ctx.dataset.name
     if edited_name:
         num_changed += 1
 
@@ -257,8 +274,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     description = ctx.params.get("description", None) or None
     edited_description = (
-        "description" in ctx.params
-        # can be None
+        "description" in ctx.params  # can be None
         and description != ctx.dataset.description
     )
     if edited_description:
@@ -277,9 +293,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     persistent = ctx.params.get("persistent", None)
     edited_persistent = (
-        "persistent" in ctx.params
-        and persistent is not None
-        and persistent != ctx.dataset.persistent
+        persistent is not None and persistent != ctx.dataset.persistent
     )
     if edited_persistent:
         num_changed += 1
@@ -298,9 +312,7 @@ def _dataset_info_inputs(ctx, inputs):
     ## tags
 
     tags = ctx.params.get("tags", None)
-    edited_tags = (
-        "tags" in ctx.params and tags is not None and tags != ctx.dataset.tags
-    )
+    edited_tags = tags is not None and tags != ctx.dataset.tags
     if edited_tags:
         num_changed += 1
 
@@ -317,9 +329,7 @@ def _dataset_info_inputs(ctx, inputs):
     ## info
 
     info, valid = _parse_field(ctx, "info", type=dict)
-    edited_info = (
-        "info" in ctx.params and info is not None and info != ctx.dataset.info
-    )
+    edited_info = info is not None and info != ctx.dataset.info
     if edited_info:
         num_changed += 1
 
@@ -349,20 +359,6 @@ def _dataset_info_inputs(ctx, inputs):
 
     ## app_config
 
-    app_config, valid = _parse_field(ctx, "app_config", type=dict)
-    if app_config is not None:
-        try:
-            app_config = fo.DatasetAppConfig.from_dict(app_config)
-        except:
-            valid = False
-    edited_app_config = (
-        "app_config" in ctx.params
-        and app_config is not None
-        and app_config != ctx.dataset.app_config
-    )
-    if edited_app_config:
-        num_changed += 1
-
     if tab_choice == "APP_CONFIG":
         inputs.view(
             "app_config_help",
@@ -374,30 +370,226 @@ def _dataset_info_inputs(ctx, inputs):
             ),
         )
 
-        prop = inputs.str(
-            "app_config",
-            default=ctx.dataset.app_config.to_json(pretty_print=4),
+    ## app_config.media_fields
+
+    media_fields = ctx.params.get("app_config_media_fields", None)
+    edited_media_fields = (
+        media_fields is not None
+        and media_fields != ctx.dataset.app_config.media_fields
+    )
+    if edited_media_fields:
+        num_changed += 1
+
+    if tab_choice == "APP_CONFIG":
+        str_field_choices = types.Dropdown(multiple=True)
+        for field in _get_string_fields(ctx.dataset):
+            str_field_choices.add_choice(field, label=field)
+
+        inputs.list(
+            "app_config_media_fields",
+            types.String(),
+            default=ctx.dataset.app_config.media_fields,
             required=True,
-            label="App config" + (" (edited)" if edited_app_config else ""),
+            label="Media fields"
+            + (" (edited)" if edited_media_fields else ""),
             description=(
-                "A DatasetAppConfig that customizes how this dataset is "
-                "visualized in the FiftyOne App"
+                "The list of sample fields that contain media and should be "
+                "available to choose from the App's settings menus"
+            ),
+            view=str_field_choices,
+        )
+
+    ## app_config.grid_media_field
+
+    grid_media_field = ctx.params.get("app_config_grid_media_field", None)
+    edited_grid_media_field = (
+        grid_media_field is not None
+        and grid_media_field != ctx.dataset.app_config.grid_media_field
+    )
+    if edited_grid_media_field:
+        num_changed += 1
+
+    if tab_choice == "APP_CONFIG":
+        field_choices = types.Dropdown()
+        for field in ctx.params.get("app_config_media_fields", []):
+            field_choices.add_choice(field, label=field)
+
+        inputs.enum(
+            "app_config_grid_media_field",
+            field_choices.values(),
+            default=ctx.dataset.app_config.grid_media_field,
+            required=True,
+            label="Grid media field"
+            + (" (edited)" if edited_grid_media_field else ""),
+            description=(
+                "The default sample field from which to serve media in the "
+                "App's grid view"
+            ),
+            view=field_choices,
+        )
+
+    ## app_config.modal_media_field
+
+    modal_media_field = ctx.params.get("app_config_modal_media_field", None)
+    edited_modal_media_field = (
+        modal_media_field is not None
+        and modal_media_field != ctx.dataset.app_config.modal_media_field
+    )
+    if edited_modal_media_field:
+        num_changed += 1
+
+    if tab_choice == "APP_CONFIG":
+        field_choices = types.Dropdown()
+        for field in ctx.params.get("app_config_media_fields", []):
+            field_choices.add_choice(field, label=field)
+
+        inputs.enum(
+            "app_config_modal_media_field",
+            field_choices.values(),
+            default=ctx.dataset.app_config.modal_media_field,
+            required=True,
+            label="Modal media field"
+            + (" (edited)" if edited_modal_media_field else ""),
+            description=(
+                "The default sample field from which to serve media in the "
+                "App's modal view"
+            ),
+            view=field_choices,
+        )
+
+    ## app_config.sidebar_mode
+
+    sidebar_mode = ctx.params.get("app_config_sidebar_mode", None)
+    edited_sidebar_mode = (
+        "app_config_sidebar_mode" in ctx.params  # can be None
+        and sidebar_mode != ctx.dataset.app_config.sidebar_mode
+    )
+    if edited_sidebar_mode:
+        num_changed += 1
+
+    if tab_choice == "APP_CONFIG":
+        sidebar_mode_choices = types.AutocompleteView()
+        sidebar_mode_choices.add_choice("fast", label="fast")
+        sidebar_mode_choices.add_choice("all", label="all")
+        sidebar_mode_choices.add_choice("best", label="best")
+
+        inputs.str(
+            "app_config_sidebar_mode",
+            default=ctx.dataset.app_config.sidebar_mode,
+            required=False,
+            label="Sidebar mode"
+            + (" (edited)" if edited_sidebar_mode else ""),
+            description="An optional default mode for the App sidebar",
+            view=sidebar_mode_choices,
+        )
+
+    ## app_config.sidebar_groups
+
+    sidebar_groups, valid = _parse_field(
+        ctx, "app_config_sidebar_groups", type=list
+    )
+    if sidebar_groups is not None:
+        try:
+            sidebar_groups = [
+                fo.SidebarGroupDocument.from_dict(g) for g in sidebar_groups
+            ]
+        except:
+            valid = False
+    edited_sidebar_groups = (
+        "app_config_sidebar_groups" in ctx.params  # can be None
+        and sidebar_groups != ctx.dataset.app_config.sidebar_groups
+    )
+    if edited_sidebar_groups:
+        num_changed += 1
+
+    if tab_choice == "APP_CONFIG":
+        default_sidebar_groups = ctx.dataset.app_config.sidebar_groups
+        if default_sidebar_groups is not None:
+            default_sidebar_groups = _serialize(
+                [g.to_dict() for g in default_sidebar_groups]
+            )
+
+        prop = inputs.str(
+            "app_config_sidebar_groups",
+            default=default_sidebar_groups,
+            required=False,
+            label="Sidebar groups"
+            + (" (edited)" if edited_sidebar_groups else ""),
+            description=(
+                "An optional list of custom sidebar groups to use in the App"
             ),
             view=types.CodeView(),
         )
 
         if not valid:
             prop.invalid = True
-            prop.error_message = "Invalid App config"
+            prop.error_message = "Invalid sidebar groups"
+
+    ## app_config.color_scheme
+
+    color_scheme, valid = _parse_field(
+        ctx, "app_config_color_scheme", type=dict
+    )
+    if color_scheme is not None:
+        try:
+            color_scheme = fo.ColorScheme.from_dict(color_scheme)
+        except:
+            valid = False
+    edited_color_scheme = (
+        "app_config_color_scheme" in ctx.params  # can be None
+        and color_scheme != ctx.dataset.app_config.color_scheme
+    )
+    if edited_color_scheme:
+        num_changed += 1
+
+    if tab_choice == "APP_CONFIG":
+        default_color_scheme = ctx.dataset.app_config.color_scheme
+        if default_color_scheme is not None:
+            default_color_scheme = default_color_scheme.to_json(pretty_print=4)
+
+        prop = inputs.str(
+            "app_config_color_scheme",
+            default=default_color_scheme,
+            required=False,
+            label="Color scheme"
+            + (" (edited)" if edited_color_scheme else ""),
+            description=("An optional custom color scheme for the dataset"),
+            view=types.CodeView(),
+        )
+
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid color scheme"
+
+    ## app_config.plugins
+
+    plugins, valid = _parse_field(ctx, "app_config_plugins", type=dict)
+    edited_plugins = (
+        plugins is not None and plugins != ctx.dataset.app_config.plugins
+    )
+    if edited_plugins:
+        num_changed += 1
+
+    if tab_choice == "APP_CONFIG":
+        prop = inputs.str(
+            "app_config_plugins",
+            default=_serialize(ctx.dataset.app_config.plugins),
+            required=True,
+            label="Plugin settings" + (" (edited)" if edited_plugins else ""),
+            description=(
+                "An optional dict mapping plugin names to plugin settings"
+            ),
+            view=types.CodeView(),
+        )
+
+        if not valid:
+            prop.invalid = True
+            prop.error_message = "Invalid plugin settings"
 
     ## classes
 
     classes, valid = _parse_field(ctx, "classes", type=dict)
-    edited_classes = (
-        "classes" in ctx.params
-        and classes is not None
-        and classes != ctx.dataset.classes
-    )
+    edited_classes = classes is not None and classes != ctx.dataset.classes
     if edited_classes:
         num_changed += 1
 
@@ -432,8 +624,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     default_classes, valid = _parse_field(ctx, "default_classes", type=list)
     edited_default_classes = (
-        "default_classes" in ctx.params
-        and default_classes is not None
+        default_classes is not None
         and default_classes != ctx.dataset.default_classes
     )
     if edited_default_classes:
@@ -461,9 +652,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     mask_targets, valid = _parse_field(ctx, "mask_targets", type=dict)
     edited_mask_targets = (
-        "mask_targets" in ctx.params
-        and mask_targets is not None
-        and mask_targets != ctx.dataset.mask_targets
+        mask_targets is not None and mask_targets != ctx.dataset.mask_targets
     )
     if edited_mask_targets:
         num_changed += 1
@@ -503,8 +692,7 @@ def _dataset_info_inputs(ctx, inputs):
         ctx, "default_mask_targets", type=dict
     )
     edited_default_mask_targets = (
-        "default_mask_targets" in ctx.params
-        and default_mask_targets is not None
+        default_mask_targets is not None
         and default_mask_targets != ctx.dataset.default_mask_targets
     )
     if edited_default_mask_targets:
@@ -542,9 +730,7 @@ def _dataset_info_inputs(ctx, inputs):
         except:
             valid = False
     edited_skeletons = (
-        "skeletons" in ctx.params
-        and skeletons is not None
-        and skeletons != ctx.dataset.skeletons
+        skeletons is not None and skeletons != ctx.dataset.skeletons
     )
     if edited_skeletons:
         num_changed += 1
@@ -597,8 +783,7 @@ def _dataset_info_inputs(ctx, inputs):
         except:
             valid = False
     edited_default_skeleton = (
-        "default_skeleton" in ctx.params
-        # can be None
+        "default_skeleton" in ctx.params  # can be None
         and default_skeleton != ctx.dataset.default_skeleton
     )
     if edited_default_skeleton:
@@ -673,6 +858,71 @@ def _parse_field(ctx, name, type=dict, default=None):
         value = default
 
     return value, valid
+
+
+def _parse_app_config(ctx):
+    if "app_config_media_fields" in ctx.params:
+        media_fields = ctx.params["app_config_media_fields"]
+    else:
+        media_fields = ctx.dataset.app_config.media_fields
+
+    if "app_config_grid_media_field" in ctx.params:
+        grid_media_field = ctx.params["app_config_grid_media_field"]
+    else:
+        grid_media_field = ctx.dataset.app_config.grid_media_field
+
+    if "app_config_modal_media_field" in ctx.params:
+        modal_media_field = ctx.params["app_config_modal_media_field"]
+    else:
+        modal_media_field = ctx.dataset.app_config.modal_media_field
+
+    if "app_config_sidebar_mode" in ctx.params:
+        sidebar_mode = ctx.params["app_config_sidebar_mode"]
+    else:
+        sidebar_mode = ctx.dataset.app_config.sidebar_mode
+
+    if "app_config_sidebar_groups" in ctx.params:
+        sidebar_groups = ctx.params["app_config_sidebar_groups"]
+        if sidebar_groups:
+            sidebar_groups = [
+                fo.SidebarGroupDocument.from_dict(g)
+                for g in json.loads(sidebar_groups)
+            ]
+        else:
+            sidebar_groups = None
+    else:
+        sidebar_groups = ctx.dataset.app_config.sidebar_groups
+
+    if "app_config_color_scheme" in ctx.params:
+        color_scheme = ctx.params["app_config_color_scheme"]
+        if color_scheme:
+            color_scheme = fo.ColorScheme.from_dict(json.loads(color_scheme))
+        else:
+            color_scheme = None
+    else:
+        color_scheme = ctx.dataset.app_config.color_scheme
+
+    if "app_config_plugins" in ctx.params:
+        plugins = ctx.params["app_config_plugins"]
+        plugins = json.loads(plugins)
+    else:
+        plugins = ctx.dataset.app_config.plugins
+
+    return fo.DatasetAppConfig(
+        media_fields=media_fields,
+        grid_media_field=grid_media_field,
+        modal_media_field=modal_media_field,
+        sidebar_mode=sidebar_mode,
+        sidebar_groups=sidebar_groups,
+        color_scheme=color_scheme,
+        plugins=plugins,
+    )
+
+
+def _get_string_fields(dataset):
+    for path, field in dataset.get_field_schema().items():
+        if isinstance(field, fo.StringField):
+            yield path
 
 
 class RenameDataset(foo.Operator):
