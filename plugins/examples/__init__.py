@@ -623,7 +623,6 @@ class ExampleSetViewOperator(foo.Operator):
             "set_view",
             params=dict(view=serialize_view(view)),
         )
-        {}
 
 
 class ExampleDelegatedOperator(foo.Operator):
