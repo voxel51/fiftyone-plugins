@@ -861,25 +861,22 @@ def _parse_field(ctx, name, type=dict, default=None):
 
 
 def _parse_app_config(ctx):
+    # Start from current AppConfig to ensure that additional fields aren't lost
+    app_config = ctx.dataset.app_config.copy()
+
     if "app_config_media_fields" in ctx.params:
-        media_fields = ctx.params["app_config_media_fields"]
-    else:
-        media_fields = ctx.dataset.app_config.media_fields
+        app_config.media_fields = ctx.params["app_config_media_fields"]
 
     if "app_config_grid_media_field" in ctx.params:
-        grid_media_field = ctx.params["app_config_grid_media_field"]
-    else:
-        grid_media_field = ctx.dataset.app_config.grid_media_field
+        app_config.grid_media_field = ctx.params["app_config_grid_media_field"]
 
     if "app_config_modal_media_field" in ctx.params:
-        modal_media_field = ctx.params["app_config_modal_media_field"]
-    else:
-        modal_media_field = ctx.dataset.app_config.modal_media_field
+        app_config.modal_media_field = ctx.params[
+            "app_config_modal_media_field"
+        ]
 
     if "app_config_sidebar_mode" in ctx.params:
-        sidebar_mode = ctx.params["app_config_sidebar_mode"]
-    else:
-        sidebar_mode = ctx.dataset.app_config.sidebar_mode
+        app_config.sidebar_mode = ctx.params["app_config_sidebar_mode"]
 
     if "app_config_sidebar_groups" in ctx.params:
         sidebar_groups = ctx.params["app_config_sidebar_groups"]
@@ -890,8 +887,8 @@ def _parse_app_config(ctx):
             ]
         else:
             sidebar_groups = None
-    else:
-        sidebar_groups = ctx.dataset.app_config.sidebar_groups
+
+        app_config.sidebar_groups = sidebar_groups
 
     if "app_config_color_scheme" in ctx.params:
         color_scheme = ctx.params["app_config_color_scheme"]
@@ -899,24 +896,14 @@ def _parse_app_config(ctx):
             color_scheme = fo.ColorScheme.from_dict(json.loads(color_scheme))
         else:
             color_scheme = None
-    else:
-        color_scheme = ctx.dataset.app_config.color_scheme
+
+        app_config.color_scheme = color_scheme
 
     if "app_config_plugins" in ctx.params:
         plugins = ctx.params["app_config_plugins"]
-        plugins = json.loads(plugins)
-    else:
-        plugins = ctx.dataset.app_config.plugins
+        app_config.plugins = json.loads(plugins)
 
-    return fo.DatasetAppConfig(
-        media_fields=media_fields,
-        grid_media_field=grid_media_field,
-        modal_media_field=modal_media_field,
-        sidebar_mode=sidebar_mode,
-        sidebar_groups=sidebar_groups,
-        color_scheme=color_scheme,
-        plugins=plugins,
-    )
+    return app_config
 
 
 def _get_string_fields(dataset):
