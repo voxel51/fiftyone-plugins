@@ -27,5 +27,6 @@ operators:
   - example_delegated
   - example_secrets
   - example_file_drop
+  - lazy_field_example
 secrets:
   - FIFTYONE_EXAMPLE_SECRET

@@ -527,7 +527,8 @@ class OpenHistogramsPanel(foo.Operator):
             params=dict(name="Histograms", isActive=True, layout="horizontal"),
         )
         return {}
-    
+
+
 class FileDropExample(foo.Operator):
     @property
     def config(self):
@@ -539,13 +540,17 @@ class FileDropExample(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        ten_mb = 1024*1024*10
-        file_drop = types.FileView(label="File Drop", max_size=ten_mb, max_size_error_message="File too large")
+        ten_mb = 1024 * 1024 * 10
+        file_drop = types.FileView(
+            label="File Drop",
+            max_size=ten_mb,
+            max_size_error_message="File too large",
+        )
         inputs.obj("file", view=file_drop)
         return types.Property(inputs)
 
     def execute(self, ctx):
-        return {"file": ctx.params['file']}
+        return {"file": ctx.params["file"]}
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -558,6 +563,7 @@ class FileDropExample(foo.Operator):
         # - file['last_modified'] which is ms since epoch
         outputs.add_property("file", types.Property(file_obj))
         return types.Property(outputs)
+
 
 class SelectedLabelsOperator(foo.Operator):
     @property
@@ -724,6 +730,31 @@ class ExampleSecretsOperator(foo.Operator):
             )
 
 
+class LazyFieldExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="lazy_field_example",
+            label="Examples: Lazy field",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        url = ctx.params.get("url", "No value provided for URL yet")
+        inputs = types.Object()
+        inputs.str("url", label="URL", view=types.LazyFieldView())
+        inputs.view("url-preview", view=types.Notice(label=url))
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        return {"url": ctx.params.get("url", "No value provided")}
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str("url", label="URL")
+        return types.Property(outputs)
+
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -745,3 +776,4 @@ def register(p):
     p.register(ExampleDelegatedOperator)
     p.register(ExampleSecretsOperator)
     p.register(FileDropExample)
+    p.register(LazyFieldExample)
