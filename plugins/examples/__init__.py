@@ -707,8 +707,8 @@ class CurrentSampleExample(foo.Operator):
             return {"result": {"message": "No sample provided. Select a sample to see the result."}}
         sample = ctx.dataset[ctx.current_sample]
         current_group = None
-        group = None
         group_field = ctx.dataset.group_field
+        
         # Grouped dataset
         if ctx.dataset.media_type == "group":
             current_group = sample[group_field].id
