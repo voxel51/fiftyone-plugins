@@ -213,6 +213,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/double-band-filter-plugin">@jacobmarks/double_band_filter</a></b></td>
         <td><img src="https://raw.githubusercontent.com/jacobmarks/double-band-filter-plugin/main/assets/icon_grey.svg" width="14" height="14" alt="filter icon"> Filter on two numeric ranges simultaneously!</td>
     </tr>
+        <tr>
+        <td><b><a href="https://github.com/danielgural/semantic_video_search">@danielgural/semantic_video_search</a></b></td>
+        <td><img src="https://github.com/danielgural/semantic_video_search/blob/main/assets/search.svg" width="14" height="14" alt="filter icon"> Semantically search through your video datasets using FiftyOne Brain and Twelve Labs!</td>
+    </tr>
 </table>
 
 ## Using Plugins
