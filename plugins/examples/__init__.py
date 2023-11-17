@@ -611,7 +611,9 @@ class CurrentSampleExample(foo.Operator):
         if ctx.current_sample is None:
             return {
                 "result": {
-                    "message": "No sample provided. Select a sample to see the result."
+                    "message": (
+                        "No sample provided. Select a sample to see the result"
+                    )
                 }
             }
 

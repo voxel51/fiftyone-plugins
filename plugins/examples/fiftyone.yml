@@ -27,6 +27,5 @@ operators:
   - example_set_view
   - example_delegated
   - example_secrets
-  - example_current_sample
 secrets:
   - FIFTYONE_EXAMPLE_SECRET
