@@ -4,6 +4,8 @@ A plugin that contains utilities for
 [evaluating models](https://docs.voxel51.com/user_guide/evaluation.html) in
 FiftyOne.
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/c599d737-a6f2-4737-a751-15ec4cf6a1bd
+
 ## Installation
 
 ```shell

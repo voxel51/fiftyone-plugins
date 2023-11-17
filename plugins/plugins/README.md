@@ -3,6 +3,8 @@
 A plugin that contains utilities for managing your FiftyOne plugins and
 building new ones.
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/c2b0b988-f633-424c-91e2-eb0443737cbc
+
 ## Installation
 
 ```shell

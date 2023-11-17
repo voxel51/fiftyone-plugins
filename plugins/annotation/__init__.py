@@ -64,10 +64,8 @@ class RequestAnnotations(foo.Operator):
 
         target_view = _get_target_view(ctx, target)
 
-        # @todo switch to this when `fiftyone==0.22.2` is released
-        # with threading.Lock():
-        # with fou.SetAttributes(fo.config, max_process_pool_workers=1):
-
+        # @todo can remove the context if we require `fiftyone>=0.23.0` as
+        # compute_metadata() no longer uses multiprocessing
         with contextlib.ExitStack() as exit_context:
             if hasattr(fo.config, "max_process_pool_workers"):
                 # Don't allow using multiprocessing to compute metadata

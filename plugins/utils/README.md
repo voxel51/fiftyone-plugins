@@ -2,6 +2,8 @@
 
 A plugin that contains common utilities for working with FiftyOne.
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/21ed4dd0-b4f3-4dfa-abb3-949672f59e46
+
 ## Installation
 
 ```shell

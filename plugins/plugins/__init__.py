@@ -158,8 +158,7 @@ Provide a location to download the plugin(s) from, which can be:
                 "Choose a community-authored plugin from the zoo to install"
             )
 
-        # @todo switch to AutocompleteView once descriptions render
-        plugin_choices = types.Dropdown()
+        plugin_choices = types.AutocompleteView()
         for plugin in plugins:
             plugin_choices.add_choice(
                 plugin["name"],

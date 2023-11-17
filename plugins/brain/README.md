@@ -3,6 +3,8 @@
 A plugin that contains utilities for working with the
 [FiftyOne Brain](https://docs.voxel51.com/user_guide/brain.html).
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/9215bb6b-8d16-4409-bd59-37ad3ccc4679
+
 ## Installation
 
 ```shell

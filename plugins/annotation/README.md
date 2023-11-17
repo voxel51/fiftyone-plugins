@@ -7,6 +7,8 @@ In order to use this plugin, you must have at least one annotation backend
 configured as
 [described here](https://docs.voxel51.com/user_guide/annotation.html).
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/24f2b974-94b1-484e-8ec2-8f7b1089ee15
+
 ## Installation
 
 ```shell

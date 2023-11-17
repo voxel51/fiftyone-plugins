@@ -1,6 +1,23 @@
 # FiftyOne Plugins 🔌🚀
 
-A curated collection of
+FiftyOne provides a powerful
+[plugin framework](https://docs.voxel51.com/plugins/index.html) that allows for
+extending and customizing the functionality of the tool.
+
+With plugins, you can add new functionality to the FiftyOne App, create
+integrations with other tools and APIs, render custom panels, and add custom
+buttons to menus. You can even schedule long running tasks from within the App
+that execute on a connected workflow orchestration tool like Apache Airflow.
+
+For example, here's a taste of what you can do with the 
+[@voxel51/brain](https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain)
+plugin!
+
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/128d9fbd-9835-49e8-bbb9-93ea5093871f
+
+## Table of Contents
+
+This repository contains a curated collection of
 [FiftyOne Plugins](https://docs.voxel51.com/plugins/index.html), organized into
 the following categories:
 
@@ -186,15 +203,16 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/gpt4-vision-plugin">@jacobmarks/gpt4_vision</a></b></td>
-        <td><img src="https://raw.githubusercontent.com/voxel51/voxelgpt/main/assets/icon-dark.svg" width="14" height="14" alt="gpt icon"> Chat with your images using GPT-4 Vision!</td>
+        <td>🤖 Chat with your images using GPT-4 Vision!</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/swheaton/fiftyone-media-anonymization-plugin">@swheaton/anonymize</a></b></td>
         <td>🥸 Anonymize/blur images based on a FiftyOne Detections field.</td>
     </tr>
-    
-
-    
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/double-band-filter-plugin">@jacobmarks/double_band_filter</a></b></td>
+        <td><img src="https://raw.githubusercontent.com/jacobmarks/double-band-filter-plugin/main/assets/icon_grey.svg" width="14" height="14" alt="filter icon"> Filter on two numeric ranges simultaneously!</td>
+    </tr>
 </table>
 
 ## Using Plugins
