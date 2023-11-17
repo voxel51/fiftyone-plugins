@@ -636,6 +636,45 @@ class SelectedSamplesOperator(foo.Operator):
         return types.Property(outputs)
 
 
+class CurrentSampleExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_current_sample", label="Examples: Current Sample"
+        )
+
+    def execute(self, ctx):
+        if ctx.current_sample is None:
+            return {
+                "result": {
+                    "message": (
+                        "No sample provided. Select a sample to see the result"
+                    )
+                }
+            }
+
+        sample = ctx.dataset[ctx.current_sample]
+
+        if ctx.dataset.media_type == "group":
+            group_field = ctx.dataset.group_field
+            current_group = sample[group_field].id
+        else:
+            current_group = None
+
+        return {
+            "result": {
+                "current_sample": ctx.current_sample,
+                "sample": sample.to_dict() if sample else None,
+                "current_group": current_group,
+            }
+        }
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.obj("result", label="Result", view=types.JSONView())
+        return types.Property(outputs)
+
+
 class ExampleSetViewOperator(foo.Operator):
     @property
     def config(self):
@@ -772,6 +811,7 @@ def register(p):
     p.register(OpenHistogramsPanel)
     p.register(SelectedLabelsOperator)
     p.register(SelectedSamplesOperator)
+    p.register(CurrentSampleExample)
     p.register(ExampleSetViewOperator)
     p.register(ExampleDelegatedOperator)
     p.register(ExampleSecretsOperator)

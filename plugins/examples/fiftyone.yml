@@ -23,6 +23,7 @@ operators:
   - example_open_histograms_panel
   - example_selected_labels
   - example_selected_samples
+  - example_current_sample
   - example_set_view
   - example_delegated
   - example_secrets
