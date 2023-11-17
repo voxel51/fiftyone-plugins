@@ -9,6 +9,7 @@ operators:
   - compute_visualization
   - compute_similarity
   - sort_by_similarity
+  - add_similar_samples
   - compute_uniqueness
   - compute_mistakenness
   - compute_hardness

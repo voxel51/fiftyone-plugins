@@ -69,6 +69,55 @@ fob.compute_similarity(dataset_or_view, brain_key=brain_key, ...)
 where the operator's form allows you to configure the brain key and all other
 relevant parameters.
 
+### sort_by_similarity
+
+You can use this operator to perform image/text similarity queries against any
+similarity indexes on your dataset.
+
+This operator is essentially a wrapper around
+[sort_by_similarity()](https://docs.voxel51.com/user_guide/brain.html#similarity):
+
+```py
+view = dataset.sort_by_similarity(query, brain_key=brain_key, k=k, ...)
+```
+
+This operator supports both image and text similarity queries, depending on
+whether you have samples currently selected in the App when you launch the
+operator:
+
+-   If one or more samples currently selected, an
+    [image similarity](https://docs.voxel51.com/user_guide/brain.html#image-similarity)
+    query will be performed
+-   Otherwise, a
+    [text similarity](https://docs.voxel51.com/user_guide/brain.html#text-similarity)
+    query will be performed
+
+### add_similar_samples
+
+You can use this operator to retrieve similar samples from another dataset to
+add to your current dataset.
+
+This operator is essentially a wrapper around the following pseudocode:
+
+```py
+view = src_dataset.sort_by_similarity(query, brain_key=brain_key, k=k)
+
+dataset.add_samples(view)
+```
+
+This operator supports both image and text similarity queries, depending on
+whether you have samples currently selected in the App when you launch the
+operator:
+
+-   If one or more samples currently selected, an
+    [image similarity](https://docs.voxel51.com/user_guide/brain.html#image-similarity)
+    query will be performed to retrieve similar images from `src_dataset` to
+    your currently selected samples in `dataset`
+-   Otherwise, a
+    [text similarity](https://docs.voxel51.com/user_guide/brain.html#text-similarity)
+    query will be performed to retrieve new images from `src_dataset` that
+    match the provided text prompt
+
 ### compute_uniqueness
 
 You can use this operator to compute uniqueness for your datasets.
