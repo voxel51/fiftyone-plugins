@@ -3,6 +3,8 @@
 A plugin that contains utilities for managing your
 [delegated operations](https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations).
 
+https://github.com/voxel51/fiftyone-plugins/assets/25985824/bb3ec19b-ad55-4bfc-bf3a-07f3b8d1deb6
+
 ## Installation
 
 ```shell
