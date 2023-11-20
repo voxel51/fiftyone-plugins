@@ -34,10 +34,10 @@ session = fo.launch_app(dataset)
 
 ## Operators
 
-### list_delegated_operations
+### manage_delegated_operations
 
-You can use this operator to list all/specific delegated operations for your
-current/other dataset(s) and optionally take actions on them.
+You can use this operator to list delegated operations for your current dataset
+or other dataset(s) and optionally take actions on them.
 
 This operator is essentially a wrapper around the following
 [fiftyone delegated](https://docs.voxel51.com/cli/index.html#fiftyone-delegated-operations)

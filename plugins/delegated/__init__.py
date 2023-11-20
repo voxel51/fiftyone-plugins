@@ -14,12 +14,12 @@ import fiftyone.operators.executor as fooe
 import fiftyone.operators.types as types
 
 
-class ListDelegatedOperations(foo.Operator):
+class ManageDelegatedOperations(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="list_delegated_operations",
-            label="List delegated operations",
+            name="manage_delegated_operations",
+            label="Manage delegated operations",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
@@ -28,9 +28,9 @@ class ListDelegatedOperations(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        _list_delegated_operations_inputs(ctx, inputs)
+        _manage_delegated_operations_inputs(ctx, inputs)
 
-        view = types.View(label="List delegated operations")
+        view = types.View(label="Manage delegated operations")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
@@ -52,7 +52,7 @@ class ListDelegatedOperations(foo.Operator):
                 dos.delete_operation(ObjectId(id))
 
 
-def _list_delegated_operations_inputs(ctx, inputs):
+def _manage_delegated_operations_inputs(ctx, inputs):
     tab_choices = types.TabsView()
     tab_choices.add_choice("OPTIONS", label="Options")
     tab_choices.add_choice("RUNS", label="Runs")
@@ -66,17 +66,17 @@ def _list_delegated_operations_inputs(ctx, inputs):
     tab = ctx.params.get("tab", "OPTIONS")
 
     if tab == "OPTIONS":
-        _list_delegated_operations_options(ctx, inputs)
+        _manage_delegated_operations_options(ctx, inputs)
         ready = False
     else:
-        ready = _list_delegated_operations_runs(ctx, inputs)
+        ready = _manage_delegated_operations_runs(ctx, inputs)
 
     if not ready:
         prop = inputs.str("hidden", view=types.HiddenView(read_only=True))
         prop.invalid = True
 
 
-def _list_delegated_operations_options(ctx, inputs):
+def _manage_delegated_operations_options(ctx, inputs):
     inputs.message(
         "options_message",
         label=(
@@ -150,7 +150,7 @@ def _list_delegated_operations_options(ctx, inputs):
     )
 
 
-def _list_delegated_operations_runs(ctx, inputs):
+def _manage_delegated_operations_runs(ctx, inputs):
     dataset = ctx.params.get("dataset", None) or None
     search = ctx.params.get("search", None)
     state = ctx.params.get("state", "ALL")
@@ -385,4 +385,4 @@ def _format_datetime(datetime):
 
 
 def register(p):
-    p.register(ListDelegatedOperations)
+    p.register(ManageDelegatedOperations)

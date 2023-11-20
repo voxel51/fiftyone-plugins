@@ -6,4 +6,4 @@ fiftyone:
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/delegated
 license: Apache 2.0
 operators:
-  - list_delegated_operations
+  - manage_delegated_operations
