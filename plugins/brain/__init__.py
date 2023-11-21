@@ -58,6 +58,11 @@ class ComputeVisualization(foo.Operator):
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
+        delegate = ctx.params.get("delegate", False)
+
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 0
 
         target_view = _get_target_view(ctx, target)
         fob.compute_visualization(
@@ -162,10 +167,14 @@ class ComputeSimilarity(foo.Operator):
         num_workers = kwargs.pop("num_workers", None)
         skip_failures = kwargs.pop("skip_failures", True)
         backend = kwargs.pop("backend", None)
-        kwargs.pop("delegate")
+        delegate = kwargs.pop("delegate", False)
 
         _inject_brain_secrets(ctx)
         _get_similarity_backend(backend).parse_parameters(ctx, kwargs)
+
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 0
 
         target_view = _get_target_view(ctx, target)
         fob.compute_similarity(
@@ -431,6 +440,11 @@ class ComputeUniqueness(foo.Operator):
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
+        delegate = ctx.params.get("delegate", False)
+
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 0
 
         target_view = _get_target_view(ctx, target)
         fob.compute_uniqueness(
@@ -443,6 +457,7 @@ class ComputeUniqueness(foo.Operator):
             num_workers=num_workers,
             skip_failures=skip_failures,
         )
+
         ctx.trigger("reload_dataset")
 
 
