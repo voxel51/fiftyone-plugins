@@ -55,6 +55,14 @@ class ComputeVisualization(foo.Operator):
         brain_key = ctx.params.get("brain_key")
         model = ctx.params.get("model", None)
         method = ctx.params.get("method", None)
+        batch_size = ctx.params.get("batch_size", None)
+        num_workers = ctx.params.get("num_workers", None)
+        skip_failures = ctx.params.get("skip_failures", True)
+        delegate = ctx.params.get("delegate", False)
+
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 0
 
         target_view = _get_target_view(ctx, target)
         fob.compute_visualization(
@@ -64,6 +72,9 @@ class ComputeVisualization(foo.Operator):
             brain_key=brain_key,
             model=model,
             method=method,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            skip_failures=skip_failures,
         )
 
     def resolve_output(self, ctx):
@@ -152,11 +163,18 @@ class ComputeSimilarity(foo.Operator):
         embeddings = kwargs.pop("embeddings", None)
         brain_key = kwargs.pop("brain_key")
         model = kwargs.pop("model", None)
+        batch_size = kwargs.pop("batch_size", None)
+        num_workers = kwargs.pop("num_workers", None)
+        skip_failures = kwargs.pop("skip_failures", True)
         backend = kwargs.pop("backend", None)
-        kwargs.pop("delegate")
+        delegate = kwargs.pop("delegate", False)
 
         _inject_brain_secrets(ctx)
         _get_similarity_backend(backend).parse_parameters(ctx, kwargs)
+
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 0
 
         target_view = _get_target_view(ctx, target)
         fob.compute_similarity(
@@ -165,6 +183,9 @@ class ComputeSimilarity(foo.Operator):
             embeddings=embeddings,
             brain_key=brain_key,
             model=model,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            skip_failures=skip_failures,
             backend=backend,
             **kwargs,
         )
@@ -416,6 +437,14 @@ class ComputeUniqueness(foo.Operator):
         roi_field = ctx.params.get("roi_field", None)
         embeddings = ctx.params.get("embeddings", None)
         model = ctx.params.get("model", None)
+        batch_size = ctx.params.get("batch_size", None)
+        num_workers = ctx.params.get("num_workers", None)
+        skip_failures = ctx.params.get("skip_failures", True)
+        delegate = ctx.params.get("delegate", False)
+
+        # No multiprocessing allowed when running synchronously
+        if not delegate:
+            num_workers = 0
 
         target_view = _get_target_view(ctx, target)
         fob.compute_uniqueness(
@@ -424,7 +453,11 @@ class ComputeUniqueness(foo.Operator):
             roi_field=roi_field,
             embeddings=embeddings,
             model=model,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            skip_failures=skip_failures,
         )
+
         ctx.trigger("reload_dataset")
 
 
@@ -825,18 +858,21 @@ def get_embeddings(ctx, inputs, view, patches_field):
         if model is not None:
             inputs.int(
                 "batch_size",
+                default=None,
                 label="Batch size",
                 description=(
-                    "A batch size to use when computing embeddings. Some "
-                    "models may not support batching"
+                    "A batch size to use when computing embeddings "
+                    "(if applicable)"
                 ),
             )
 
             inputs.int(
                 "num_workers",
+                default=None,
                 label="Num workers",
                 description=(
-                    "The number of workers to use for Torch data loaders"
+                    "A number of workers to use for Torch data loaders "
+                    "(if applicable)"
                 ),
             )
 
