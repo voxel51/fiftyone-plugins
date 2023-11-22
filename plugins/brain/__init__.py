@@ -861,8 +861,8 @@ def get_embeddings(ctx, inputs, view, patches_field):
                 default=None,
                 label="Batch size",
                 description=(
-                    "A batch size to use when computing embeddings. Some "
-                    "models may not support batching"
+                    "A batch size to use when computing embeddings "
+                    "(if applicable)"
                 ),
             )
 
@@ -871,7 +871,8 @@ def get_embeddings(ctx, inputs, view, patches_field):
                 default=None,
                 label="Num workers",
                 description=(
-                    "The number of workers to use for Torch data loaders"
+                    "A number of workers to use for Torch data loaders "
+                    "(if applicable)"
                 ),
             )
 
