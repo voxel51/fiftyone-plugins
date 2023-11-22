@@ -671,8 +671,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         default=None,
         label="Batch size",
         description=(
-            "A batch size to use when performing inference, if the model "
-            "supports it"
+            "A batch size to use when performing inference (if applicable)"
         ),
     )
 
@@ -680,7 +679,10 @@ def _apply_zoo_model_inputs(ctx, inputs):
         "num_workers",
         default=None,
         label="Num workers",
-        description="The number of workers to use for Torch data loaders",
+        description=(
+            "The number of workers to use for Torch data loaders "
+            "(if applicable)"
+        ),
     )
 
     inputs.bool(
