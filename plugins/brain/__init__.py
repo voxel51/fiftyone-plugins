@@ -51,9 +51,9 @@ class ComputeVisualization(foo.Operator):
     def execute(self, ctx):
         target = ctx.params.get("target", None)
         patches_field = ctx.params.get("patches_field", None)
-        embeddings = ctx.params.get("embeddings", None)
-        brain_key = ctx.params.get("brain_key")
-        model = ctx.params.get("model", None)
+        embeddings = ctx.params.get("embeddings", None) or None
+        brain_key = ctx.params["brain_key"]
+        model = ctx.params.get("model", None) or None
         method = ctx.params.get("method", None)
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
@@ -160,9 +160,9 @@ class ComputeSimilarity(foo.Operator):
         kwargs = ctx.params.copy()
         target = kwargs.pop("target", None)
         patches_field = kwargs.pop("patches_field", None)
-        embeddings = kwargs.pop("embeddings", None)
+        embeddings = kwargs.pop("embeddings", None) or None
         brain_key = kwargs.pop("brain_key")
-        model = kwargs.pop("model", None)
+        model = kwargs.pop("model", None) or None
         batch_size = kwargs.pop("batch_size", None)
         num_workers = kwargs.pop("num_workers", None)
         skip_failures = kwargs.pop("skip_failures", True)
@@ -433,10 +433,10 @@ class ComputeUniqueness(foo.Operator):
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
-        uniqueness_field = ctx.params.get("uniqueness_field")
+        uniqueness_field = ctx.params["uniqueness_field"]
         roi_field = ctx.params.get("roi_field", None)
-        embeddings = ctx.params.get("embeddings", None)
-        model = ctx.params.get("model", None)
+        embeddings = ctx.params.get("embeddings", None) or None
+        model = ctx.params.get("model", None) or None
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
@@ -795,6 +795,7 @@ def brain_init(ctx, inputs):
 
         inputs.str(
             "patches_field",
+            default=None,
             label="Patches field",
             description=(
                 "An optional sample field defining the image patches in each "
@@ -827,6 +828,7 @@ def get_embeddings(ctx, inputs, view, patches_field):
 
     inputs.str(
         "embeddings",
+        default=None,
         label="Embeddings",
         description=(
             "An optional sample field containing pre-computed embeddings to "
@@ -839,12 +841,15 @@ def get_embeddings(ctx, inputs, view, patches_field):
     embeddings = ctx.params.get("embeddings", None)
 
     if embeddings not in embeddings_fields:
-        model_choices = types.DropdownView()
+        model_choices = types.AutocompleteView()
         for name in sorted(_get_zoo_models()):
             model_choices.add_choice(name, label=name)
 
-        inputs.str(
+        inputs.enum(
             "model",
+            model_choices.values(),
+            default=None,
+            required=False,
             label="Model",
             description=(
                 "An optional name of a model from the FiftyOne Model Zoo to "
@@ -855,7 +860,7 @@ def get_embeddings(ctx, inputs, view, patches_field):
 
         model = ctx.params.get("model", None)
 
-        if model is not None:
+        if model:
             inputs.int(
                 "batch_size",
                 default=None,
