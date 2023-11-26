@@ -221,6 +221,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/danielgural/semantic_video_search">@danielgural/semantic_video_search</a></b></td>
         <td><img src="https://github.com/danielgural/semantic_video_search/blob/main/assets/search.svg" width="14" height="14" alt="filter icon"> Semantically search through your video datasets using FiftyOne Brain and Twelve Labs!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/ehofesmann/edit_label_attributes">@ehofesmann/edit_label_attributes</a></b></td>
+        <td>✏️ Edit attributes of your labels directly in the FiftyOne App!</td>
+    </tr>    
 </table>
 
 ## Using Plugins
