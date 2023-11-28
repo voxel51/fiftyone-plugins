@@ -226,7 +226,7 @@ Want to showcase your own plugin here? See the
         <td>😏 Semantically search emojis and copy to clipboard!</td>
     </tr>
         <tr>
-        <td><b><a href="https://github.com/danielgural/img_to_video_plugin">@jdanielgural/img_to_video</a></b></td>
+        <td><b><a href="https://github.com/danielgural/img_to_video_plugin">@danielgural/img_to_video</a></b></td>
         <td>🦋 Bring images to life with image to video!</td>
     </tr>
 </table>
