@@ -225,6 +225,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/emoji-search-plugin">@jacobmarks/emoji_search</a></b></td>
         <td>😏 Semantically search emojis and copy to clipboard!</td>
     </tr>
+        <tr>
+        <td><b><a href="https://github.com/danielgural/img_to_video_plugin">@jdanielgural/img_to_video</a></b></td>
+        <td>🦋 Bring images to life with image to video!</td>
+    </tr>
 </table>
 
 ## Using Plugins
