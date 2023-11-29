@@ -1187,7 +1187,6 @@ def _execution_mode(ctx, inputs):
     inputs.bool(
         "delegate",
         default=False,
-        required=True,
         label="Delegate execution?",
         description=description,
         view=types.CheckboxView(),
