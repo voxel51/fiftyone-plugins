@@ -39,9 +39,20 @@ session = fo.launch_app(dataset)
 
 You can use this operator to view, create, and delete database indexes.
 
-This operator is a wrapper around the following dataset methods:
+This operator is a wrapper around the
+[list_indexes()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.list_indexes),
+[get_index_information()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.get_index_information),
+[create_index()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.create_index),
+and
+[drop_index()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.drop_index)
+methods:
 
--   [list_indexes()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.list_indexes)
--   [get_index_information()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.get_index_information)
--   [create_index()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.create_index)
--   [drop_index()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.drop_index)
+```py
+dataset.create_index("uniqueness")
+dataset.create_index("ground_truth.detections.label")
+
+print(dataset.list_indexes())
+
+dataset.drop_index("uniqueness")
+dataset.drop_index("ground_truth.detections.label")
+```
