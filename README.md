@@ -138,8 +138,8 @@ Want to showcase your own plugin here? See the
         <td>📈 Find images that best interpolate between two text-based extremes!</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/jacobmarks/ai-art-gallery">@jacobmarks/ai_art_gallery</a></b></td>
-        <td>🎨 Create your own AI Art Gallery with Text-to-image models and FiftyOne!</td>
+        <td><b><a href="https://github.com/jacobmarks/text-to-image">@jacobmarks/text_to_image</a></b></td>
+        <td>🎨 Add synthetic data from prompts with text-to-image models and FiftyOne!</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/twilio-automation-plugin">@jacobmarks/twilio_automation</a></b></td>
