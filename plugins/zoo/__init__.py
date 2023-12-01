@@ -60,7 +60,7 @@ class LoadZooDataset(foo.Operator):
         )
         dataset.persistent = True
 
-        ctx.trigger("open_dataset", dict(name=dataset.name))
+        ctx.trigger("open_dataset", dict(dataset=dataset.name))
 
 
 def _get_zoo_datasets():
