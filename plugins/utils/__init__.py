@@ -960,7 +960,7 @@ class RenameDataset(foo.Operator):
 
         if ctx.dataset.name == name:
             ctx.dataset.name = new_name
-            ctx.trigger("open_dataset", dict(name=new_name))
+            ctx.trigger("open_dataset", dict(dataset=new_name))
         else:
             dataset = fo.load_dataset(name)
             dataset.name = new_name
@@ -1492,7 +1492,6 @@ def _execution_mode(ctx, inputs):
     inputs.bool(
         "delegate",
         default=False,
-        required=True,
         label="Delegate execution?",
         description=description,
         view=types.CheckboxView(),
