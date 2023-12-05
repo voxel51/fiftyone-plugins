@@ -229,6 +229,9 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/danielgural/img_to_video_plugin">@danielgural/img_to_video</a></b></td>
         <td>🦋 Bring images to life with image to video!</td>
     </tr>
+        <td><b><a href="https://github.com/ehofesmann/edit_label_attributes">@ehofesmann/edit_label_attributes</a></b></td>
+        <td>✏️ Edit attributes of your labels directly in the FiftyOne App!</td>
+    </tr>        
 </table>
 
 ## Using Plugins
