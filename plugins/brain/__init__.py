@@ -235,6 +235,18 @@ def _get_similarity_backend(backend):
     if backend == "qdrant":
         return QdrantBackend(backend)
 
+    if backend == "milvus":
+        return MilvusBackend(backend)
+
+    if backend == "lancedb":
+        return LanceDBBackend(backend)
+
+    if backend == "redis":
+        return RedisBackend(backend)
+
+    if backend == "mongodb":
+        return MongoDBBackend(backend)
+
     return SimilarityBackend(backend)
 
 
@@ -286,6 +298,14 @@ class PineconeBackend(SimilarityBackend):
             ),
         )
 
+        inputs.str(
+            "index_name",
+            label="Index name",
+            description=(
+                "An optional name of a Pinecone index to use or create"
+            ),
+        )
+
         metric_choices = types.DropdownView()
         metric_choices.add_choice("cosine", label="cosine")
         metric_choices.add_choice("dotproduct", label="dotproduct")
@@ -297,17 +317,13 @@ class PineconeBackend(SimilarityBackend):
             default="cosine",
             required=True,
             label="Metric",
-            description="The embedding distance metric to use",
+            description=(
+                "The embedding distance metric to use when creating a new "
+                "index"
+            ),
             view=metric_choices,
         )
 
-        inputs.str(
-            "index_name",
-            label="Index name",
-            description=(
-                "An optional name of a Pinecone index to use or create"
-            ),
-        )
         inputs.str(
             "index_type",
             label="Index type",
@@ -360,6 +376,14 @@ class QdrantBackend(SimilarityBackend):
             ),
         )
 
+        inputs.str(
+            "collection_name",
+            label="Collection name",
+            description=(
+                "An optional name of a Qdrant collection to use or create"
+            ),
+        )
+
         metric_choices = types.DropdownView()
         metric_choices.add_choice("cosine", label="cosine")
         metric_choices.add_choice("dotproduct", label="dotproduct")
@@ -371,17 +395,13 @@ class QdrantBackend(SimilarityBackend):
             default="cosine",
             required=True,
             label="Metric",
-            description="The embedding distance metric to use",
+            description=(
+                "The embedding distance metric to use when creating a new "
+                "collection"
+            ),
             view=metric_choices,
         )
 
-        inputs.str(
-            "collection_name",
-            label="Collection name",
-            description=(
-                "An optional name of a Qdrant collection to use or create"
-            ),
-        )
         inputs.str(
             "replication_factor",
             label="Replication factor",
@@ -404,6 +424,188 @@ class QdrantBackend(SimilarityBackend):
                 "An optional write consistency factor to use when creating a "
                 "new index"
             ),
+        )
+
+
+class MilvusBackend(SimilarityBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.view(
+            "milvus",
+            types.Header(
+                label="Milvus options",
+                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                divider=True,
+            ),
+        )
+
+        inputs.str(
+            "collection_name",
+            label="Collection name",
+            description=(
+                "An optional name of a Milvus collection to use or create"
+            ),
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("dotproduct", label="dotproduct")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="dotproduct",
+            required=True,
+            label="Metric",
+            description=(
+                "The embedding distance metric to use when creating a new "
+                "collection"
+            ),
+            view=metric_choices,
+        )
+
+        consistency_level_choices = types.DropdownView()
+        consistency_level_choices.add_choice("Session", label="Session")
+        consistency_level_choices.add_choice("Strong", label="Strong")
+        consistency_level_choices.add_choice("Bounded", label="Bounded")
+        consistency_level_choices.add_choice("Eventually", label="Eventually")
+
+        inputs.enum(
+            "consistency_level",
+            consistency_level_choices.values(),
+            default="Session",
+            required=True,
+            label="Consistency level",
+            description="The consistency level to use.",
+            view=consistency_level_choices,
+        )
+
+
+class LanceDBBackend(SimilarityBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.view(
+            "lancedb",
+            types.Header(
+                label="LanceDB options",
+                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                divider=True,
+            ),
+        )
+
+        inputs.str(
+            "table_name",
+            label="Table name",
+            description=(
+                "An optional name of a LanceDB table to use or create"
+            ),
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("cosine", label="cosine")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="cosine",
+            required=True,
+            label="Metric",
+            description=(
+                "The embedding distance metric to use when creating a new "
+                "table"
+            ),
+            view=metric_choices,
+        )
+
+
+class RedisBackend(SimilarityBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.view(
+            "redis",
+            types.Header(
+                label="Redis options",
+                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                divider=True,
+            ),
+        )
+
+        inputs.str(
+            "index_name",
+            label="Index name",
+            description="An optional name of a Redis index to use or create",
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("cosine", label="cosine")
+        metric_choices.add_choice("dotproduct", label="dotproduct")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="cosine",
+            required=True,
+            label="Metric",
+            description=(
+                "The embedding distance metric to use when creating a new "
+                "index"
+            ),
+            view=metric_choices,
+        )
+
+        algorithm_choices = types.DropdownView()
+        algorithm_choices.add_choice("FLAT", label="FLAT")
+        algorithm_choices.add_choice("HNSW", label="HNSW")
+
+        inputs.enum(
+            "algorithm",
+            algorithm_choices.values(),
+            default="FLAT",
+            required=True,
+            label="Algorithm",
+            description=(
+                "The search algorithm to use when creating a new index"
+            ),
+            view=algorithm_choices,
+        )
+
+
+class MongoDBBackend(SimilarityBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.view(
+            "mongodb",
+            types.Header(
+                label="MongoDB options",
+                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                divider=True,
+            ),
+        )
+
+        inputs.str(
+            "index_name",
+            label="Index name",
+            required=True,
+            description=(
+                "An optional name of a MongoDB vector search index to use or "
+                "create"
+            ),
+        )
+
+        metric_choices = types.DropdownView()
+        metric_choices.add_choice("cosine", label="cosine")
+        metric_choices.add_choice("dotproduct", label="dotproduct")
+        metric_choices.add_choice("euclidean", label="euclidean")
+
+        inputs.enum(
+            "metric",
+            metric_choices.values(),
+            default="cosine",
+            required=True,
+            label="Metric",
+            description=(
+                "The embedding distance metric to use when creating a new "
+                "index"
+            ),
+            view=metric_choices,
         )
 
 
