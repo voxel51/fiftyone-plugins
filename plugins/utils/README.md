@@ -131,6 +131,27 @@ fo.delete_dataset(name)
 where the operator's form allows you to configure the name of the dataset to
 delete.
 
+### delete_samples
+
+You can use this operator to delete samples from a dataset in the App.
+
+This operator is essentially a wrapper around the
+[delete_samples()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.delete_samples)
+method:
+
+```py
+# Delete the currently selected samples
+dataset.delete_samples(session.selected)
+
+# Delete the current view
+datast.delete_samples(session.view)
+
+# Delete all samples
+dataset.clear()
+```
+
+where the operator's form allows you to choose which samples to delete.
+
 ### compute_metadata
 
 You can use this operator to populate the `metadata` field of a collection.

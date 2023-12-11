@@ -11,5 +11,6 @@ operators:
   - edit_dataset_info
   - rename_dataset
   - delete_dataset
+  - delete_samples
   - compute_metadata
   - generate_thumbnails

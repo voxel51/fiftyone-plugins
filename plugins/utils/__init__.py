@@ -1004,6 +1004,91 @@ class DeleteDataset(foo.Operator):
         fo.delete_dataset(name)
 
 
+class DeleteSamples(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delete_samples",
+            label="Delete samples",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _delete_samples_inputs(ctx, inputs)
+
+        return types.Property(inputs, view=types.View(label="Delete samples"))
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        view = _get_target_view(ctx, target)
+
+        if isinstance(view, fo.Dataset):
+            ctx.dataset.clear()
+        else:
+            ctx.dataset.delete_samples(view)
+
+        ctx.trigger("reload_dataset")
+
+
+def _delete_samples_inputs(ctx, inputs):
+    has_view = ctx.view != ctx.dataset.view()
+    has_selected = bool(ctx.selected)
+    default_target = None
+    if has_view or has_selected:
+        target_choices = types.RadioGroup()
+        target_choices.add_choice(
+            "DATASET",
+            label="Entire dataset",
+            description="Delete all samples",
+        )
+
+        if has_view:
+            target_choices.add_choice(
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Delete the samples in the current view",
+            )
+            default_target = "CURRENT_VIEW"
+
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Delete the selected samples",
+            )
+            default_target = "SELECTED_SAMPLES"
+
+        inputs.enum(
+            "target",
+            target_choices.values(),
+            default=default_target,
+            view=target_choices,
+        )
+
+    target = ctx.params.get("target", default_target)
+    target_view = _get_target_view(ctx, target)
+
+    count = len(target_view)
+    if count > 0:
+        sample_text = "sample" if count == 1 else "samples"
+        inputs.str(
+            "msg",
+            label=f"Delete {count} {sample_text}?",
+            view=types.Warning(),
+        )
+    else:
+        prop = inputs.str(
+            "msg",
+            label="There are no samples to delete",
+            view=types.Warning(),
+        )
+        prop.invalid = True
+
+
 class ComputeMetadata(foo.Operator):
     @property
     def config(self):
@@ -1518,5 +1603,6 @@ def register(p):
     p.register(EditDatasetInfo)
     p.register(RenameDataset)
     p.register(DeleteDataset)
+    p.register(DeleteSamples)
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
