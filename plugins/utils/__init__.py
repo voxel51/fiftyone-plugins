@@ -35,7 +35,7 @@ class CreateDataset(foo.Operator):
         name_prop = inputs.str(
             "name",
             required=False,
-            label="Dataset name",
+            label="Name",
             description=(
                 "Choose a name for the dataset. If omitted, a randomly "
                 "generated name will be used"
@@ -47,6 +47,21 @@ class CreateDataset(foo.Operator):
         if name and fo.dataset_exists(name):
             name_prop.invalid = True
             name_prop.error_message = f"Dataset {name} already exists"
+
+        inputs.str(
+            "description",
+            required=False,
+            label="Description",
+            description="An optional description for the dataset",
+        )
+
+        inputs.list(
+            "tags",
+            types.String(),
+            required=False,
+            label="Tags",
+            description="An optional list of tags for the dataset",
+        )
 
         inputs.bool(
             "persistent",
@@ -61,9 +76,18 @@ class CreateDataset(foo.Operator):
 
     def execute(self, ctx):
         name = ctx.params.get("name", None) or None
+        description = ctx.params.get("description", None)
+        tags = ctx.params.get("tags", None)
         persistent = ctx.params.get("persistent", False)
 
         dataset = fo.Dataset(name, persistent=persistent)
+
+        if description:
+            dataset.description = description
+
+        if tags:
+            dataset.tags = tags
+
         ctx.trigger("open_dataset", dict(dataset=dataset.name))
 
 
