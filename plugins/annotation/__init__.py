@@ -867,12 +867,10 @@ class V7Backend(AnnotationBackend):
             ),
         )
         inputs.str(
-            "dataset_slug",
+            "dataset_name",
             default=None,
             label="Dataset name",
-            description=(
-                "An optional name of a dataset to use or create on Darwin"
-            ),
+            description="The name of the dataset to use or create on Darwin",
         )
         inputs.str(
             "external_storage",
