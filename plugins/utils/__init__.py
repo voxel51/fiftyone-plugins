@@ -1125,6 +1125,21 @@ class ComputeMetadata(foo.Operator):
             execute_as_generator=True,
         )
 
+    def __call__(
+        self,
+        sample_collection,
+        overwrite=False,
+        num_workers=None,
+        delegate=False,
+    ):
+        ctx = dict(view=sample_collection.view())
+        params = dict(
+            overwrite=overwrite,
+            num_workers=num_workers,
+            delegate=delegate,
+        )
+        return foo.execute_operator(self.uri, ctx, params=params)
+
     def resolve_input(self, ctx):
         inputs = types.Object()
 
