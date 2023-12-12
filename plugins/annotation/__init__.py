@@ -867,9 +867,9 @@ class V7Backend(AnnotationBackend):
             ),
         )
         inputs.str(
-            "dataset_name",
+            "dataset_slug",
             default=None,
-            label="Dataset name",
+            label="Dataset slug",
             description="The name of the dataset to use or create on Darwin",
         )
         inputs.str(
