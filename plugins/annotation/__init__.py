@@ -32,6 +32,8 @@ class RequestAnnotations(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
+        _inject_annotation_secrets(ctx)
+
         ready = request_annotations(ctx, inputs)
         if ready:
             _execution_mode(ctx, inputs)
