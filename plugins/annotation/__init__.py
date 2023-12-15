@@ -1192,27 +1192,23 @@ def get_anno_key(ctx, inputs, show_default=True):
     return ctx.params.get("anno_key", None)
 
 
+_ANNOTATION_BACKENDS = [
+    ("cvat", "FIFTYONE_CVAT_"),
+    ("labelbox", "FIFTYONE_LABELBOX_"),
+    ("labelstudio", "FIFTYONE_LABELSTUDIO_"),
+    ("darwin", "FIFTYONE_DARWIN_"),
+]
+
+
 def _inject_annotation_secrets(ctx):
     for key, value in getattr(ctx, "secrets", {}).items():
-        # FIFTYONE_CVAT_[UPPER_KEY]
-        if key.startswith("FIFTYONE_CVAT_"):
-            _key = key[len("FIFTYONE_CVAT_") :].lower()
-            fo.annotation_config.backends["cvat"][_key] = value
+        for backend, prefix in _ANNOTATION_BACKENDS:
+            if key.startswith(prefix):
+                if backend not in fo.annotation_config.backends:
+                    fo.annotation_config.backends[backend] = {}
 
-        # FIFTYONE_LABELBOX_[UPPER_KEY]
-        if key.startswith("FIFTYONE_LABELBOX_"):
-            _key = key[len("FIFTYONE_LABELBOX_") :].lower()
-            fo.annotation_config.backends["labelbox"][_key] = value
-
-        # FIFTYONE_LABELSTUDIO_[UPPER_KEY]
-        if key.startswith("FIFTYONE_LABELSTUDIO_"):
-            _key = key[len("FIFTYONE_LABELSTUDIO_") :].lower()
-            fo.annotation_config.backends["labelstudio"][_key] = value
-
-        # FIFTYONE_DARWIN_[UPPER_KEY]
-        if key.startswith("FIFTYONE_DARWIN_"):
-            _key = key[len("FIFTYONE_DARWIN_") :].lower()
-            fo.annotation_config.backends["darwin"][_key] = value
+                _key = key[len(prefix) :].lower()
+                fo.annotation_config.backends[backend][_key] = value
 
 
 def _execution_mode(ctx, inputs):
