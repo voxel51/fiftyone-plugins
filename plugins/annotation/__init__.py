@@ -1203,7 +1203,7 @@ _ANNOTATION_BACKENDS = [
 def _inject_annotation_secrets(ctx):
     for key, value in getattr(ctx, "secrets", {}).items():
         for backend, prefix in _ANNOTATION_BACKENDS:
-            if key.startswith(prefix):
+            if key.startswith(prefix) and value:
                 if backend not in fo.annotation_config.backends:
                     fo.annotation_config.backends[backend] = {}
 
