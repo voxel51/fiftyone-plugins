@@ -200,7 +200,10 @@ def get_annotation_backend(ctx, inputs):
             description = "Data labeling platform"
         elif backend == "labelstudio":
             label = "Label Studio"
-            description = "Multi-type data labeling and annotation tool"
+            description = "Open source data labeling tool"
+        elif backend == "darwin":
+            label = "V7"
+            description = "AI data engine"
         else:
             label = backend
             description = None
@@ -241,6 +244,9 @@ def _get_backend(backend):
 
     if backend == "labelstudio":
         return LabelStudioBackend(backend)
+
+    if backend == "darwin":
+        return V7Backend(backend)
 
     return AnnotationBackend(backend)
 
@@ -850,6 +856,34 @@ class LabelStudioBackend(AnnotationBackend):
         )
 
 
+class V7Backend(AnnotationBackend):
+    def get_parameters(self, ctx, inputs):
+        inputs.str(
+            "v7_header",
+            view=types.Header(
+                label="V7 options",
+                description="https://docs.voxel51.com/integrations/v7.html#requesting-annotations",
+                divider=True,
+            ),
+        )
+        inputs.str(
+            "dataset_slug",
+            default=None,
+            label="Dataset slug",
+            description="The name of the dataset to use or create on Darwin",
+        )
+        inputs.str(
+            "external_storage",
+            default=None,
+            label="External storage",
+            description=(
+                "An optional sluggified name of the Darwin external storage "
+                "to use. Indicates that all files should be treated as "
+                "external storage"
+            ),
+        )
+
+
 class LoadAnnotations(foo.Operator):
     @property
     def config(self):
@@ -1174,6 +1208,11 @@ def _inject_annotation_secrets(ctx):
         if key.startswith("FIFTYONE_LABELSTUDIO_"):
             _key = key[len("FIFTYONE_LABELSTUDIO_") :].lower()
             fo.annotation_config.backends["labelstudio"][_key] = value
+
+        # FIFTYONE_DARWIN_[UPPER_KEY]
+        if key.startswith("FIFTYONE_DARWIN_"):
+            _key = key[len("FIFTYONE_DARWIN_") :].lower()
+            fo.annotation_config.backends["darwin"][_key] = value
 
 
 def _execution_mode(ctx, inputs):
