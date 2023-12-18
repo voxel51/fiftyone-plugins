@@ -1134,6 +1134,30 @@ class ComputeMetadata(foo.Operator):
         num_workers=None,
         delegate=False,
     ):
+        """Populates the ``metadata`` field for the given sample collection.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            compute_metadata = foo.get_operator("@voxel51/utils/compute_metadata")
+
+            # Run immediately
+            compute_metadata(dataset)
+
+            # Delegate computation and overwrite existing values
+            compute_metadata(dataset, overwrite=True, delegate=True)
+
+        Args:
+            sample_collection: a
+                :class:`fiftyone.core.collections.SampleCollection`
+            overwrite (False): whether to overwrite existing metadata
+            num_workers (None): a suggested number of threads to use
+            delegate (False): whether to delegate execution
+        """
         ctx = dict(view=sample_collection.view())
         params = dict(
             overwrite=overwrite,
