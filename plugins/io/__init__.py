@@ -46,6 +46,7 @@ class ImportSamples(foo.Operator):
         tags=None,
         dynamic=False,
         delegate=False,
+        delegation_target=None,
         **kwargs,
     ):
         """Imports the specified media and/or labels into the given dataset.
@@ -111,11 +112,16 @@ class ImportSamples(foo.Operator):
             dynamic (False): whether to declare dynamic attributes of embedded
                 document fields that are encountered when importing labels
             delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
             **kwargs: optional keyword arguments to pass to the constructor of
                 the :class:`fiftyone.utils.data.importers.DatasetImporter` for
                 the specified ``dataset_type``
         """
         ctx = dict(dataset=dataset)
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
         params = dict(
             label_field=label_field,
             label_types=_to_list(label_types),
@@ -1530,6 +1536,7 @@ class ExportSamples(foo.Operator):
         label_field=None,
         overwrite=False,
         delegate=False,
+        delegation_target=None,
         **kwargs,
     ):
         """Exports the specified media and/or/labels from the given sample
@@ -1551,6 +1558,7 @@ class ExportSamples(foo.Operator):
                 labels_path="/tmp/labels.json",
                 label_field="ground_truth",
                 abs_paths=True,
+                delegate=True,
             )
 
             # Export filepaths
@@ -1560,6 +1568,7 @@ class ExportSamples(foo.Operator):
                 labels_path="/tmp/filepaths.csv",
                 fields=["filepath"],
                 abs_paths=True,
+                delegate=True,
             )
 
             # Export a view
@@ -1659,6 +1668,8 @@ class ExportSamples(foo.Operator):
                 performing the export (True) or to merge the export with
                 existing files and directories (False)
             delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
             **kwargs: optional keyword arguments to pass to the dataset
                 exporter's constructor. If you are exporting image patches,
                 this can also contain keyword arguments for
@@ -1668,6 +1679,9 @@ class ExportSamples(foo.Operator):
             ctx = dict(view=sample_collection)
         else:
             ctx = dict(dataset=sample_collection)
+
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
 
         dataset_type = _get_dataset_type_label(dataset_type)
 

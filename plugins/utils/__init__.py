@@ -1133,6 +1133,7 @@ class ComputeMetadata(foo.Operator):
         overwrite=False,
         num_workers=None,
         delegate=False,
+        delegation_target=None,
     ):
         """Populates the ``metadata`` field for the given sample collection.
 
@@ -1157,8 +1158,17 @@ class ComputeMetadata(foo.Operator):
             overwrite (False): whether to overwrite existing metadata
             num_workers (None): a suggested number of threads to use
             delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
         """
-        ctx = dict(view=sample_collection.view())
+        if isinstance(sample_collection, fo.DatasetView):
+            ctx = dict(view=sample_collection)
+        else:
+            ctx = dict(dataset=sample_collection)
+
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
         params = dict(
             overwrite=overwrite,
             num_workers=num_workers,
@@ -1390,6 +1400,7 @@ class GenerateThumbnails(foo.Operator):
         overwrite=False,
         num_workers=None,
         delegate=False,
+        delegation_target=None,
     ):
         """Generates thumbnail images for the given sample collection.
 
@@ -1434,8 +1445,17 @@ class GenerateThumbnails(foo.Operator):
             overwrite (False): whether to overwrite existing thumbnail images
             num_workers (None): a suggested number of worker processes to use
             delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
         """
-        ctx = dict(view=sample_collection.view())
+        if isinstance(sample_collection, fo.DatasetView):
+            ctx = dict(view=sample_collection)
+        else:
+            ctx = dict(dataset=sample_collection)
+
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
         params = dict(
             thumbnail_path=thumbnail_path,
             output_dir={"absolute_path": output_dir},
@@ -1740,7 +1760,15 @@ class Delegate(foo.Operator):
             unlisted=True,
         )
 
-    def __call__(self, fcn, dataset=None, view=None, *args, **kwargs):
+    def __call__(
+        self,
+        fcn,
+        dataset=None,
+        view=None,
+        delegation_target=None,
+        *args,
+        **kwargs,
+    ):
         """Delegates execution of an arbitrary function.
 
         Example usage::
@@ -1799,12 +1827,18 @@ class Delegate(foo.Operator):
 
             dataset (None): a :class:`fiftyone.core.dataset.Dataset`
             view (None): a :class:`fiftyone.core.view.DatasetView`
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
             *args: JSON-serializable positional arguments for the function
             **kwargs: JSON-serializable keyword arguments for the function
         """
+        ctx = dict(dataset=dataset, view=view)
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
         has_dataset = dataset is not None
         has_view = view is not None
-        ctx = dict(dataset=dataset, view=view)
+
         params = dict(
             fcn=fcn,
             has_dataset=has_dataset,
