@@ -1380,6 +1380,73 @@ class GenerateThumbnails(foo.Operator):
             dynamic=True,
         )
 
+    def __call__(
+        self,
+        sample_collection,
+        thumbnail_path,
+        output_dir,
+        width=None,
+        height=None,
+        overwrite=False,
+        num_workers=None,
+        delegate=False,
+    ):
+        """Generates thumbnail images for the given sample collection.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            generate_thumbnails = foo.get_operator("@voxel51/utils/generate_thumbnails")
+
+            # Run immediately
+            generate_thumbnails(dataset, "thumbnail_path", "/tmp/thumbnails", height=64)
+
+            # Delegate computation and overwrite existing images
+            generate_thumbnails(
+                dataset,
+                "thumbnail_path",
+                "/tmp/thumbnails",
+                height=32,
+                overwrite=True,
+                delegate=True,
+            )
+
+        Args:
+            sample_collection: a
+                :class:`fiftyone.core.collections.SampleCollection`
+            thumbnail_path: an optional field in which to store the paths to
+                the transformed images. By default, ``media_field`` is updated
+                in-place
+            output_dir: the directory in which to write the generated
+                thumbnails
+            width (None): an optional ``width`` for each thumbnail, in pixels.
+                If omitted, the appropriate aspect-preserving value is computed
+                from the provided ``height``. At least one of ``width`` and
+                ``height`` must be provided
+            height (None): an optional ``height`` for each thumbnail, in pixels.
+                If omitted, the appropriate aspect-preserving value is computed
+                from the provided ``width``. At least one of ``width`` and
+                ``height`` must be provided
+            overwrite (False): whether to overwrite existing thumbnail images
+            num_workers (None): a suggested number of worker processes to use
+            delegate (False): whether to delegate execution
+        """
+        ctx = dict(view=sample_collection.view())
+        params = dict(
+            thumbnail_path=thumbnail_path,
+            output_dir={"absolute_path": output_dir},
+            width=width,
+            height=height,
+            overwrite=overwrite,
+            num_workers=num_workers,
+            delegate=delegate,
+        )
+        return foo.execute_operator(self.uri, ctx, params=params)
+
     def resolve_input(self, ctx):
         inputs = types.Object()
 
