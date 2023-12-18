@@ -14,3 +14,4 @@ operators:
   - delete_samples
   - compute_metadata
   - generate_thumbnails
+  - delegate

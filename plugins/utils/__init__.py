@@ -9,6 +9,8 @@ import contextlib
 import json
 import multiprocessing.dummy
 
+import eta.core.utils as etau
+
 import fiftyone as fo
 import fiftyone.core.media as fom
 import fiftyone.core.metadata as fomm
@@ -1636,6 +1638,119 @@ def _execution_mode(ctx, inputs):
         )
 
 
+class Delegate(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delegate",
+            label="Delegate",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            unlisted=True,
+        )
+
+    def __call__(self, fcn, dataset=None, view=None, *args, **kwargs):
+        """Delegates execution of an arbitrary function.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            delegate = foo.get_operator("@voxel51/utils/delegate")
+
+            # Compute metadata
+            delegate("compute_metadata", dataset=dataset)
+
+            # Compute visualization
+            delegate(
+                "fiftyone.brain.compute_visualization",
+                dataset=dataset,
+                brain_key="img_viz",
+            )
+
+            # Export a view
+            delegate(
+                "export",
+                view=dataset.to_patches("ground_truth"),
+                export_dir="/tmp/patches",
+                dataset_type="fiftyone.types.ImageClassificationDirectoryTree",
+                label_field="ground_truth",
+            )
+
+            # Load the exported patches into a new dataset
+            delegate(
+                "fiftyone.Dataset.from_dir",
+                dataset_dir="/tmp/patches",
+                dataset_type="fiftyone.types.ImageClassificationDirectoryTree",
+                label_field="ground_truth",
+                name="patches",
+                persistent=True,
+            )
+
+        Args:
+            fcn: the function to call, which can be either of the following:
+
+                (a) the ``"fully.qualified.name"`` of a function to call with
+                    the appropriate syntax below:
+
+                -   ``fcn(dataset, *args, **kwargs)``: if a dataset is provided
+                -   ``fcn(view, *args, **kwargs)``: if a view is provided
+                -   ``fcn(*args, **kwargs)``: if neither is provided
+
+                (b) the string name of an instance method on the provided
+                    collection to call with the appropriate syntax below:
+
+                -   ``dataset.fcn(*args, **kwargs)``: if a dataset is provided
+                -   ``view.fcn(*args, **kwargs)``: if a view is provided
+
+            dataset (None): a :class:`fiftyone.core.dataset.Dataset`
+            view (None): a :class:`fiftyone.core.view.DatasetView`
+            *args: JSON-serializable positional arguments for the function
+            **kwargs: JSON-serializable keyword arguments for the function
+        """
+        has_dataset = dataset is not None
+        has_view = view is not None
+        ctx = dict(dataset=dataset, view=view)
+        params = dict(
+            fcn=fcn,
+            has_dataset=has_dataset,
+            has_view=has_view,
+            args=args,
+            kwargs=kwargs,
+        )
+        return foo.execute_operator(self.uri, ctx, params=params)
+
+    def resolve_delegation(self, ctx):
+        return True
+
+    def execute(self, ctx):
+        fcn = ctx.params["fcn"]
+        has_dataset = ctx.params["has_dataset"]
+        has_view = ctx.params["has_view"]
+        args = ctx.params["args"]
+        kwargs = ctx.params["kwargs"]
+
+        if has_view:
+            sample_collection = ctx.view
+        elif has_dataset:
+            sample_collection = ctx.dataset
+        else:
+            sample_collection = None
+
+        if sample_collection is None:
+            fcn = etau.get_function(fcn)
+            fcn(*args, **kwargs)
+        elif "." in fcn:
+            fcn = etau.get_function(fcn)
+            fcn(sample_collection, *args, **kwargs)
+        else:
+            fcn = getattr(sample_collection, fcn)
+            fcn(*args, **kwargs)
+
+
 def register(p):
     p.register(CreateDataset)
     p.register(LoadDataset)
@@ -1645,3 +1760,4 @@ def register(p):
     p.register(DeleteSamples)
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
+    p.register(Delegate)
