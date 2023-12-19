@@ -231,6 +231,10 @@ Want to showcase your own plugin here? See the
     </tr>
         <td><b><a href="https://github.com/ehofesmann/edit_label_attributes">@ehofesmann/edit_label_attributes</a></b></td>
         <td>✏️ Edit attributes of your labels directly in the FiftyOne App!</td>
+    </tr>
+    </tr>
+        <td><b><a href="https://github.com/danielgural/audio_loader">@danielgural/audio_loader</a></b></td>
+        <td>✏️🎧 Import your audio datasets as spectograms into FiftyOne!</td>
     </tr>        
 </table>
 
