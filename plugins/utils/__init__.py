@@ -9,6 +9,8 @@ import contextlib
 import json
 import multiprocessing.dummy
 
+import eta.core.utils as etau
+
 import fiftyone as fo
 import fiftyone.core.media as fom
 import fiftyone.core.metadata as fomm
@@ -1125,6 +1127,55 @@ class ComputeMetadata(foo.Operator):
             execute_as_generator=True,
         )
 
+    def __call__(
+        self,
+        sample_collection,
+        overwrite=False,
+        num_workers=None,
+        delegate=False,
+        delegation_target=None,
+    ):
+        """Populates the ``metadata`` field for the given sample collection.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            compute_metadata = foo.get_operator("@voxel51/utils/compute_metadata")
+
+            # Run immediately
+            compute_metadata(dataset)
+
+            # Delegate computation and overwrite existing values
+            compute_metadata(dataset, overwrite=True, delegate=True)
+
+        Args:
+            sample_collection: a
+                :class:`fiftyone.core.collections.SampleCollection`
+            overwrite (False): whether to overwrite existing metadata
+            num_workers (None): a suggested number of threads to use
+            delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
+        """
+        if isinstance(sample_collection, fo.DatasetView):
+            ctx = dict(view=sample_collection)
+        else:
+            ctx = dict(dataset=sample_collection)
+
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
+        params = dict(
+            overwrite=overwrite,
+            num_workers=num_workers,
+            delegate=delegate,
+        )
+        return foo.execute_operator(self.uri, ctx, params=params)
+
     def resolve_input(self, ctx):
         inputs = types.Object()
 
@@ -1338,6 +1389,83 @@ class GenerateThumbnails(foo.Operator):
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
+
+    def __call__(
+        self,
+        sample_collection,
+        thumbnail_path,
+        output_dir,
+        width=None,
+        height=None,
+        overwrite=False,
+        num_workers=None,
+        delegate=False,
+        delegation_target=None,
+    ):
+        """Generates thumbnail images for the given sample collection.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            generate_thumbnails = foo.get_operator("@voxel51/utils/generate_thumbnails")
+
+            # Run immediately
+            generate_thumbnails(dataset, "thumbnail_path", "/tmp/thumbnails", height=64)
+
+            # Delegate computation and overwrite existing images
+            generate_thumbnails(
+                dataset,
+                "thumbnail_path",
+                "/tmp/thumbnails",
+                height=32,
+                overwrite=True,
+                delegate=True,
+            )
+
+        Args:
+            sample_collection: a
+                :class:`fiftyone.core.collections.SampleCollection`
+            thumbnail_path: an optional field in which to store the paths to
+                the transformed images. By default, ``media_field`` is updated
+                in-place
+            output_dir: the directory in which to write the generated
+                thumbnails
+            width (None): an optional ``width`` for each thumbnail, in pixels.
+                If omitted, the appropriate aspect-preserving value is computed
+                from the provided ``height``. At least one of ``width`` and
+                ``height`` must be provided
+            height (None): an optional ``height`` for each thumbnail, in pixels.
+                If omitted, the appropriate aspect-preserving value is computed
+                from the provided ``width``. At least one of ``width`` and
+                ``height`` must be provided
+            overwrite (False): whether to overwrite existing thumbnail images
+            num_workers (None): a suggested number of worker processes to use
+            delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
+        """
+        if isinstance(sample_collection, fo.DatasetView):
+            ctx = dict(view=sample_collection)
+        else:
+            ctx = dict(dataset=sample_collection)
+
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
+        params = dict(
+            thumbnail_path=thumbnail_path,
+            output_dir={"absolute_path": output_dir},
+            width=width,
+            height=height,
+            overwrite=overwrite,
+            num_workers=num_workers,
+            delegate=delegate,
+        )
+        return foo.execute_operator(self.uri, ctx, params=params)
 
     def resolve_input(self, ctx):
         inputs = types.Object()
@@ -1621,6 +1749,133 @@ def _execution_mode(ctx, inputs):
         )
 
 
+class Delegate(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delegate",
+            label="Delegate",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            unlisted=True,
+        )
+
+    def __call__(
+        self,
+        fcn,
+        dataset=None,
+        view=None,
+        delegation_target=None,
+        *args,
+        **kwargs,
+    ):
+        """Delegates execution of an arbitrary function.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            delegate = foo.get_operator("@voxel51/utils/delegate")
+
+            # Compute metadata
+            delegate("compute_metadata", dataset=dataset)
+
+            # Compute visualization
+            delegate(
+                "fiftyone.brain.compute_visualization",
+                dataset=dataset,
+                brain_key="img_viz",
+            )
+
+            # Export a view
+            delegate(
+                "export",
+                view=dataset.to_patches("ground_truth"),
+                export_dir="/tmp/patches",
+                dataset_type="fiftyone.types.ImageClassificationDirectoryTree",
+                label_field="ground_truth",
+            )
+
+            # Load the exported patches into a new dataset
+            delegate(
+                "fiftyone.Dataset.from_dir",
+                dataset_dir="/tmp/patches",
+                dataset_type="fiftyone.types.ImageClassificationDirectoryTree",
+                label_field="ground_truth",
+                name="patches",
+                persistent=True,
+            )
+
+        Args:
+            fcn: the function to call, which can be either of the following:
+
+                (a) the ``"fully.qualified.name"`` of a function to call with
+                    the appropriate syntax below:
+
+                -   ``fcn(dataset, *args, **kwargs)``: if a dataset is provided
+                -   ``fcn(view, *args, **kwargs)``: if a view is provided
+                -   ``fcn(*args, **kwargs)``: if neither is provided
+
+                (b) the string name of an instance method on the provided
+                    collection to call with the appropriate syntax below:
+
+                -   ``dataset.fcn(*args, **kwargs)``: if a dataset is provided
+                -   ``view.fcn(*args, **kwargs)``: if a view is provided
+
+            dataset (None): a :class:`fiftyone.core.dataset.Dataset`
+            view (None): a :class:`fiftyone.core.view.DatasetView`
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
+            *args: JSON-serializable positional arguments for the function
+            **kwargs: JSON-serializable keyword arguments for the function
+        """
+        ctx = dict(dataset=dataset, view=view)
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
+        has_dataset = dataset is not None
+        has_view = view is not None
+
+        params = dict(
+            fcn=fcn,
+            has_dataset=has_dataset,
+            has_view=has_view,
+            args=args,
+            kwargs=kwargs,
+        )
+        return foo.execute_operator(self.uri, ctx, params=params)
+
+    def resolve_delegation(self, ctx):
+        return True
+
+    def execute(self, ctx):
+        fcn = ctx.params["fcn"]
+        has_dataset = ctx.params["has_dataset"]
+        has_view = ctx.params["has_view"]
+        args = ctx.params["args"]
+        kwargs = ctx.params["kwargs"]
+
+        if has_view:
+            sample_collection = ctx.view
+        elif has_dataset:
+            sample_collection = ctx.dataset
+        else:
+            sample_collection = None
+
+        if sample_collection is None:
+            fcn = etau.get_function(fcn)
+            fcn(*args, **kwargs)
+        elif "." in fcn:
+            fcn = etau.get_function(fcn)
+            fcn(sample_collection, *args, **kwargs)
+        else:
+            fcn = getattr(sample_collection, fcn)
+            fcn(*args, **kwargs)
+
+
 def register(p):
     p.register(CreateDataset)
     p.register(LoadDataset)
@@ -1630,3 +1885,4 @@ def register(p):
     p.register(DeleteSamples)
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
+    p.register(Delegate)

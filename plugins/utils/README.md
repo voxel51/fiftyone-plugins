@@ -193,3 +193,54 @@ dataset.save()
 where the operator's form allows you to configure the `(width, height)` for the
 thumbnails, the field in which to store their paths, and the directory in which
 to store the thumbnail images.
+
+### delegate (SDK-only)
+
+You can use this operator to programmatically
+[delegate execution](https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations)
+of an arbitrary function call that can be expressed in any of the following
+forms:
+
+-   Execute an arbitrary function: `fcn(*args, **kwargs)`
+-   Apply a function to a dataset or view:
+    `fcn(dataset_or_view, *args, **kwargs)`
+-   Call an instance method of a dataset or view:
+    `dataset_or_view.fcn(*args, **kwargs)`
+
+```py
+import fiftyone as fo
+import fiftyone.operators as foo
+import fiftyone.zoo as foz
+
+dataset = foz.load_zoo_dataset("quickstart")
+delegate = foo.get_operator("@voxel51/utils/delegate")
+
+# Compute metadata
+delegate("compute_metadata", dataset=dataset)
+
+# Compute visualization
+delegate(
+    "fiftyone.brain.compute_visualization",
+    dataset=dataset,
+    brain_key="img_viz",
+)
+
+# Export a view
+delegate(
+    "export",
+    view=dataset.to_patches("ground_truth"),
+    export_dir="/tmp/patches",
+    dataset_type="fiftyone.types.ImageClassificationDirectoryTree",
+    label_field="ground_truth",
+)
+
+# Load the exported patches into a new dataset
+delegate(
+    "fiftyone.Dataset.from_dir",
+    dataset_dir="/tmp/patches",
+    dataset_type="fiftyone.types.ImageClassificationDirectoryTree",
+    label_field="ground_truth",
+    name="patches",
+    persistent=True,
+)
+```

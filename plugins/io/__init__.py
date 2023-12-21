@@ -34,6 +34,133 @@ class ImportSamples(foo.Operator):
             execute_as_generator=True,
         )
 
+    def __call__(
+        self,
+        dataset,
+        dataset_type=None,
+        dataset_dir=None,
+        data_path=None,
+        labels_path=None,
+        label_field=None,
+        label_types=None,
+        tags=None,
+        dynamic=False,
+        delegate=False,
+        delegation_target=None,
+        **kwargs,
+    ):
+        """Imports the specified media and/or labels into the given dataset.
+
+        Example usage::
+
+            import os
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            quickstart = foz.load_zoo_dataset("quickstart")
+
+            # A directory of images
+            images_dir = os.path.dirname(quickstart.first().filepath)
+
+            # A file of corresponding labels
+            labels_path = "/tmp/labels.json"
+            quickstart.export(
+                dataset_type=fo.types.COCODetectionDataset,
+                labels_path=labels_path,
+                label_field="ground_truth",
+                abs_paths=True,
+            )
+
+            dataset = fo.Dataset()
+            import_samples = foo.get_operator("@voxel51/io/import_samples")
+
+            # Import media
+            import_samples(
+                dataset,
+                data_path=images_dir,
+                tags="quickstart",
+                delegate=True,
+            )
+
+            # Import labels
+            import_samples(
+                dataset,
+                dataset_type=fo.types.COCODetectionDataset,
+                labels_path=labels_path,
+                label_field="ground_truth",
+                label_types="detections",
+                delegate=True,
+            )
+
+        Args:
+            dataset: a :class:`fiftyone.core.dataset.Dataset`
+            dataset_type (None): the :class:`fiftyone.types.Dataset` type of
+                the dataset
+            dataset_dir (None): a directory containing media and labels to
+                import
+            data_path (None): a directory or glob pattern of media to import
+            labels_path (None): a file or directory of labels to import
+            label_field (None): a new or existing field in which to store the
+                imported labels, if applicable
+            label_types (None): an optional label type or iterable of label
+                types to load, when importing labels for dataset types that may
+                contain multiple label types. By default, all labels are loaded
+            tags (None): an optional tag or iterable of tags to attach to each
+                sample when creating new samples
+            dynamic (False): whether to declare dynamic attributes of embedded
+                document fields that are encountered when importing labels
+            delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
+            **kwargs: optional keyword arguments to pass to the constructor of
+                the :class:`fiftyone.utils.data.importers.DatasetImporter` for
+                the specified ``dataset_type``
+        """
+        ctx = dict(dataset=dataset)
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
+        params = dict(
+            label_field=label_field,
+            label_types=_to_list(label_types),
+            tags=_to_list(tags),
+            dynamic=dynamic,
+            delegate=delegate,
+            kwargs=kwargs,
+        )
+
+        if dataset_dir is None and data_path is not None:
+            params["import_type"] = "MEDIA_ONLY"
+            try:
+                assert fos.isdir(data_path)
+                params["style"] = "DIRECTORY"
+                params["directory"] = _to_path(data_path)
+            except:
+                params["style"] = "GLOB_PATTERN"
+                params["glob_patt"] = _to_path(data_path)
+
+            data_path = None
+        elif dataset_dir is None and labels_path is not None:
+            params["import_type"] = "LABELS_ONLY"
+        else:
+            params["import_type"] = "MEDIA_AND_LABELS"
+
+        if dataset_type is not None:
+            params["dataset_type"] = _get_dataset_type_label(dataset_type)
+
+        if dataset_dir is not None:
+            params["dataset_dir"] = _to_path(dataset_dir)
+
+        if data_path is not None:
+            params["data_path"] = _to_path(data_path)
+
+        if labels_path is not None:
+            params["labels_path"] = _to_path(labels_path)
+
+        return foo.execute_operator(self.uri, ctx, params=params)
+
     def resolve_input(self, ctx):
         inputs = types.Object()
 
@@ -227,6 +354,17 @@ def _get_dataset_type(dataset_type):
             return d
 
     return {}
+
+
+def _get_dataset_type_label(dataset_type):
+    if isinstance(dataset_type, str):
+        dataset_type = etau.get_class(dataset_type)
+
+    for d in _DATASET_TYPES:
+        if d["dataset_type"] == dataset_type:
+            return d["label"]
+
+    raise ValueError("Unsupported dataset type: %s" % dataset_type)
 
 
 def _requires_label_field(dataset_type):
@@ -676,17 +814,23 @@ def _import_media_only(ctx):
         for progress in _upload_media(ctx, tasks):
             yield progress
 
+    make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
+    delegate = ctx.params.get("delegate", False)
+
+    if delegate:
+        samples = map(make_sample, filepaths)
+        ctx.dataset.add_samples(samples, num_samples=len(filepaths))
+        return
+
     batcher = fou.DynamicBatcher(
-        filepaths, target_latency=0.1, max_batch_beta=2.0
+        filepaths, target_latency=0.2, max_batch_beta=2.0
     )
 
     num_added = 0
 
     with batcher:
         for batch in batcher:
-            samples = [
-                fo.Sample(filepath=filepath, tags=tags) for filepath in batch
-            ]
+            samples = map(make_sample, batch)
             ctx.dataset._add_samples_batch(samples, True, False, True)
             num_added += len(samples)
 
@@ -708,8 +852,8 @@ def _import_media_and_labels(ctx):
     label_types = ctx.params.get("label_types", None)
     tags = ctx.params.get("tags", None)
     dynamic = ctx.params.get("dynamic", False)
+    kwargs = ctx.params.get("kwargs", {})
 
-    kwargs = {}
     if label_types is not None:
         kwargs["label_types"] = label_types
 
@@ -747,9 +891,7 @@ def _import_labels_only(ctx):
     dataset_dir = _parse_path(ctx, "dataset_dir")
     label_field = ctx.params.get("label_field", None)
     dynamic = ctx.params.get("dynamic", False)
-
-    # Extras
-    kwargs = {}
+    kwargs = ctx.params.get("kwargs", {})
 
     label_types = ctx.params.get("label_types", None)
     if label_types is not None:
@@ -808,6 +950,13 @@ def _upload_media_tasks(ctx, filepaths):
 
 
 def _upload_media(ctx, tasks):
+    delegate = ctx.params.get("delegate", False)
+
+    if delegate:
+        inpaths, outpaths = zip(*tasks)
+        fos.copy_files(inpaths, outpaths)
+        return
+
     num_uploaded = 0
     num_total = len(tasks)
 
@@ -1376,6 +1525,193 @@ class ExportSamples(foo.Operator):
             dynamic=True,
         )
 
+    def __call__(
+        self,
+        sample_collection,
+        export_dir=None,
+        dataset_type=None,
+        data_path=None,
+        labels_path=None,
+        export_media=None,
+        label_field=None,
+        overwrite=False,
+        delegate=False,
+        delegation_target=None,
+        **kwargs,
+    ):
+        """Exports the specified media and/or/labels from the given sample
+        collection.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            export_samples = foo.get_operator("@voxel51/io/export_samples")
+
+            # Export labels
+            export_samples(
+                dataset,
+                dataset_type=fo.types.COCODetectionDataset,
+                labels_path="/tmp/labels.json",
+                label_field="ground_truth",
+                abs_paths=True,
+                delegate=True,
+            )
+
+            # Export filepaths
+            export_samples(
+                dataset,
+                dataset_type=fo.types.CSVDataset,
+                labels_path="/tmp/filepaths.csv",
+                fields=["filepath"],
+                abs_paths=True,
+                delegate=True,
+            )
+
+            # Export a view
+            view = dataset.take(100)
+            export_samples(
+                view,
+                dataset_type=fo.types.FiftyOneDataset,
+                export_dir="/tmp/quickstart-view",
+                delegate=True,
+            )
+
+        Args:
+            sample_collection: a
+                :class:`fiftyone.core.collections.SampleCollection`
+            export_dir (None): the directory to which to export the samples in
+                format ``dataset_type``. This parameter may be omitted if you
+                have provided appropriate values for the ``data_path`` and/or
+                ``labels_path`` parameters. Alternatively, this can also be an
+                archive path with one of the following extensions::
+
+                    .zip, .tar, .tar.gz, .tgz, .tar.bz, .tbz
+
+                If an archive path is specified, the export is performed in a
+                directory of same name (minus extension) and then automatically
+                archived and the directory then deleted
+            dataset_type (None): the :class:`fiftyone.types.Dataset` type to
+                write
+            data_path (None): an optional parameter that enables explicit
+                control over the location of the exported media for certain
+                export formats. Can be any of the following:
+
+                -   a folder name like ``"data"`` or ``"data/"`` specifying a
+                    subfolder of ``export_dir`` in which to export the media
+                -   an absolute directory path in which to export the media. In
+                    this case, the ``export_dir`` has no effect on the location
+                    of the data
+                -   a filename like ``"data.json"`` specifying the filename of
+                    a JSON manifest file in ``export_dir`` generated when
+                    ``export_media`` is ``"manifest"``
+                -   an absolute filepath specifying the location to write the
+                    JSON manifest file when ``export_media`` is ``"manifest"``.
+                    In this case, ``export_dir`` has no effect on the location
+                    of the data
+
+                If None, a default value of this parameter will be chosen based
+                on the value of the ``export_media`` parameter. Note that this
+                parameter is not applicable to certain export formats such as
+                binary types like TF records
+            labels_path (None): an optional parameter that enables explicit
+                control over the location of the exported labels. Only
+                applicable when exporting in certain labeled dataset formats.
+                Can be any of the following:
+
+                -   a type-specific folder name like ``"labels"`` or
+                    ``"labels/"`` or a filename like ``"labels.json"`` or
+                    ``"labels.xml"`` specifying the location in ``export_dir``
+                    in which to export the labels
+                -   an absolute directory or filepath in which to export the
+                    labels. In this case, the ``export_dir`` has no effect on
+                    the location of the labels
+
+                For labeled datasets, the default value of this parameter will
+                be chosen based on the export format so that the labels will be
+                exported into ``export_dir``
+            export_media (None): controls how to export the raw media. The
+                supported values are:
+
+                -   ``True``: copy all media files into the output directory
+                -   ``False``: don't export media. This option is only useful
+                    when exporting labeled datasets whose label format stores
+                    sufficient information to locate the associated media
+                -   ``"move"``: move all media files into the output directory
+                -   ``"symlink"``: create symlinks to the media files in the
+                    output directory
+                -   ``"manifest"``: create a ``data.json`` in the output
+                    directory that maps UUIDs used in the labels files to the
+                    filepaths of the source media, rather than exporting the
+                    actual media
+
+                If None, an appropriate default value of this parameter will be
+                chosen based on the value of the ``data_path`` parameter. Note
+                that some dataset formats may not support certain values for
+                this parameter (e.g., when exporting in binary formats such as
+                TF records, "symlink" is not an option)
+            label_field (None): controls the label field(s) to export. Only
+                applicable to labeled datasets. Can be any of the following:
+
+                -   the name of a label field to export
+                -   a glob pattern of label field(s) to export
+                -   a list or tuple of label field(s) to export
+
+                Note that multiple fields can only be specified when the
+                exporter used can handle dictionaries of labels. When exporting
+                labeled video datasets, this argument may contain frame fields
+                prefixed by ``"frames."``
+            overwrite (False): whether to delete existing directories before
+                performing the export (True) or to merge the export with
+                existing files and directories (False)
+            delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
+            **kwargs: optional keyword arguments to pass to the dataset
+                exporter's constructor. If you are exporting image patches,
+                this can also contain keyword arguments for
+                :class:`fiftyone.utils.patches.ImagePatchesExtractor`
+        """
+        if isinstance(sample_collection, fo.DatasetView):
+            ctx = dict(view=sample_collection)
+        else:
+            ctx = dict(dataset=sample_collection)
+
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
+        dataset_type = _get_dataset_type_label(dataset_type)
+
+        params = dict(
+            dataset_type=dataset_type,
+            export_type="MEDIA_AND_LABELS",  # unused
+            csv_fields=["filepath"],  # unused
+            export_media=export_media,
+            overwrite=overwrite,
+            delegate=delegate,
+            manual=True,
+            kwargs=kwargs,
+        )
+
+        if _can_export_multiple_fields(dataset_type):
+            params["label_fields"] = _to_list(label_field)
+        else:
+            params["label_field"] = label_field
+
+        if export_dir is not None:
+            params["export_dir"] = _to_path(export_dir)
+
+        if data_path is not None:
+            params["data_path"] = _to_path(data_path)
+
+        if labels_path is not None:
+            params["labels_path"] = _to_path(labels_path)
+
+        return foo.execute_operator(self.uri, ctx, params=params)
+
     def resolve_input(self, ctx):
         inputs = types.Object()
 
@@ -1671,19 +2007,23 @@ def _export_samples(ctx):
     export_dir = _parse_path(ctx, "export_dir")
     labels_path = _parse_path(ctx, "labels_path")
     export_type = ctx.params["export_type"]
+    export_media = ctx.params.get("export_media", None)
     dataset_type = ctx.params.get("dataset_type", None)
     label_field = ctx.params.get("label_field", None)
     label_fields = ctx.params.get("label_fields", None)
     csv_fields = ctx.params.get("csv_fields", None)
     abs_paths = ctx.params.get("abs_paths", None)
+    manual = ctx.params.get("manual", False)
+    kwargs = ctx.params.get("kwargs", {})
 
     if _can_export_multiple_fields(dataset_type):
         label_field = label_fields
 
     target_view = _get_target_view(ctx, target)
-    kwargs = {}
 
-    if export_type == "FILEPATHS_ONLY":
+    if manual:
+        dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
+    elif export_type == "FILEPATHS_ONLY":
         dataset_type = fot.CSVDataset
         csv_fields = ["filepath"]
         export_media = False
@@ -1710,15 +2050,20 @@ def _export_samples(ctx):
         export_dir = None
 
     if dataset_type is fot.CSVDataset:
-        kwargs["fields"] = csv_fields
+        if "fields" not in kwargs:
+            kwargs["fields"] = csv_fields
+
         label_field = None
 
     if dataset_type is fot.GeoJSONDataset:
-        kwargs["location_field"] = label_field
+        if "location_field" not in kwargs:
+            kwargs["location_field"] = label_field
+
         label_field = None
 
     if abs_paths is not None:
-        kwargs["abs_paths"] = abs_paths
+        if "abs_paths" not in kwargs:
+            kwargs["abs_paths"] = abs_paths
 
     target_view.export(
         export_dir=export_dir,
@@ -2279,6 +2624,20 @@ def _draw_labels_inputs(ctx, inputs):
 def _parse_path(ctx, key):
     value = ctx.params.get(key, None)
     return value.get("absolute_path", None) if value else None
+
+
+def _to_path(value):
+    return {"absolute_path": value}
+
+
+def _to_list(value):
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        return [value]
+
+    return list(value)
 
 
 def _get_target_view(ctx, target):
