@@ -7,6 +7,7 @@ I/O operators.
 """
 import base64
 import contextlib
+import inspect
 import multiprocessing.dummy
 import os
 
@@ -818,8 +819,15 @@ def _import_media_only(ctx):
     delegate = ctx.params.get("delegate", False)
 
     if delegate:
+        kwargs = {}
+
+        # can remove check if we require `fiftyone>=0.24`
+        if "progress" in inspect.signature(ctx.dataset.add_samples).parameters:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         samples = map(make_sample, filepaths)
-        ctx.dataset.add_samples(samples, num_samples=len(filepaths))
+        ctx.dataset.add_samples(samples, num_samples=len(filepaths), **kwargs)
         return
 
     batcher = fou.DynamicBatcher(
@@ -852,10 +860,17 @@ def _import_media_and_labels(ctx):
     label_types = ctx.params.get("label_types", None)
     tags = ctx.params.get("tags", None)
     dynamic = ctx.params.get("dynamic", False)
+    delegate = ctx.params.get("delegate", False)
     kwargs = ctx.params.get("kwargs", {})
 
     if label_types is not None:
         kwargs["label_types"] = label_types
+
+    if delegate:
+        # can remove check if we require `fiftyone>=0.24`
+        if "progress" in inspect.signature(ctx.dataset.add_dir).parameters:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
     ctx.dataset.add_dir(
         dataset_dir=dataset_dir,
@@ -891,11 +906,18 @@ def _import_labels_only(ctx):
     dataset_dir = _parse_path(ctx, "dataset_dir")
     label_field = ctx.params.get("label_field", None)
     dynamic = ctx.params.get("dynamic", False)
+    delegate = ctx.params.get("delegate", False)
     kwargs = ctx.params.get("kwargs", {})
 
     label_types = ctx.params.get("label_types", None)
     if label_types is not None:
         kwargs["label_types"] = label_types
+
+    if delegate:
+        # can remove check if we require `fiftyone>=0.24`
+        if "progress" in inspect.signature(ctx.dataset.merge_dir).parameters:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
     with contextlib.ExitStack() as exit_context:
         if labels_file is not None:
@@ -2014,6 +2036,7 @@ def _export_samples(ctx):
     csv_fields = ctx.params.get("csv_fields", None)
     abs_paths = ctx.params.get("abs_paths", None)
     manual = ctx.params.get("manual", False)
+    delegate = ctx.params.get("delegate", False)
     kwargs = ctx.params.get("kwargs", {})
 
     if _can_export_multiple_fields(dataset_type):
@@ -2064,6 +2087,12 @@ def _export_samples(ctx):
     if abs_paths is not None:
         if "abs_paths" not in kwargs:
             kwargs["abs_paths"] = abs_paths
+
+    if delegate:
+        # can remove check if we require `fiftyone>=0.24`
+        if "progress" in inspect.signature(target_view.export).parameters:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
     target_view.export(
         export_dir=export_dir,
@@ -2524,13 +2553,26 @@ class DrawLabels(foo.Operator):
         output_dir = _parse_path(ctx, "output_dir")
         label_fields = ctx.params.get("label_fields", None)
         overwrite = ctx.params.get("overwrite", False)
+        delegate = ctx.params.get("delegate", False)
 
         target_view = _get_target_view(ctx, target)
+
+        kwargs = {}
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if (
+                "progress"
+                in inspect.signature(target_view.draw_labels).parameters
+            ):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
         target_view.draw_labels(
             output_dir,
             label_fields=label_fields,
             overwrite=overwrite,
+            **kwargs,
         )
 
 
