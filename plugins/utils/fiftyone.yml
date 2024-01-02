@@ -2,7 +2,7 @@ name: "@voxel51/utils"
 description: A collection of utility operators
 version: 1.1.1
 fiftyone:
-  version: ">=0.22"
+  version: ">=0.23.3"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/utils
 license: Apache 2.0
 operators:

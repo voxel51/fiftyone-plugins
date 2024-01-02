@@ -7,6 +7,7 @@ Utility operators.
 """
 import contextlib
 from datetime import datetime
+import inspect
 import json
 import multiprocessing.dummy
 from packaging.version import Version
@@ -1714,11 +1715,17 @@ class ComputeMetadata(foo.Operator):
             view = _get_target_view(ctx, ctx.params.get("target", None))
 
         if ctx.delegated:
+            kwargs = {}
+
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
             view.compute_metadata(
                 overwrite=overwrite,
                 num_workers=num_workers,
                 skip_failures=skip_failures,
                 warn_failures=warn_failures,
+                **kwargs,
             )
         else:
             for update in _compute_metadata_generator(
@@ -2079,6 +2086,12 @@ class GenerateThumbnails(foo.Operator):
         if not ctx.delegated:
             num_workers = 0
 
+        kwargs = {}
+
+        if ctx.delegated:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         foui.transform_images(
             view,
             size=size,
@@ -2086,6 +2099,7 @@ class GenerateThumbnails(foo.Operator):
             output_dir=output_dir,
             num_workers=num_workers,
             skip_failures=True,
+            **kwargs,
         )
 
         if thumbnail_path not in ctx.dataset.app_config.media_fields:
@@ -2416,6 +2430,17 @@ class Delegate(foo.Operator):
         has_view = ctx.params["has_view"]
         args = ctx.params["args"]
         kwargs = ctx.params["kwargs"]
+
+        # Special handling if we find a `progress` kwarg that is float/int
+        progress = kwargs.get("progress", None)
+        if isinstance(progress, float):
+            # Report progress every `progress` seconds
+            set_progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(set_progress, dt=progress)
+        elif isinstance(progress, int):
+            # Report progress every in `progress` equally-spaced increments
+            set_progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(set_progress, n=progress)
 
         if has_view:
             sample_collection = ctx.view
