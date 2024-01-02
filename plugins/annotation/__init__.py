@@ -6,6 +6,7 @@ Annotation operators.
 |
 """
 import contextlib
+import inspect
 import json
 import threading
 
@@ -912,12 +913,28 @@ class LoadAnnotations(foo.Operator):
         anno_key = ctx.params["anno_key"]
         unexpected = ctx.params["unexpected"]
         cleanup = ctx.params["cleanup"]
+        delegate = ctx.params.get("delegate", False)
 
         _inject_annotation_secrets(ctx)
 
+        kwargs = {}
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if (
+                "progress"
+                in inspect.signature(ctx.dataset.load_annotations).parameters
+            ):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         ctx.dataset.load_annotations(
-            anno_key, unexpected=unexpected, cleanup=cleanup
+            anno_key,
+            unexpected=unexpected,
+            cleanup=cleanup,
+            **kwargs,
         )
+
         ctx.trigger("reload_dataset")
 
 

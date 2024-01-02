@@ -8,6 +8,7 @@ FiftyOne Brain operators.
 import base64
 from collections import defaultdict
 from datetime import datetime
+import inspect
 import json
 
 from bson import json_util
@@ -75,6 +76,18 @@ class ComputeVisualization(foo.Operator):
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
+
+        kwargs = {}
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if (
+                "progress"
+                in inspect.signature(fob.compute_visualization).parameters
+            ):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         fob.compute_visualization(
             target_view,
             patches_field=patches_field,
@@ -85,6 +98,7 @@ class ComputeVisualization(foo.Operator):
             batch_size=batch_size,
             num_workers=num_workers,
             skip_failures=skip_failures,
+            **kwargs,
         )
 
     def resolve_output(self, ctx):
@@ -187,6 +201,16 @@ class ComputeSimilarity(foo.Operator):
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if (
+                "progress"
+                in inspect.signature(fob.compute_similarity).parameters
+            ):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         fob.compute_similarity(
             target_view,
             patches_field=patches_field,
@@ -1076,6 +1100,18 @@ class ComputeUniqueness(foo.Operator):
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
+
+        kwargs = {}
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if (
+                "progress"
+                in inspect.signature(fob.compute_uniqueness).parameters
+            ):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         fob.compute_uniqueness(
             target_view,
             uniqueness_field=uniqueness_field,
@@ -1085,6 +1121,7 @@ class ComputeUniqueness(foo.Operator):
             batch_size=batch_size,
             num_workers=num_workers,
             skip_failures=skip_failures,
+            **kwargs,
         )
 
         ctx.trigger("reload_dataset")
@@ -1162,9 +1199,19 @@ class ComputeMistakenness(foo.Operator):
         pred_field = kwargs.pop("pred_field")
         label_field = kwargs.pop("label_field")
         mistakenness_field = kwargs.pop("mistakenness_field")
-        kwargs.pop("delegate")
+        delegate = kwargs.pop("delegate")
 
         target_view = _get_target_view(ctx, target)
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if (
+                "progress"
+                in inspect.signature(fob.compute_mistakenness).parameters
+            ):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         fob.compute_mistakenness(
             target_view,
             pred_field,
@@ -1172,6 +1219,7 @@ class ComputeMistakenness(foo.Operator):
             mistakenness_field=mistakenness_field,
             **kwargs,
         )
+
         ctx.trigger("reload_dataset")
 
 
@@ -1345,13 +1393,28 @@ class ComputeHardness(foo.Operator):
         target = ctx.params.get("target", None)
         label_field = ctx.params.get("label_field")
         hardness_field = ctx.params.get("hardness_field")
+        delegate = ctx.params.get("delegate", False)
 
         target_view = _get_target_view(ctx, target)
+
+        kwargs = {}
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if (
+                "progress"
+                in inspect.signature(fob.compute_hardness).parameters
+            ):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         fob.compute_hardness(
             target_view,
             label_field,
             hardness_field=hardness_field,
+            **kwargs,
         )
+
         ctx.trigger("reload_dataset")
 
 

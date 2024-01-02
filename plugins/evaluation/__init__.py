@@ -5,6 +5,7 @@ Evaluation operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import inspect
 import json
 
 from bson import json_util
@@ -45,7 +46,7 @@ class EvaluateModel(foo.Operator):
         gt_field = kwargs.pop("gt_field")
         eval_key = kwargs.pop("eval_key")
         method = kwargs.pop("method")
-        kwargs.pop("delegate")
+        delegate = kwargs.pop("delegate")
 
         target_view = _get_target_view(ctx, target)
         _, eval_type, _ = _get_evaluation_type(target_view, pred_field)
@@ -63,6 +64,12 @@ class EvaluateModel(foo.Operator):
             eval_fcn = target_view.evaluate_detections
         elif eval_type == "segmentation":
             eval_fcn = target_view.evaluate_segmentations
+
+        if delegate:
+            # can remove check if we require `fiftyone>=0.24`
+            if "progress" in inspect.signature(eval_fcn).parameters:
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
         eval_fcn(
             pred_field,
