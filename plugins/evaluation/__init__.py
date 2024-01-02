@@ -5,6 +5,7 @@ Evaluation operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import inspect
 import json
 
 from bson import json_util
@@ -60,6 +61,10 @@ class EvaluateModel(foo.Operator):
             eval_fcn = target_view.evaluate_detections
         elif eval_type == "segmentation":
             eval_fcn = target_view.evaluate_segmentations
+
+        if ctx.delegated:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
         eval_fcn(
             pred_field,
