@@ -257,7 +257,7 @@ def _dataset_info_inputs(ctx, inputs):
     tab_choices.add_choice("BASIC", label="Basic")
     tab_choices.add_choice("INFO", label="Info")
     tab_choices.add_choice("APP_CONFIG", label="App config")
-    tab_choices.add_choice("CLASSES", label="Clasess")
+    tab_choices.add_choice("CLASSES", label="Classes")
     tab_choices.add_choice("MASK_TARGETS", label="Mask targets")
     tab_choices.add_choice("SKELETONS", label="Keypoint skeletons")
     default = "BASIC"
