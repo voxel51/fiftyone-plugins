@@ -52,7 +52,7 @@ class LoadZooDataset(foo.Operator):
         dataset_name = _get_zoo_dataset_name(ctx)
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(foz.load_zoo_dataset).parameters
@@ -458,7 +458,7 @@ class ApplyZooModel(foo.Operator):
         kwargs = {}
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(target_view.apply_model).parameters

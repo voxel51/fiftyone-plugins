@@ -821,7 +821,7 @@ def _import_media_only(ctx):
     if delegate:
         kwargs = {}
 
-        # can remove check if we require `fiftyone>=0.24`
+        # can remove check if we require `fiftyone>=0.23.3`
         if "progress" in inspect.signature(ctx.dataset.add_samples).parameters:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
             kwargs["progress"] = fo.report_progress(progress, dt=5.0)
@@ -867,7 +867,7 @@ def _import_media_and_labels(ctx):
         kwargs["label_types"] = label_types
 
     if delegate:
-        # can remove check if we require `fiftyone>=0.24`
+        # can remove check if we require `fiftyone>=0.23.3`
         if "progress" in inspect.signature(ctx.dataset.add_dir).parameters:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
             kwargs["progress"] = fo.report_progress(progress, dt=5.0)
@@ -914,7 +914,7 @@ def _import_labels_only(ctx):
         kwargs["label_types"] = label_types
 
     if delegate:
-        # can remove check if we require `fiftyone>=0.24`
+        # can remove check if we require `fiftyone>=0.23.3`
         if "progress" in inspect.signature(ctx.dataset.merge_dir).parameters:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
             kwargs["progress"] = fo.report_progress(progress, dt=5.0)
@@ -2089,7 +2089,7 @@ def _export_samples(ctx):
             kwargs["abs_paths"] = abs_paths
 
     if delegate:
-        # can remove check if we require `fiftyone>=0.24`
+        # can remove check if we require `fiftyone>=0.23.3`
         if "progress" in inspect.signature(target_view.export).parameters:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
             kwargs["progress"] = fo.report_progress(progress, dt=5.0)
@@ -2560,7 +2560,7 @@ class DrawLabels(foo.Operator):
         kwargs = {}
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(target_view.draw_labels).parameters

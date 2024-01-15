@@ -920,7 +920,7 @@ class LoadAnnotations(foo.Operator):
         kwargs = {}
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(ctx.dataset.load_annotations).parameters
