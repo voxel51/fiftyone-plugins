@@ -9,7 +9,7 @@ integrations with other tools and APIs, render custom panels, and add custom
 buttons to menus. You can even schedule long running tasks from within the App
 that execute on a connected workflow orchestration tool like Apache Airflow.
 
-For example, here's a taste of what you can do with the 
+For example, here's a taste of what you can do with the
 [@voxel51/brain](https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain)
 plugin!
 
@@ -217,7 +217,7 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/double-band-filter-plugin">@jacobmarks/double_band_filter</a></b></td>
         <td><img src="https://raw.githubusercontent.com/jacobmarks/double-band-filter-plugin/main/assets/icon_grey.svg" width="14" height="14" alt="filter icon"> Filter on two numeric ranges simultaneously!</td>
     </tr>
-        <tr>
+    <tr>
         <td><b><a href="https://github.com/danielgural/semantic_video_search">@danielgural/semantic_video_search</a></b></td>
         <td><img src="https://github.com/danielgural/semantic_video_search/blob/main/assets/search.svg" width="14" height="14" alt="filter icon"> Semantically search through your video datasets using FiftyOne Brain and Twelve Labs!</td>
     </tr>
@@ -225,13 +225,18 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/emoji-search-plugin">@jacobmarks/emoji_search</a></b></td>
         <td>😏 Semantically search emojis and copy to clipboard!</td>
     </tr>
-        <tr>
+    <tr>
         <td><b><a href="https://github.com/danielgural/img_to_video_plugin">@danielgural/img_to_video</a></b></td>
         <td>🦋 Bring images to life with image to video!</td>
     </tr>
+    <tr>
         <td><b><a href="https://github.com/ehofesmann/edit_label_attributes">@ehofesmann/edit_label_attributes</a></b></td>
         <td>✏️ Edit attributes of your labels directly in the FiftyOne App!</td>
-    </tr>        
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/danielgural/audio_loader">@danielgural/audio_loader</a></b></td>
+        <td>🎧 Import your audio datasets as spectograms into FiftyOne!</td>
+    </tr>
 </table>
 
 ## Using Plugins
