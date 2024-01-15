@@ -6,6 +6,7 @@ FiftyOne Brain operators.
 |
 """
 from collections import defaultdict
+from datetime import datetime
 import json
 
 from bson import json_util
@@ -609,6 +610,326 @@ class MongoDBBackend(SimilarityBackend):
         )
 
 
+class SortBySimilarity(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="sort_by_similarity",
+            label="Sort by similarity",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    """
+    def resolve_placement(self, ctx):
+        if ctx.selected:
+            label = "Sort by image similarity"
+            icon = "/assets/wallpaper.svg"
+        else:
+            label = "Sort by text similarity"
+            icon = "/assets/search.svg"
+
+        return types.Placement(
+            types.Places.SAMPLES_GRID_ACTIONS,
+            types.Button(label=label, icon=icon),
+        )
+    """
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        if ctx.selected:
+            sort_by_image_similarity(ctx, inputs)
+            label = "Sort by image similarity"
+        else:
+            sort_by_text_similarity(ctx, inputs)
+            label = "Sort by text similarity"
+
+        view = types.View(label=label)
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        brain_key = ctx.params["brain_key"]
+        k = ctx.params["k"]
+
+        _inject_brain_secrets(ctx)
+        target_view = _get_target_view(ctx, target)
+
+        if ctx.selected:
+            query = ctx.selected
+        else:
+            query = ctx.params["query"]
+
+        view = target_view.sort_by_similarity(query, k=k, brain_key=brain_key)
+        ctx.trigger("set_view", params={"view": serialize_view(view)})
+
+
+def sort_by_image_similarity(ctx, inputs):
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="similarity",
+        error_message="This dataset has no similarity indexes",
+    )
+
+    if not brain_key:
+        return
+
+    get_target_view(ctx, inputs, allow_selected=False)
+
+    inputs.int(
+        "k",
+        default=25,
+        required=True,
+        label="Number of matches",
+        description="Choose how many similar samples to show",
+    )
+
+
+def sort_by_text_similarity(ctx, inputs):
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="similarity",
+        supports_prompts=True,
+        error_message=(
+            "This dataset has no similarity indexes that support text "
+            "prompts"
+        ),
+    )
+
+    if not brain_key:
+        return
+
+    get_target_view(ctx, inputs, allow_selected=False)
+
+    inputs.str(
+        "query",
+        required=True,
+        label="Text prompt",
+        description="Show similar samples to the given text prompt",
+    )
+
+    inputs.int(
+        "k",
+        default=25,
+        required=True,
+        label="Number of matches",
+        description="Choose how many similar samples to show",
+    )
+
+
+class AddSimilarSamples(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="add_similar_samples",
+            label="Add similar samples",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        dataset_names = fo.list_datasets()
+
+        choices = types.AutocompleteView()
+        for name in dataset_names:
+            choices.add_choice(name, label=name)
+
+        inputs.enum(
+            "src_dataset",
+            choices.values(),
+            required=True,
+            label="Source dataset",
+            description=(
+                "Choose a source dataset from which to retrieve samples"
+            ),
+            view=choices,
+        )
+
+        src_dataset = ctx.params.get("src_dataset", None)
+        if src_dataset in dataset_names:
+            src_dataset = fo.load_dataset(src_dataset)
+
+            if ctx.selected:
+                ready = search_by_image_similarity(ctx, inputs, src_dataset)
+                label = "Add samples by image similarity"
+            else:
+                ready = search_by_text_similarity(ctx, inputs, src_dataset)
+                label = "Add samples by text similarity"
+        else:
+            label = "Add similar samples"
+            ready = False
+
+        if ready:
+            choices = types.AutocompleteView()
+            for field in _get_fields_with_type(ctx.dataset, fo.DateTimeField):
+                choices.add_choice(field, label=field)
+
+            inputs.str(
+                "query_time_field",
+                default=None,
+                required=False,
+                label="Store query time",
+                description=(
+                    "An optional new or existing field in which to store the "
+                    "datetime at which this query was performed"
+                ),
+                view=choices,
+            )
+
+        view = types.View(label=label)
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        src_dataset = ctx.params["src_dataset"]
+        brain_key = ctx.params["brain_key"]
+        k = ctx.params["k"]
+        query_time_field = ctx.params.get("query_time_field", None)
+
+        _inject_brain_secrets(ctx)
+
+        src_dataset = fo.load_dataset(src_dataset)
+        dst_dataset = ctx.dataset
+
+        if ctx.selected:
+            # Image query
+            index = src_dataset.load_brain_results(brain_key)
+            model = index.get_model()
+            query = dst_dataset.select(ctx.selected).compute_embeddings(model)
+            query_field = None
+        else:
+            # Text query
+            query = ctx.params["query"]
+            query_field = ctx.params.get("query_field", None)
+
+        view = src_dataset.sort_by_similarity(query, k=k, brain_key=brain_key)
+        samples = [s.copy() for s in view]
+
+        if query_field is not None:
+            for sample in samples:
+                sample[query_field] = query
+
+        if query_time_field is not None:
+            now = datetime.utcnow()
+            for sample in samples:
+                sample[query_time_field] = now
+
+        # Skip existing filepaths
+        filepaths = set(dst_dataset.values("filepath"))
+        samples = [
+            sample for sample in samples if sample.filepath not in filepaths
+        ]
+
+        sample_ids = dst_dataset.add_samples(samples)
+
+        if ctx.selected:
+            sample_ids = ctx.selected + sample_ids
+
+        view = dst_dataset.select(sample_ids)
+        ctx.trigger("set_view", params={"view": serialize_view(view)})
+
+
+def search_by_image_similarity(ctx, inputs, src_dataset):
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="similarity",
+        dataset=src_dataset,
+        description="Select a similarity index to use",
+        error_message="This dataset has no similarity indexes",
+    )
+
+    if not brain_key:
+        return False
+
+    info = src_dataset.get_brain_info(brain_key)
+    if info.config.model is None:
+        error = types.Error(
+            label=(
+                "This similarity index does not store the name of the "
+                "model used to compute its embeddings, so it cannot be used "
+                "to embed query images from another dataset"
+            ),
+        )
+        prop = inputs.view("error", error)
+        prop.invalid = True
+
+        return False
+
+    inputs.int(
+        "k",
+        default=25,
+        required=True,
+        label="Number of matches",
+        description=(
+            "Choose how many similar samples to add. Note that any results "
+            "that match an existing filepath in your dataset will not be added"
+        ),
+    )
+
+    return True
+
+
+def search_by_text_similarity(ctx, inputs, src_dataset):
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="similarity",
+        dataset=src_dataset,
+        supports_prompts=True,
+        description="Select a similarity index to use",
+        error_message=(
+            "This dataset has no similarity indexes that support text "
+            "prompts"
+        ),
+    )
+
+    if not brain_key:
+        return False
+
+    inputs.str(
+        "query",
+        required=True,
+        label="Text prompt",
+        description="Add similar samples to the given text prompt",
+    )
+
+    inputs.int(
+        "k",
+        default=25,
+        required=True,
+        label="Number of matches",
+        description=(
+            "Choose how many similar samples to add. Note that any results "
+            "that match an existing filepath in your dataset will not be added"
+        ),
+    )
+
+    choices = types.AutocompleteView()
+    for field in _get_fields_with_type(ctx.dataset, fo.StringField):
+        choices.add_choice(field, label=field)
+
+    inputs.str(
+        "query_field",
+        default=None,
+        required=False,
+        label="Store query field",
+        description=(
+            "An optional new or existing field in which to store the text "
+            "prompt used to retrieve these samples"
+        ),
+        view=choices,
+    )
+
+    return True
+
+
 class ComputeUniqueness(foo.Operator):
     @property
     def config(self):
@@ -1126,9 +1447,9 @@ def get_new_brain_key(
     return brain_key
 
 
-def get_target_view(ctx, inputs):
+def get_target_view(ctx, inputs, allow_selected=True):
     has_view = ctx.view != ctx.dataset.view()
-    has_selected = bool(ctx.selected)
+    has_selected = allow_selected and bool(ctx.selected)
     default_target = None
 
     if has_view or has_selected:
@@ -1418,6 +1739,13 @@ def _get_brain_run_type(dataset, brain_key):
     return None
 
 
+def _get_fields_with_type(view, type):
+    if issubclass(type, fo.Field):
+        return view.get_field_schema(ftype=type).keys()
+
+    return view.get_field_schema(embedded_doc_type=type).keys()
+
+
 _BRAIN_RUN_TYPES = {
     "hardness": Hardness,
     "mistakenness": MistakennessMethod,
@@ -1433,18 +1761,25 @@ def get_brain_key(
     label="Brain key",
     description="Select a brain key",
     run_type=None,
+    dataset=None,
     show_default=True,
+    error_message=None,
+    **kwargs,
 ):
+    if dataset is None:
+        dataset = ctx.dataset
+
     type = _BRAIN_RUN_TYPES.get(run_type, None)
-    brain_keys = ctx.dataset.list_brain_runs(type=type)
+    brain_keys = dataset.list_brain_runs(type=type, **kwargs)
 
     if not brain_keys:
-        message = "This dataset has no brain runs"
-        if run_type is not None:
-            message += f" of type {run_type}"
+        if error_message is None:
+            error_message = "This dataset has no brain runs"
+            if run_type is not None:
+                error_message += f" of type {run_type}"
 
         warning = types.Warning(
-            label=message,
+            label=error_message,
             description="https://docs.voxel51.com/user_guide/brain.html",
         )
         prop = inputs.view("warning", warning)
@@ -1512,6 +1847,8 @@ def _execution_mode(ctx, inputs):
 def register(p):
     p.register(ComputeVisualization)
     p.register(ComputeSimilarity)
+    p.register(SortBySimilarity)
+    p.register(AddSimilarSamples)
     p.register(ComputeUniqueness)
     p.register(ComputeMistakenness)
     p.register(ComputeHardness)
