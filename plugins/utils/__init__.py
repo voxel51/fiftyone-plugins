@@ -1376,7 +1376,7 @@ class ComputeMetadata(foo.Operator):
         if delegate:
             kwargs = {}
 
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(view.compute_metadata).parameters
@@ -1692,7 +1692,7 @@ class GenerateThumbnails(foo.Operator):
         kwargs = {}
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(foui.transform_images).parameters

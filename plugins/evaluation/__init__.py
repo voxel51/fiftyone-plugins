@@ -66,7 +66,7 @@ class EvaluateModel(foo.Operator):
             eval_fcn = target_view.evaluate_segmentations
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if "progress" in inspect.signature(eval_fcn).parameters:
                 progress = lambda pb: ctx.set_progress(progress=pb.progress)
                 kwargs["progress"] = fo.report_progress(progress, dt=5.0)

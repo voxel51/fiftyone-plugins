@@ -80,7 +80,7 @@ class ComputeVisualization(foo.Operator):
         kwargs = {}
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(fob.compute_visualization).parameters
@@ -203,7 +203,7 @@ class ComputeSimilarity(foo.Operator):
         target_view = _get_target_view(ctx, target)
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(fob.compute_similarity).parameters
@@ -1104,7 +1104,7 @@ class ComputeUniqueness(foo.Operator):
         kwargs = {}
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(fob.compute_uniqueness).parameters
@@ -1204,7 +1204,7 @@ class ComputeMistakenness(foo.Operator):
         target_view = _get_target_view(ctx, target)
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(fob.compute_mistakenness).parameters
@@ -1400,7 +1400,7 @@ class ComputeHardness(foo.Operator):
         kwargs = {}
 
         if delegate:
-            # can remove check if we require `fiftyone>=0.24`
+            # can remove check if we require `fiftyone>=0.23.3`
             if (
                 "progress"
                 in inspect.signature(fob.compute_hardness).parameters
