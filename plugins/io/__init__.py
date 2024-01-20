@@ -830,9 +830,9 @@ def _import_media_only(ctx):
 
     with batcher:
         for batch in batcher:
+            num_added += len(batch)
             samples = map(make_sample, batch)
             ctx.dataset._add_samples_batch(samples, True, False, True)
-            num_added += len(samples)
 
             progress = num_added / num_total
             label = f"Loaded {num_added} of {num_total}"
