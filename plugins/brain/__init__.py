@@ -22,7 +22,12 @@ from fiftyone.brain import Similarity
 from fiftyone.brain.internal.core.hardness import Hardness
 from fiftyone.brain.internal.core.mistakenness import MistakennessMethod
 from fiftyone.brain.internal.core.uniqueness import Uniqueness
-from fiftyone.brain.internal.core.visualization import Visualization
+
+try:
+    from fiftyone.brain import Visualization
+except ImportError:
+    # fiftyone-brain<=0.15
+    from fiftyone.brain.internal.core.visualization import Visualization
 
 
 class ComputeVisualization(foo.Operator):
