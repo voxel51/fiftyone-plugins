@@ -26,7 +26,7 @@ from fiftyone.brain.internal.core.uniqueness import Uniqueness
 try:
     from fiftyone.brain import Visualization
 except ImportError:
-    # fiftyone-brain<=0.15
+    # fiftyone-brain<0.16
     from fiftyone.brain.internal.core.visualization import Visualization
 
 
