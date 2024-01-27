@@ -1520,17 +1520,18 @@ class GetBrainInfo(foo.Operator):
         inputs = types.Object()
 
         run_type = get_brain_run_type(ctx, inputs)
-        get_brain_key(ctx, inputs, run_type=run_type)
+        brain_key = get_brain_key(ctx, inputs, run_type=run_type)
 
-        inputs.bool(
-            "load_view",
-            default=False,
-            label="Load view",
-            description=(
-                "Whether to load the view on which this brain run was "
-                "performed"
-            ),
-        )
+        if brain_key is not None:
+            inputs.bool(
+                "load_view",
+                default=False,
+                label="Load view",
+                description=(
+                    "Whether to load the view on which this brain run was "
+                    "performed"
+                ),
+            )
 
         view = types.View(label="Get brain info")
         return types.Property(inputs, view=view)

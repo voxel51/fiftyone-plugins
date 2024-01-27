@@ -921,17 +921,18 @@ class GetEvaluationInfo(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        get_eval_key(ctx, inputs)
+        eval_key = get_eval_key(ctx, inputs)
 
-        inputs.bool(
-            "load_view",
-            default=False,
-            label="Load view",
-            description=(
-                "Whether to load the view on which this evaluation was "
-                "performed"
-            ),
-        )
+        if eval_key is not None:
+            inputs.bool(
+                "load_view",
+                default=False,
+                label="Load view",
+                description=(
+                    "Whether to load the view on which this evaluation was "
+                    "performed"
+                ),
+            )
 
         view = types.View(label="Get evaluation info")
         return types.Property(inputs, view=view)

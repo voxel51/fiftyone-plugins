@@ -999,17 +999,18 @@ class GetAnnotationInfo(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        get_anno_key(ctx, inputs)
+        anno_key = get_anno_key(ctx, inputs)
 
-        inputs.bool(
-            "load_view",
-            default=False,
-            label="Load view",
-            description=(
-                "Whether to load the view on which this annotation run was "
-                "performed"
-            ),
-        )
+        if anno_key is not None:
+            inputs.bool(
+                "load_view",
+                default=False,
+                label="Load view",
+                description=(
+                    "Whether to load the view on which this annotation run was "
+                    "performed"
+                ),
+            )
 
         view = types.View(label="Get annotation info")
         return types.Property(inputs, view=view)
