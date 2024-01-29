@@ -1487,7 +1487,7 @@ from fiftyone.operators import types
 
 EXECUTION_MODE_CODE = """
 def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
+    delegate = ctx.params.get("delegate", None)
 
     if delegate:
         description = "Uncheck this box to execute the operation immediately"
@@ -1496,7 +1496,7 @@ def _execution_mode(ctx, inputs):
 
     inputs.bool(
         "delegate",
-        default=False,
+        default=None,
         label="Delegate execution?",
         description=description,
         view=types.CheckboxView(),
@@ -1533,7 +1533,7 @@ def _operator_skeleton_delegation_code(ctx):
     elif delegated_execution == "User Choice":
         code = """
         def resolve_delegation(self, ctx):
-            return ctx.params.get("delegate", False)
+            return ctx.params.get("delegate", None)
         """
     else:
         raise ValueError("Invalid delegation choice")

@@ -1125,6 +1125,8 @@ class ComputeMetadata(foo.Operator):
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
             execute_as_generator=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def __call__(
@@ -1188,17 +1190,17 @@ class ComputeMetadata(foo.Operator):
         )
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
-        delegate = ctx.params.get("delegate", False)
+        delegate = ctx.params.get("delegate", None)
 
         view = _get_target_view(ctx, target)
 
-        if delegate:
+        if delegate or ctx.requesting_delegated_execution:
             view.compute_metadata(overwrite=overwrite, num_workers=num_workers)
         else:
             for update in _compute_metadata_generator(
@@ -1388,6 +1390,8 @@ class GenerateThumbnails(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def __call__(
@@ -1479,7 +1483,7 @@ class GenerateThumbnails(foo.Operator):
         )
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1489,7 +1493,7 @@ class GenerateThumbnails(foo.Operator):
         output_dir = ctx.params["output_dir"]["absolute_path"]
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
-        delegate = ctx.params.get("delegate", False)
+        delegate = ctx.params.get("delegate", None)
 
         view = _get_target_view(ctx, target)
 
@@ -1499,7 +1503,7 @@ class GenerateThumbnails(foo.Operator):
         size = (width or -1, height or -1)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not delegate and not ctx.requesting_delegated_execution:
             num_workers = 0
 
         foui.transform_images(
@@ -1719,7 +1723,7 @@ def _get_target_view(ctx, target):
 
 
 def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
+    delegate = ctx.params.get("delegate", None)
 
     if delegate:
         description = "Uncheck this box to execute the operation immediately"
@@ -1728,7 +1732,7 @@ def _execution_mode(ctx, inputs):
 
     inputs.bool(
         "delegate",
-        default=False,
+        default=None,
         label="Delegate execution?",
         description=description,
         view=types.CheckboxView(),

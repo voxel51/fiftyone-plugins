@@ -39,6 +39,8 @@ class ComputeVisualization(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -52,7 +54,7 @@ class ComputeVisualization(foo.Operator):
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -64,10 +66,10 @@ class ComputeVisualization(foo.Operator):
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
-        delegate = ctx.params.get("delegate", False)
+        delegate = ctx.params.get("delegate", None)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not delegate and not ctx.requesting_delegated_execution:
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
@@ -147,6 +149,8 @@ class ComputeSimilarity(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -160,7 +164,7 @@ class ComputeSimilarity(foo.Operator):
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -179,7 +183,7 @@ class ComputeSimilarity(foo.Operator):
         _get_similarity_backend(backend).parse_parameters(ctx, kwargs)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not delegate and not ctx.requesting_delegated_execution:
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
@@ -944,6 +948,8 @@ class ComputeUniqueness(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -957,7 +963,7 @@ class ComputeUniqueness(foo.Operator):
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -968,10 +974,10 @@ class ComputeUniqueness(foo.Operator):
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
-        delegate = ctx.params.get("delegate", False)
+        delegate = ctx.params.get("delegate", None)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not delegate and not ctx.requesting_delegated_execution:
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
@@ -1040,6 +1046,8 @@ class ComputeMistakenness(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -1053,7 +1061,7 @@ class ComputeMistakenness(foo.Operator):
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -1225,6 +1233,8 @@ class ComputeHardness(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -1238,7 +1248,7 @@ class ComputeHardness(foo.Operator):
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1897,7 +1907,7 @@ def _inject_brain_secrets(ctx):
 
 
 def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
+    delegate = ctx.params.get("delegate", None)
 
     if delegate:
         description = "Uncheck this box to execute the operation immediately"
@@ -1906,7 +1916,7 @@ def _execution_mode(ctx, inputs):
 
     inputs.bool(
         "delegate",
-        default=False,
+        default=None,
         label="Delegate execution?",
         description=description,
         view=types.CheckboxView(),

@@ -32,6 +32,8 @@ class ImportSamples(foo.Operator):
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
             execute_as_generator=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def __call__(
@@ -171,7 +173,7 @@ class ImportSamples(foo.Operator):
         return types.Property(inputs, view=types.View(label="Import samples"))
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         import_type = ctx.params.get("import_type", None)
@@ -1003,6 +1005,8 @@ class MergeSamples(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -1015,7 +1019,7 @@ class MergeSamples(foo.Operator):
         return types.Property(inputs, view=types.View(label="Merge samples"))
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         src_type = ctx.params.get("src_type", None)
@@ -1387,6 +1391,8 @@ class MergeLabels(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -1399,7 +1405,7 @@ class MergeLabels(foo.Operator):
         return types.Property(inputs, view=types.View(label="Merge labels"))
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1523,6 +1529,8 @@ class ExportSamples(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def __call__(
@@ -1722,7 +1730,7 @@ class ExportSamples(foo.Operator):
         return types.Property(inputs, view=types.View(label="Export samples"))
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         _export_samples(ctx)
@@ -2505,6 +2513,8 @@ class DrawLabels(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -2517,7 +2527,7 @@ class DrawLabels(foo.Operator):
         return types.Property(inputs, view=types.View(label="Draw labels"))
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -2654,7 +2664,7 @@ def _get_target_view(ctx, target):
 
 
 def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
+    delegate = ctx.params.get("delegate", None)
 
     if delegate:
         description = "Uncheck this box to execute the operation immediately"
@@ -2663,7 +2673,7 @@ def _execution_mode(ctx, inputs):
 
     inputs.bool(
         "delegate",
-        default=False,
+        default=None,
         label="Delegate execution?",
         description=description,
         view=types.CheckboxView(),
