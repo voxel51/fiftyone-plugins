@@ -1002,53 +1002,124 @@ class GetAnnotationInfo(foo.Operator):
         anno_key = get_anno_key(ctx, inputs)
 
         if anno_key is not None:
+            d = _get_annotation_info(ctx.dataset, anno_key)
+
+            # Run info
+            inputs.view(
+                "info_header",
+                types.Header(label="Run info", divider=True),
+            )
+            inputs.str(
+                "info_anno_key",
+                label="Annotation key",
+                default=d["anno_key"],
+                view=types.LabelValueView(read_only=True),
+                # description=d["anno_key"]
+                # view=types.MarkdownView(read_only=True),
+            )
+            inputs.str(
+                "info_timestamp",
+                label="Creation time",
+                default=d["timestamp"],
+                view=types.LabelValueView(read_only=True),
+            )
+            inputs.str(
+                "info_version",
+                label="FiftyOne version",
+                default=d["version"],
+                view=types.LabelValueView(read_only=True),
+            )
+
+            # Config
+            inputs.view(
+                "config_header",
+                types.Header(label="Annotation config", divider=True),
+            )
+            if ctx.params.get("config_raw", False):
+                inputs.obj(
+                    "config_json",
+                    default=d["config"],
+                    view=types.JSONView(),
+                )
+            else:
+                for key, value in d["config"].items():
+                    if isinstance(value, dict):
+                        inputs.obj(
+                            "config_" + key,
+                            label=key,
+                            default=value,
+                            view=types.JSONView(),
+                        )
+                    else:
+                        inputs.str(
+                            "config_" + key,
+                            label=key,
+                            default=str(value),
+                            view=types.LabelValueView(read_only=True),
+                        )
+
+            inputs.bool(
+                "config_raw",
+                label="Show as JSON",
+                default=False,
+                view=types.SwitchView(),
+            )
+
+            # Actions
+            inputs.view(
+                "actions_header",
+                types.Header(label="Actions", divider=True),
+            )
             inputs.bool(
                 "load_view",
                 default=False,
                 label="Load view",
                 description=(
-                    "Whether to load the view on which this annotation run was "
-                    "performed"
+                    "Whether to load the view on which this run was performed"
                 ),
             )
+            ready = ctx.params.get("load_view", False)
+        else:
+            ready = False
+
+        if not ready:
+            prop = inputs.bool("hidden", view=types.HiddenView())
+            prop.invalid = True
 
         view = types.View(label="Get annotation info")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         anno_key = ctx.params["anno_key"]
+        load_view = ctx.params.get("load_view", False)
 
-        if ctx.params.get("load_view", False):
+        if load_view:
             ctx.trigger(
                 "@voxel51/annotation/load_annotation_view",
                 params={"anno_key": anno_key},
             )
-            return
 
-        info = ctx.dataset.get_annotation_info(anno_key)
 
-        timestamp = info.timestamp.strftime("%Y-%M-%d %H:%M:%S")
-        config = info.config.serialize()
-        config = {k: v for k, v in config.items() if v is not None}
+def _get_annotation_info(dataset, anno_key):
+    info = dataset.get_annotation_info(anno_key)
+    timestamp = info.timestamp
+    version = info.version
+    config = info.config
 
-        return {
-            "anno_key": anno_key,
-            "timestamp": timestamp,
-            "version": info.version,
-            "config": config,
-        }
+    if timestamp is not None:
+        timestamp = timestamp.strftime("%Y-%M-%d %H:%M:%S")
 
-    def resolve_output(self, ctx):
-        if ctx.params.get("load_view", False):
-            return
+    if config is not None:
+        config = {k: v for k, v in config.serialize().items() if v is not None}
+    else:
+        config = {}
 
-        outputs = types.Object()
-        outputs.str("anno_key", label="Annotation key")
-        outputs.str("timestamp", label="Creation time")
-        outputs.str("version", label="FiftyOne version")
-        outputs.obj("config", label="Annotation config", view=types.JSONView())
-        view = types.View(label="Annotation run info")
-        return types.Property(outputs, view=view)
+    return {
+        "anno_key": anno_key,
+        "timestamp": timestamp,
+        "version": version,
+        "config": config,
+    }
 
 
 class LoadAnnotationView(foo.Operator):

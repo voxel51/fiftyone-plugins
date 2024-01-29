@@ -924,53 +924,124 @@ class GetEvaluationInfo(foo.Operator):
         eval_key = get_eval_key(ctx, inputs)
 
         if eval_key is not None:
+            d = _get_evaluation_info(ctx.dataset, eval_key)
+
+            # Run info
+            inputs.view(
+                "info_header",
+                types.Header(label="Run info", divider=True),
+            )
+            inputs.str(
+                "info_eval_key",
+                label="Evaluation key",
+                default=d["eval_key"],
+                view=types.LabelValueView(read_only=True),
+                # description=d["eval_key"],
+                # view=types.MarkdownView(read_only=True),
+            )
+            inputs.str(
+                "info_timestamp",
+                label="Creation time",
+                default=d["timestamp"],
+                view=types.LabelValueView(read_only=True),
+            )
+            inputs.str(
+                "info_version",
+                label="FiftyOne version",
+                default=d["version"],
+                view=types.LabelValueView(read_only=True),
+            )
+
+            # Config
+            inputs.view(
+                "config_header",
+                types.Header(label="Evaluation config", divider=True),
+            )
+            if ctx.params.get("config_raw", False):
+                inputs.obj(
+                    "config_json",
+                    default=d["config"],
+                    view=types.JSONView(),
+                )
+            else:
+                for key, value in d["config"].items():
+                    if isinstance(value, dict):
+                        inputs.obj(
+                            "config_" + key,
+                            label=key,
+                            default=value,
+                            view=types.JSONView(),
+                        )
+                    else:
+                        inputs.str(
+                            "config_" + key,
+                            label=key,
+                            default=str(value),
+                            view=types.LabelValueView(read_only=True),
+                        )
+
+            inputs.bool(
+                "config_raw",
+                label="Show as JSON",
+                default=False,
+                view=types.SwitchView(),
+            )
+
+            # Actions
+            inputs.view(
+                "actions_header",
+                types.Header(label="Actions", divider=True),
+            )
             inputs.bool(
                 "load_view",
                 default=False,
                 label="Load view",
                 description=(
-                    "Whether to load the view on which this evaluation was "
-                    "performed"
+                    "Whether to load the view on which this run was performed"
                 ),
             )
+            ready = ctx.params.get("load_view", False)
+        else:
+            ready = False
+
+        if not ready:
+            prop = inputs.bool("hidden", view=types.HiddenView())
+            prop.invalid = True
 
         view = types.View(label="Get evaluation info")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         eval_key = ctx.params["eval_key"]
+        load_view = ctx.params.get("load_view", False)
 
-        if ctx.params.get("load_view", False):
+        if load_view:
             ctx.trigger(
                 "@voxel51/evaluation/load_evaluation_view",
                 params={"eval_key": eval_key},
             )
-            return
 
-        info = ctx.dataset.get_evaluation_info(eval_key)
 
-        timestamp = info.timestamp.strftime("%Y-%M-%d %H:%M:%S")
-        config = info.config.serialize()
-        config = {k: v for k, v in config.items() if v is not None}
+def _get_evaluation_info(dataset, eval_key):
+    info = dataset.get_evaluation_info(eval_key)
+    timestamp = info.timestamp
+    version = info.version
+    config = info.config
 
-        return {
-            "eval_key": eval_key,
-            "timestamp": timestamp,
-            "version": info.version,
-            "config": config,
-        }
+    if timestamp is not None:
+        timestamp = timestamp.strftime("%Y-%M-%d %H:%M:%S")
 
-    def resolve_output(self, ctx):
-        if ctx.params.get("load_view", False):
-            return
+    if config is not None:
+        config = {k: v for k, v in config.serialize().items() if v is not None}
+    else:
+        config = {}
 
-        outputs = types.Object()
-        outputs.str("eval_key", label="Evaluation key")
-        outputs.str("timestamp", label="Creation time")
-        outputs.str("version", label="FiftyOne version")
-        outputs.obj("config", label="Evaluation config", view=types.JSONView())
-        view = types.View(label="Evaluation info")
-        return types.Property(outputs, view=view)
+    return {
+        "eval_key": eval_key,
+        "timestamp": timestamp,
+        "version": version,
+        "config": config,
+    }
 
 
 class LoadEvaluationView(foo.Operator):

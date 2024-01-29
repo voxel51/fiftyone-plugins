@@ -1523,56 +1523,133 @@ class GetBrainInfo(foo.Operator):
         brain_key = get_brain_key(ctx, inputs, run_type=run_type)
 
         if brain_key is not None:
+            d = _get_brain_info(ctx.dataset, brain_key)
+
+            # Run info
+            inputs.view(
+                "info_header",
+                types.Header(label="Run info", divider=True),
+            )
+            inputs.str(
+                "info_brain_key",
+                label="Brain key",
+                default=d["brain_key"],
+                view=types.LabelValueView(read_only=True),
+                # description=d["brain_key"],
+                # view=types.MarkdownView(read_only=True),
+            )
+            inputs.str(
+                "info_run_type",
+                label="Run type",
+                default=d["run_type"],
+                view=types.LabelValueView(read_only=True),
+            )
+            inputs.str(
+                "info_timestamp",
+                label="Creation time",
+                default=d["timestamp"],
+                view=types.LabelValueView(read_only=True),
+            )
+            inputs.str(
+                "info_version",
+                label="FiftyOne version",
+                default=d["version"],
+                view=types.LabelValueView(read_only=True),
+            )
+
+            # Config
+            inputs.view(
+                "config_header",
+                types.Header(label="Brain config", divider=True),
+            )
+            if ctx.params.get("config_raw", False):
+                inputs.obj(
+                    "config_json",
+                    default=d["config"],
+                    view=types.JSONView(),
+                )
+            else:
+                for key, value in d["config"].items():
+                    if isinstance(value, dict):
+                        inputs.obj(
+                            "config_" + key,
+                            label=key,
+                            default=value,
+                            view=types.JSONView(),
+                        )
+                    else:
+                        inputs.str(
+                            "config_" + key,
+                            label=key,
+                            default=str(value),
+                            view=types.LabelValueView(read_only=True),
+                        )
+
+            inputs.bool(
+                "config_raw",
+                label="Show as JSON",
+                default=False,
+                view=types.SwitchView(),
+            )
+
+            # Actions
+            inputs.view(
+                "actions_header",
+                types.Header(label="Actions", divider=True),
+            )
             inputs.bool(
                 "load_view",
                 default=False,
                 label="Load view",
                 description=(
-                    "Whether to load the view on which this brain run was "
-                    "performed"
+                    "Whether to load the view on which this run was performed"
                 ),
             )
+            ready = ctx.params.get("load_view", False)
+        else:
+            ready = False
+
+        if not ready:
+            prop = inputs.bool("hidden", view=types.HiddenView())
+            prop.invalid = True
 
         view = types.View(label="Get brain info")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
         brain_key = ctx.params["brain_key"]
+        load_view = ctx.params.get("load_view", False)
 
-        if ctx.params.get("load_view", False):
+        if load_view:
             ctx.trigger(
                 "@voxel51/brain/load_brain_view",
                 params={"brain_key": brain_key},
             )
-            return
 
-        info = ctx.dataset.get_brain_info(brain_key)
 
-        run_type = _get_brain_run_type(ctx.dataset, brain_key)
-        timestamp = info.timestamp.strftime("%Y-%M-%d %H:%M:%S")
-        config = info.config.serialize()
-        config = {k: v for k, v in config.items() if v is not None}
+def _get_brain_info(dataset, brain_key):
+    run_type = _get_brain_run_type(dataset, brain_key)
 
-        return {
-            "brain_key": brain_key,
-            "run_type": run_type,
-            "timestamp": timestamp,
-            "version": info.version,
-            "config": config,
-        }
+    info = dataset.get_brain_info(brain_key)
+    timestamp = info.timestamp
+    version = info.version
+    config = info.config
 
-    def resolve_output(self, ctx):
-        if ctx.params.get("load_view", False):
-            return
+    if timestamp is not None:
+        timestamp = timestamp.strftime("%Y-%M-%d %H:%M:%S")
 
-        outputs = types.Object()
-        outputs.str("brain_key", label="Brain key")
-        outputs.str("run_type", label="Run type")
-        outputs.str("timestamp", label="Creation time")
-        outputs.str("version", label="FiftyOne version")
-        outputs.obj("config", label="Brain config", view=types.JSONView())
-        view = types.View(label="Brain run info")
-        return types.Property(outputs, view=view)
+    if config is not None:
+        config = {k: v for k, v in config.serialize().items() if v is not None}
+    else:
+        config = {}
+
+    return {
+        "brain_key": brain_key,
+        "run_type": run_type,
+        "timestamp": timestamp,
+        "version": version,
+        "config": config,
+    }
 
 
 class LoadBrainView(foo.Operator):
