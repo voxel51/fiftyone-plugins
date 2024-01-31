@@ -237,6 +237,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/danielgural/audio_loader">@danielgural/audio_loader</a></b></td>
         <td>🎧 Import your audio datasets as spectograms into FiftyOne!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/fiftyone-albumentations-plugin">@jacobmarks/albumentations_augmentation</a></b></td>
+        <td>🪞 Test out any Albumentations data augmentation transform with FiftyOne!</td>
+    </tr>
 </table>
 
 ## Using Plugins
