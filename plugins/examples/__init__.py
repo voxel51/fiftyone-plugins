@@ -793,6 +793,28 @@ class LazyFieldExample(foo.Operator):
         outputs.str("url", label="URL")
         return types.Property(outputs)
 
+class TargetViewExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_target_view",
+            label="Examples: Target view",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.view_target(ctx)
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        target_view = ctx.target_view()
+        return {"target_view": target_view.count()}
+    
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.int("target_view", label="Target View")
+        return types.Property(outputs)
 
 def register(p):
     p.register(MessageExamples)
@@ -817,3 +839,4 @@ def register(p):
     p.register(ExampleSecretsOperator)
     p.register(FileDropExample)
     p.register(LazyFieldExample)
+    p.register(TargetViewExample)
