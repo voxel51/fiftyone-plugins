@@ -669,7 +669,7 @@ class SortBySimilarity(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        tab = ctx.params.get("tab", "SELECTED")
+        tab = ctx.params["tab"]
         brain_key = ctx.params["brain_key"]
         target = ctx.params.get("target", None)
         k = ctx.params["k"]
