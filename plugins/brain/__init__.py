@@ -5,13 +5,17 @@ FiftyOne Brain operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import base64
 from collections import defaultdict
 from datetime import datetime
 import json
 
 from bson import json_util
 
+import eta.core.image as etai
+
 import fiftyone as fo
+import fiftyone.core.patches as fop
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.zoo.models as fozm
@@ -628,26 +632,36 @@ class SortBySimilarity(foo.Operator):
 
     """
     def resolve_placement(self, ctx):
-        if ctx.selected:
-            label = "Sort by image similarity"
-            icon = "/assets/wallpaper.svg"
-        else:
-            label = "Sort by text similarity"
-            icon = "/assets/search.svg"
-
         return types.Placement(
             types.Places.SAMPLES_GRID_ACTIONS,
-            types.Button(label=label, icon=icon),
+            types.Button(label="Sort by similarity", icon="/assets/search.svg")
         )
     """
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        if ctx.selected:
-            sort_by_image_similarity(ctx, inputs)
-            label = "Sort by image similarity"
-        else:
+        choices = types.TabsView()
+        choices.add_choice("SELECTED", label="Selected")
+        choices.add_choice("IMAGE", label="Image")
+        choices.add_choice("TEXT", label="Text")
+        default = "SELECTED" if ctx.selected else "TEXT"
+
+        inputs.enum(
+            "tab",
+            choices.values(),
+            default=default,
+            view=choices,
+        )
+        tab = ctx.params.get("tab", default)
+
+        if tab == "SELECTED":
+            sort_by_selected_image_similarity(ctx, inputs)
+            label = "Sort by selected image similarity"
+        elif tab == "IMAGE":
+            sort_by_uploaded_image_similarity(ctx, inputs)
+            label = "Sort by uploaded image similarity"
+        elif tab == "TEXT":
             sort_by_text_similarity(ctx, inputs)
             label = "Sort by text similarity"
 
@@ -655,28 +669,60 @@ class SortBySimilarity(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        target = ctx.params.get("target", None)
+        tab = ctx.params.get("tab", "SELECTED")
         brain_key = ctx.params["brain_key"]
+        target = ctx.params.get("target", None)
         k = ctx.params["k"]
 
         _inject_brain_secrets(ctx)
         target_view = _get_target_view(ctx, target)
 
-        if ctx.selected:
+        if tab == "SELECTED":
             query = ctx.selected
-        else:
+        elif tab == "IMAGE":
+            query = _embed_query_image(ctx)
+        elif tab == "TEXT":
             query = ctx.params["query"]
 
         view = target_view.sort_by_similarity(query, k=k, brain_key=brain_key)
         ctx.trigger("set_view", params={"view": serialize_view(view)})
 
 
-def sort_by_image_similarity(ctx, inputs):
+def _embed_query_image(ctx):
+    brain_key = ctx.params["brain_key"]
+    info = ctx.dataset.get_brain_info(brain_key)
+    model = fozm.load_zoo_model(info.config.model)
+
+    query_image = ctx.params["query_image"]
+    img_bytes = base64.b64decode(query_image["content"])
+    img = etai.decode(img_bytes)
+
+    return model.embed(img)
+
+
+def sort_by_selected_image_similarity(ctx, inputs):
+    if not ctx.selected:
+        warning = types.Warning(
+            label="Please select query image(s) in the grid"
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+
+        return False
+
+    if isinstance(ctx.view, fop.PatchesView):
+        patches_field = ctx.view.patches_field
+        sim_str = f"'{patches_field}' patch similarity"
+    else:
+        patches_field = None
+        sim_str = "similarity"
+
     brain_key = get_brain_key(
         ctx,
         inputs,
         run_type="similarity",
-        error_message="This dataset has no similarity indexes",
+        patches_field=patches_field,
+        error_message=f"This dataset has no {sim_str} indexes",
     )
 
     if not brain_key:
@@ -693,22 +739,77 @@ def sort_by_image_similarity(ctx, inputs):
     )
 
 
-def sort_by_text_similarity(ctx, inputs):
+def sort_by_uploaded_image_similarity(ctx, inputs):
+    if isinstance(ctx.view, fop.PatchesView):
+        patches_field = ctx.view.patches_field
+        sim_str = f"'{patches_field}' patch similarity"
+    else:
+        patches_field = None
+        sim_str = "similarity"
+
+    brain_keys = []
+    for brain_key in ctx.dataset.list_brain_runs(
+        type=Similarity, patches_field=patches_field
+    ):
+        info = ctx.dataset.get_brain_info(brain_key)
+        if isinstance(getattr(info.config, "model", None), str):
+            brain_keys.append(brain_key)
+
     brain_key = get_brain_key(
         ctx,
         inputs,
-        run_type="similarity",
-        supports_prompts=True,
+        brain_keys=brain_keys,
         error_message=(
-            "This dataset has no similarity indexes that support text "
-            "prompts"
+            f"This dataset has no {sim_str} indexes that support query "
+            "images"
         ),
     )
 
     if not brain_key:
         return
 
-    get_target_view(ctx, inputs, allow_selected=False)
+    get_target_view(ctx, inputs)
+
+    inputs.obj(
+        "query_image",
+        required=True,
+        label="Query image",
+        description="Upload a query image",
+        view=types.FileView(label="Query image"),
+    )
+
+    inputs.int(
+        "k",
+        default=25,
+        required=True,
+        label="Number of matches",
+        description="Choose how many similar samples to show",
+    )
+
+
+def sort_by_text_similarity(ctx, inputs):
+    if isinstance(ctx.view, fop.PatchesView):
+        patches_field = ctx.view.patches_field
+        sim_str = f"'{patches_field}' patch similarity"
+    else:
+        patches_field = None
+        sim_str = "similarity"
+
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="similarity",
+        patches_field=patches_field,
+        supports_prompts=True,
+        error_message=(
+            f"This dataset has no {sim_str} indexes that support text prompts"
+        ),
+    )
+
+    if not brain_key:
+        return
+
+    get_target_view(ctx, inputs)
 
     inputs.str(
         "query",
@@ -1453,17 +1554,29 @@ def get_new_brain_key(
 
 
 def get_target_view(ctx, inputs, allow_selected=True):
-    has_view = ctx.view != ctx.dataset.view()
+    has_base_view = isinstance(ctx.view, fop.PatchesView)
+    if has_base_view:
+        has_view = ctx.view != ctx.view._base_view
+    else:
+        has_view = ctx.view != ctx.dataset.view()
     has_selected = allow_selected and bool(ctx.selected)
     default_target = None
 
     if has_view or has_selected:
         target_choices = types.RadioGroup(orientation="horizontal")
-        target_choices.add_choice(
-            "DATASET",
-            label="Entire dataset",
-            description="Process the entire dataset",
-        )
+
+        if has_base_view:
+            target_choices.add_choice(
+                "BASE_VIEW",
+                label="Base view",
+                description="Process the base view",
+            )
+        else:
+            target_choices.add_choice(
+                "DATASET",
+                label="Entire dataset",
+                description="Process the entire dataset",
+            )
 
         if has_view:
             target_choices.add_choice(
@@ -1487,6 +1600,7 @@ def get_target_view(ctx, inputs, allow_selected=True):
             default=default_target,
             required=True,
             label="Target view",
+            description="Choose which view to process",
             view=target_choices,
         )
 
@@ -1498,6 +1612,9 @@ def get_target_view(ctx, inputs, allow_selected=True):
 def _get_target_view(ctx, target):
     if target == "SELECTED_SAMPLES":
         return ctx.view.select(ctx.selected)
+
+    if target == "BASE_VIEW":
+        return ctx.view._base_view
 
     if target == "DATASET":
         return ctx.dataset
@@ -1845,6 +1962,7 @@ def get_brain_key(
     description="Select a brain key",
     run_type=None,
     dataset=None,
+    brain_keys=None,
     show_default=True,
     error_message=None,
     **kwargs,
@@ -1852,8 +1970,9 @@ def get_brain_key(
     if dataset is None:
         dataset = ctx.dataset
 
-    type = _BRAIN_RUN_TYPES.get(run_type, None)
-    brain_keys = dataset.list_brain_runs(type=type, **kwargs)
+    if brain_keys is None:
+        type = _BRAIN_RUN_TYPES.get(run_type, None)
+        brain_keys = dataset.list_brain_runs(type=type, **kwargs)
 
     if not brain_keys:
         if error_message is None:

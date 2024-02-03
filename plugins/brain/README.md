@@ -81,16 +81,16 @@ This operator is essentially a wrapper around
 view = dataset.sort_by_similarity(query, brain_key=brain_key, k=k, ...)
 ```
 
-This operator supports both image and text similarity queries, depending on
-whether you have samples currently selected in the App when you launch the
-operator:
+This operator supports all of the following similarity queries:
 
--   If one or more samples currently selected, an
+-   Searching by
     [image similarity](https://docs.voxel51.com/user_guide/brain.html#image-similarity)
-    query will be performed
--   Otherwise, a
+    based on the currently selected samples in the App
+-   Searching by
+    [image similarity](https://docs.voxel51.com/user_guide/brain.html#image-similarity)
+    to an uploaded image
+-   Searching by
     [text similarity](https://docs.voxel51.com/user_guide/brain.html#text-similarity)
-    query will be performed
 
 ### add_similar_samples
 
