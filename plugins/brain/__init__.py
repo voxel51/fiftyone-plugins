@@ -1600,7 +1600,6 @@ def get_target_view(ctx, inputs, allow_selected=True):
             default=default_target,
             required=True,
             label="Target view",
-            description="Choose which view to process",
             view=target_choices,
         )
 
