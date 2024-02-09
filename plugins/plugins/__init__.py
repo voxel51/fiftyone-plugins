@@ -831,7 +831,7 @@ def _create_float_code(ctx, inputs):
     if len(componentsPropsDict) == 0:
         component_props_code = ""
     else:
-        component_props_code = "componentProps=" + str(componentProps).replace(
+        component_props_code = "componentsProps=" + str(componentProps).replace(
             "{", "{"
         ).replace("}", "}")
 
