@@ -241,6 +241,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/fiftyone-albumentations-plugin">@jacobmarks/albumentations_augmentation</a></b></td>
         <td>🪞 Test out any Albumentations data augmentation transform with FiftyOne!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/fiftyone-image-captioning-plugin">@jacobmarks/image_captioning</a></b></td>
+        <td> Caption all your images with state of the art vision-language models!</td>
+    </tr>
 </table>
 
 ## Using Plugins
