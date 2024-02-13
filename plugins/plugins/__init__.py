@@ -589,7 +589,7 @@ MESSAGE_VIEW_OPTIONS = {
 
 RADIO_GROUP_VIEW_OPTIONS = {
     "Dropdown": ("types.DropdownView", types.DropdownView),
-    "Radio": ("types.RadioGroupView", types.RadioView),
+    "Radio": ("types.RadioView", types.RadioView),
     "Tabs": ("types.TabsView", types.TabsView),
     "Autocomplete": ("types.AutocompleteView", types.AutocompleteView),
 }
