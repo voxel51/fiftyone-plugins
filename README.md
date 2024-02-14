@@ -243,7 +243,11 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/fiftyone-image-captioning-plugin">@jacobmarks/image_captioning</a></b></td>
-        <td> Caption all your images with state of the art vision-language models!</td>
+        <td> 🖋️ Caption all your images with state of the art vision-language models!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/fiftyone-multimodal-rag-plugin">@jacobmarks/multimodal_rag</a></b></td>
+        <td> 🦙 Create and test multimodal RAG pipelines with LlamaIndex, Milvus, and FiftyOne!</td>
     </tr>
 </table>
 
