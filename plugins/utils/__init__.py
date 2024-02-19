@@ -2477,7 +2477,6 @@ class LoadDefaultView(foo.Operator):
             name="load_default_view",
             label="Load default view",
             on_startup=True,
-            unlisted=True,
         )
 
     def execute(self, ctx):
