@@ -2470,6 +2470,27 @@ class Delegate(foo.Operator):
             fcn(*args, **kwargs)
 
 
+class LoadDefaultView(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="load_default_view",
+            label="Load default view",
+            on_startup=True,
+            unlisted=True,
+        )
+
+    def execute(self, ctx):
+        default_view = ctx.dataset.info.get("default_view", None)
+        if default_view and ctx.dataset.has_saved_view(default_view):
+            view = ctx.dataset.load_saved_view(default_view)
+            ctx.trigger("set_view", params={"view": serialize_view(view)})
+
+
+def serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
+
+
 def register(p):
     p.register(CreateDataset)
     p.register(LoadDataset)
@@ -2483,3 +2504,4 @@ def register(p):
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
     p.register(Delegate)
+    p.register(LoadDefaultView)
