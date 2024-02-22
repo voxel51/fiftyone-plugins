@@ -401,10 +401,10 @@ def _build_label_schema(label_schema_fields):
         label_schema[field_name] = {"type": field_type}
 
         if classes:
-            label_schema["classes"] = classes
+            label_schema[field_name]["classes"] = classes
 
         if attributes:
-            label_schema["attributes"] = attributes
+            label_schema[field_name]["attributes"] = attributes
 
     return label_schema
 
