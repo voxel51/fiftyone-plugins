@@ -249,6 +249,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/fiftyone-multimodal-rag-plugin">@jacobmarks/multimodal_rag</a></b></td>
         <td> 🦙 Create and test multimodal RAG pipelines with LlamaIndex, Milvus, and FiftyOne!</td>
     </tr>
+        <tr>
+        <td><b><a href="https://github.com/danielgural/clustering_algorithms">@danielgural/clustering_algorithms</a></b></td>
+        <td> 🕵️ Find the clusters in your data using the some of the best algorithms available!</td>
+    </tr>
 </table>
 
 ## Using Plugins
