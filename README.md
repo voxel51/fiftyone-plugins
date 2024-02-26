@@ -249,6 +249,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/fiftyone-multimodal-rag-plugin">@jacobmarks/multimodal_rag</a></b></td>
         <td> 🦙 Create and test multimodal RAG pipelines with LlamaIndex, Milvus, and FiftyOne!</td>
     </tr>
+        <tr>
+        <td><b><a href="https://github.com/danielgural/optimal_confidence_threshold">@danielgural/optimal_confidence_threshold</a></b></td>
+        <td> 🔍 Find the optimal confidence threshold for your detection models automatically!</td>
+    </tr>
 </table>
 
 ## Using Plugins
