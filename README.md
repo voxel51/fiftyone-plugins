@@ -249,9 +249,13 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/fiftyone-multimodal-rag-plugin">@jacobmarks/multimodal_rag</a></b></td>
         <td> 🦙 Create and test multimodal RAG pipelines with LlamaIndex, Milvus, and FiftyOne!</td>
     </tr>
-        <tr>
+    <tr>
         <td><b><a href="https://github.com/danielgural/outlier_detection">@danielgural/outlier_detection</a></b></td>
         <td> ❌ Find those troublesome outliers in your dataset automatically!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/danielgural/clustering_algorithms">@danielgural/clustering_algorithms</a></b></td>
+        <td> 🕵️ Find the clusters in your data using some of the best algorithms available!</td>
     </tr>
 </table>
 
