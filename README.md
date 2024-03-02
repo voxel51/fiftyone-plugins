@@ -243,19 +243,23 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/fiftyone-image-captioning-plugin">@jacobmarks/image_captioning</a></b></td>
-        <td> 🖋️ Caption all your images with state of the art vision-language models!</td>
+        <td>🖋️ Caption all your images with state of the art vision-language models!</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/fiftyone-multimodal-rag-plugin">@jacobmarks/multimodal_rag</a></b></td>
-        <td> 🦙 Create and test multimodal RAG pipelines with LlamaIndex, Milvus, and FiftyOne!</td>
+        <td>🦙 Create and test multimodal RAG pipelines with LlamaIndex, Milvus, and FiftyOne!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/danielgural/optimal_confidence_threshold">@danielgural/optimal_confidence_threshold</a></b></td>
+        <td>🔍 Find the optimal confidence threshold for your detection models automatically!</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/danielgural/outlier_detection">@danielgural/outlier_detection</a></b></td>
-        <td> ❌ Find those troublesome outliers in your dataset automatically!</td>
+        <td>❌ Find those troublesome outliers in your dataset automatically!</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/danielgural/clustering_algorithms">@danielgural/clustering_algorithms</a></b></td>
-        <td> 🕵️ Find the clusters in your data using some of the best algorithms available!</td>
+        <td>🕵️ Find the clusters in your data using some of the best algorithms available!</td>
     </tr>
 </table>
 
