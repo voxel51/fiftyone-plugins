@@ -299,7 +299,7 @@ delegate(
 
 When this operator is enabled, any dataset whose `info` dict contains the name
 of a valid saved view in its `default_view` key will load the specified view by
-default (rather than the full dataset) whenever that dataset is loaded in the
+default (rather than the full dataset) whenever that dataset is opened in the
 App.
 
 ```py
