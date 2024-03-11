@@ -244,3 +244,19 @@ delegate(
     persistent=True,
 )
 ```
+
+### reload_saved_view
+
+You can use this operator to reload saved views on a dataset that are
+_generated_ (patches, frames, or clips).
+
+This operator is essentially a wrapper around the following pattern:
+
+```py
+view = dataset.load_saved_view(name)
+view.reload()
+
+dataset.save_view(name, view, overwrite=True)
+```
+
+where the operator's form allows you to select the saved view to reload.

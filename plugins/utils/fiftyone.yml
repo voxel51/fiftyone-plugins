@@ -15,3 +15,4 @@ operators:
   - compute_metadata
   - generate_thumbnails
   - delegate
+  - reload_saved_view
