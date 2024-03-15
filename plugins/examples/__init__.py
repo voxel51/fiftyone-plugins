@@ -804,7 +804,7 @@ class TargetViewExample(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.view_target(ctx)
+        vt = inputs.view_target(ctx)
         return types.Property(inputs)
 
     def execute(self, ctx):

@@ -1,0 +1,7 @@
+name: "@github_username/plugin_name"
+version: "0.1.0"
+description: "My plugin description"
+operators:
+  - test_plot_operator
+  - plotly_plot_operator
+  - plotly_plot_controller
