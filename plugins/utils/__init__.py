@@ -2482,8 +2482,11 @@ class LoadDefaultView(foo.Operator):
     def execute(self, ctx):
         default_view = ctx.dataset.info.get("default_view", None)
         if default_view and ctx.dataset.has_saved_view(default_view):
-            view = ctx.dataset.load_saved_view(default_view)
-            ctx.trigger("set_view", params={"view": serialize_view(view)})
+            if Version(fo.__version__) >= Version("0.23.7"):
+                ctx.trigger("set_view", params={"name": default_view})
+            else:
+                view = ctx.dataset.load_saved_view(default_view)
+                ctx.trigger("set_view", params={"view": serialize_view(view)})
 
 
 def serialize_view(view):
