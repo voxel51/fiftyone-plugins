@@ -94,6 +94,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/voxelgpt">@voxel51/voxelgpt</a></b></td>
         <td>🤖 An AI assistant that can query visual datasets, search the FiftyOne docs, and answer general computer vision questions</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone_mlflow_plugin">@voxel51/mlflow</a></b></td>
+        <td>📋 Track model training experiments on your FiftyOne datasets with MLflow!</td>
+    </tr>
 </table>
 
 ## Example Plugins
@@ -114,10 +118,6 @@ Want to showcase your own plugin here? See the
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/examples">@voxel51/examples</a></b></td>
         <td>📋 Examples of how to use the operator type system to build custom FiftyOne operations</td>
-    </tr>
-    <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone_mlflow_plugin">@voxel51/mlflow</a></b></td>
-        <td>📋 Track model training experiments on your FiftyOne datasets with MLflow!</td>
     </tr>
 </table>
 
