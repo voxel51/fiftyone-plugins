@@ -152,6 +152,23 @@ dataset.clear()
 
 where the operator's form allows you to choose which samples to delete.
 
+### apply_saved_view
+
+You can use this operator to apply a saved view from another dataset to your
+current dataset (assuming the view is applicable to both).
+
+This operator is essentially a wrapper around the following code snippet:
+
+```py
+src_view = src_dataset.load_saved_view(name)
+
+# Apply source view to current dataset
+view = fo.DatasetView._build(dataset, src_view._serialize())
+```
+
+where the operator's form allows you to choose the source dataset and view to
+apply.
+
 ### compute_metadata
 
 You can use this operator to populate the `metadata` field of a collection.
