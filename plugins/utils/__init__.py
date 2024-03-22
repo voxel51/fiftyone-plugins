@@ -12,6 +12,7 @@ import multiprocessing.dummy
 import eta.core.utils as etau
 
 import fiftyone as fo
+import fiftyone.core.fields as fof
 import fiftyone.core.media as fom
 import fiftyone.core.metadata as fomm
 import fiftyone.core.utils as fou
@@ -219,12 +220,17 @@ class EditDatasetInfo(foo.Operator):
                 ctx.dataset.default_classes = default_classes
 
         if mask_targets is not None:
-            mask_targets = json.loads(mask_targets)
+            mask_targets = {
+                k: _parse_mask_targets(v)
+                for k, v in json.loads(mask_targets).items()
+            }
             if mask_targets != ctx.dataset.mask_targets:
                 ctx.dataset.mask_targets = mask_targets
 
         if default_mask_targets is not None:
-            default_mask_targets = json.loads(default_mask_targets)
+            default_mask_targets = _parse_mask_targets(
+                json.loads(default_mask_targets)
+            )
             if default_mask_targets != ctx.dataset.default_mask_targets:
                 ctx.dataset.default_mask_targets = default_mask_targets
 
@@ -246,6 +252,13 @@ class EditDatasetInfo(foo.Operator):
             ctx.dataset.default_skeleton = None
 
         ctx.trigger("reload_dataset")
+
+
+def _parse_mask_targets(mask_targets):
+    if fof.is_integer_mask_targets(mask_targets):
+        return {int(k): v for k, v in mask_targets.items()}
+
+    return mask_targets
 
 
 def _dataset_info_inputs(ctx, inputs):
@@ -677,6 +690,10 @@ def _dataset_info_inputs(ctx, inputs):
     ## mask_targets
 
     mask_targets, valid = _parse_field(ctx, "mask_targets", type=dict)
+    if mask_targets is not None:
+        mask_targets = {
+            k: _parse_mask_targets(v) for k, v in mask_targets.items()
+        }
     edited_mask_targets = (
         mask_targets is not None and mask_targets != ctx.dataset.mask_targets
     )
@@ -717,6 +734,8 @@ def _dataset_info_inputs(ctx, inputs):
     default_mask_targets, valid = _parse_field(
         ctx, "default_mask_targets", type=dict
     )
+    if default_mask_targets is not None:
+        default_mask_targets = _parse_mask_targets(default_mask_targets)
     edited_default_mask_targets = (
         default_mask_targets is not None
         and default_mask_targets != ctx.dataset.default_mask_targets
