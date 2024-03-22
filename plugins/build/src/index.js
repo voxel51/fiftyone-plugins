@@ -27,6 +27,7 @@ exports.defineConfig = function defineConfig(dir) {
             "@fiftyone/operators": "__foo__",
             "@fiftyone/components": "__foc__",
             "@fiftyone/utilities": "__fou__",
+            "@fiftyone/spaces": "__fosp__",
             "@mui/material": "__mui__",
             "styled-components": "__styled__",
           })
