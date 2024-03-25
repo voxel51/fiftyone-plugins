@@ -793,6 +793,51 @@ class LazyFieldExample(foo.Operator):
         outputs.str("url", label="URL")
         return types.Property(outputs)
 
+
+class RegisterPanelExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="register_panel_example",
+            label="Examples: Register Panel",
+            on_startup=True,
+        )
+
+    def execute(self, ctx):
+        ctx.ops.register_panel(
+            "Example Python Panel",
+            on_load="@voxel51/examples/panel_example",
+        )
+
+class PanelExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="panel_example",
+            label="Examples: Panel",
+            unlisted=True
+        )
+
+    def execute(self, ctx):
+        outputs = types.Object()
+        outputs.str("message", label="Message")
+        outputs.btn("button", label="Click me", on_click="@voxel51/examples/panel_event_example")
+        data = {"message": "Hello from the panel!"}
+        ctx.ops.set_panel_state(data)
+        ctx.ops.show_panel_output(outputs)
+
+class PanelEventExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="panel_event_example",
+            label="Examples: Panel Event",
+            unlisted=True
+        )
+
+    def execute(self, ctx):
+        ctx.ops.set_panel_state({"message": "Button clicked!"})
+
 class TargetViewExample(foo.Operator):
     @property
     def config(self):
