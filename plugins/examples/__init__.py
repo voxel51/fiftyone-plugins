@@ -524,7 +524,7 @@ class OpenHistogramsPanel(foo.Operator):
     def execute(self, ctx):
         ctx.trigger(
             "open_panel",
-            params=dict(name="Histograms", isActive=True, layout="horizontal"),
+            params=dict(),
         )
         return {}
 

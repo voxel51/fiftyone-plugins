@@ -62,31 +62,53 @@ class PlotlyPlotOperator(foo.Operator):
         )
     
     def get_number_field_choices(self, ctx):
-        fields = types.Choices()
+        fields = types.Choices(space=6)
         schemas = ctx.dataset.get_field_schema([fof.FloatField, fof.IntField], flat=True)
         for field_path in schemas.keys():
             fields.add_choice(field_path, label=field_path)
         return fields
 
-    def create_axis_input(self, ctx, inputs, axis, plot_type):
+
+    def create_axis_input(self, ctx, inputs, axis):
         axis_obj = types.Object()
-        axis_obj.bool('showgrid', default=True, label="Show Grid")
-        axis_obj.bool('zeroline', default=False, label="Show Zero Line")
-        axis_obj.bool('showline', default=True, label="Show Line")
-        axis_obj.bool('mirror', default=False, label="Mirror")
-        axis_obj.bool('autotick', default=True, label="Auto Tick")
-        axis_obj.bool('showticklabels', default=True, label="Show Tick Labels")
-        axis_obj.bool('showspikes', default=False, label="Show Spikes")
-        axis_obj.bool('showexponent', default="all", label="Show Exponent")
+        axis_bool_view = types.CheckboxView(space=3)
+        axis_obj.str('title', default=None, label=f"Title")
+        axis_obj.bool('showgrid', default=True, label="Show Grid", view=axis_bool_view)
+        axis_obj.bool('zeroline', default=False, label="Show Zero Line", view=axis_bool_view)
+        axis_obj.bool('showline', default=True, label="Show Line", view=axis_bool_view)
+        axis_obj.bool('mirror', default=False, label="Mirror", view=axis_bool_view)
+        axis_obj.bool('autotick', default=True, label="Auto Tick", view=axis_bool_view)
+        axis_obj.bool('showticklabels', default=True, label="Show Tick Labels", view=axis_bool_view)
+        axis_obj.bool('showspikes', default=False, label="Show Spikes", view=axis_bool_view)
+
+        scale_choices = types.Choices()
+        scale_choices.add_choice("linear", label="Linear")
+        scale_choices.add_choice("log", label="Log")
+        scale_choices.add_choice("date", label="Date")
+        scale_choices.add_choice("category", label="Date")
+        axis_obj.enum('type', values=scale_choices.values(), view=scale_choices, default="linear", label="Scale Type")
+
+        axis_obj.float('tickangle', default=0, label="Tick Angle")
+        axis_obj.str('tickformat', default=None, label="Tick Format", view=types.View(space=3))
+
+        # Range settings
+        axis_obj.bool('autorange', default=True, label="Auto Range", view=axis_bool_view)
+        autorange = ctx.params.get(f"{axis}axis", {}).get('autorange', True)
+        # if not autorange:
+            # axis_obj.array('range', element_type=types.Number(), default=None, label="Range", view=types.View(space=3))
+
+        # todo - fix, this should not be a bool
+        # axis_obj.bool('showexponent', default="all", label="Show Exponent")
         inputs.define_property(f"{axis}axis", axis_obj, label=f"{axis.capitalize()} Axis")
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        inputs.str('plot_title', default="My Plot", label='Plot Title')
-        plot_choices = types.Choices()
+        inputs.str('plot_title', label='Plot Title', view=types.View(space=6))
+        plot_choices = types.Choices(label="Plot Type", space=6)
         plot_choices.add_choice("histogram", label="Histogram")
         plot_choices.add_choice("line", label="Line")
+        plot_choices.add_choice("scatter", label="Scatter")
         plot_choices.add_choice("heatmap", label="Heatmap")
         plot_choices.add_choice("bar", label="Bar")
 
@@ -94,18 +116,18 @@ class PlotlyPlotOperator(foo.Operator):
 
         inputs.enum('plot_type', values=plot_choices.values(), view=plot_choices, required=True)
 
+        self.create_axis_input(ctx, inputs, "x")
+        self.create_axis_input(ctx, inputs, "y")
+
+        fields = self.get_number_field_choices(ctx)
+        inputs.enum('x_field', values=fields.values(), view=fields, required=True, label="X Data Source")
+
         if plot_type == 'histogram':
-            inputs.int('bins', default=10, label="Number of Bins")
-            fields = self.get_number_field_choices(ctx)
-            inputs.enum('field', values=fields.values(), view=fields, required=True, label="Field")
-            inputs.obj('color', label="Color", view=types.ColorView(compact=True))
+            inputs.int('bins', default=10, label="Number of Bins", view=types.View(space=6))
+            inputs.obj('color', label="Color", default={"hex": '#ff0000'}, view=types.ColorView(compact=True))
             inputs.bool('show_legend', default=True, label="Show Legend")
             inputs.str('legend_title', default='Data', label="Legend Title")
-            inputs.str('xaxis_title', default='X-Axis', label="X-Axis Title")
-            inputs.str('yaxis_title', default='Y-Axis', label="Y-Axis Title")
 
-            self.create_axis_input(ctx, inputs, "x", "histogram")
-            self.create_axis_input(ctx, inputs, "y", "histogram")
             
 
             binning_function_choices = types.Choices()
@@ -134,7 +156,11 @@ class PlotlyPlotOperator(foo.Operator):
             histfunc_choices.add_choice("max", label="Maximum")
             inputs.enum('histfunc', values=histfunc_choices.values(), view=histfunc_choices, default="count", label="Histogram Function")
 
-        return types.Property(inputs)
+        if plot_type == 'line' or plot_type == 'scatter':
+            inputs.enum('y_field', values=fields.values(), view=fields, required=True, label="Y Data Source")
+
+        prompt = types.PromptView(submit_button_label="Create Plot")
+        return types.Property(inputs, view=prompt)
     
     def get_axis_config(self, ctx, axis, plot_type):
         return ctx.params.get(f"{axis}axis", None)    
@@ -142,10 +168,20 @@ class PlotlyPlotOperator(foo.Operator):
     def execute(self, ctx):
         panel_id = ctx.params.get('panel_id') # this should come from ctx (not params)
         plot_type = ctx.params.get('plot_type')
-        plot_title = ctx.params.get('plot_title', "My Plot")
+        plot_title = ctx.params.get('plot_title', None)
         data = []
         config = {}
-        layout = {}
+        show_legend = ctx.params.get('show_legend', False)
+        layout = {
+            "title": plot_title,
+            "xaxis": self.get_axis_config(ctx, "x", plot_type),
+            "yaxis": self.get_axis_config(ctx, "y", plot_type),
+            "showlegend": show_legend,
+        }
+        x_field = ctx.params.get('x_field')
+        y_field = ctx.params.get('y_field')
+        is_line = plot_type == "line"
+        is_scatter = plot_type == "scatter"
 
         # Based on the plot type, we would populate 'data', 'config', and 'layout' appropriately
         if plot_type == "histogram":
@@ -156,45 +192,50 @@ class PlotlyPlotOperator(foo.Operator):
             histfunc = ctx.params.get('histfunc', 'count')
             color = ctx.params.get('color', {"hex": '#1f77b4'})['hex']
 
-            show_legend = ctx.params.get('show_legend', False)
             legend_title = ctx.params.get('legend_title', 'Data')
 
             data = [{
                 "type": "histogram",
-                "x": ctx.view.values(ctx.params.get('field')),
+                "x": ctx.view.values(x_field),
                 "nbinsx": bins,
-                # "histfunc": histfunc,
-                # "cumulative_enabled": cumulative,
-                # "marker": {"color": '#ff7f0e'},
-                # "xbin": {"func": binning_function}
+                "histfunc": histfunc,
+                "cumulative_enabled": cumulative,
+                # "marker": {"color": color},
+                "xbin": {"func": binning_function}
             }]
 
             if normalization:
                 data[0]['histnorm'] = normalization
 
             config = {}
-            layout = {
-                "title": plot_title,
-                "xaxis": self.get_axis_config(ctx, "x", plot_type),
-                "yaxis": self.get_axis_config(ctx, "y", plot_type),
-                "showlegend": show_legend,
-                "height": 600,
-            }
-        elif plot_type == "line":
-            data = [{"type": "scatter", "mode": "lines", "x": [1, 2, 3], "y": [1, 4, 9]}]
+        elif is_line or is_scatter:
+            data = [{
+                "type": "scatter",
+                "mode": is_line and "lines" or "markers",
+                "x": ctx.view.values(ctx.params.get('x_field')),
+                "y": ctx.view.values(ctx.params.get('y_field'))
+            }]
         elif plot_type == "heatmap":
             data = [{"type": "heatmap", "z": [[1, 20, 30], [20, 1, 60], [30, 60, 1]]}]
         elif plot_type == "bar":
             data = [{"type": "bar", "x": [1, 2, 3], "y": [1, 4, 9]}]
 
+        actual_title = plot_title
+        if not plot_title:
+            if x_field:
+                actual_title = f"{plot_title} ({x_field})"
+            if y_field:
+                actual_title = f"{plot_title} ({x_field}, {y_field})"
+
         # Construct the Plotly view (note: panel_id should be auto injected somehow)
         plotly_view = types.PlotlyView(
             panel_id=panel_id,
-            label="My Plotly Plot",
+            label=actual_title,
             config=config,
             layout=layout,
             controller="@github_username/plugin_name/plotly_plot_controller",
-            x_data_source=ctx.params.get('field')
+            x_data_source=ctx.params.get('x_field'),
+            show_selected=True
         )
 
         outputs = types.Object()
@@ -204,7 +245,7 @@ class PlotlyPlotOperator(foo.Operator):
             "panel_id": panel_id,
             "outputs": types.Property(outputs).to_json(),
             "data": {
-                "plot": data  # Pass the data to the Plotly plot
+                "plot": data,  # Pass the data to the Plotly plot
             }
         })
 
@@ -226,11 +267,23 @@ class PlotlyPlotController(foo.Operator):
 
     def execute(self, ctx):
         event = ctx.params.get('event')
+        print(ctx.params)
         if event == 'onClick':
-            print(ctx.params['x_data_source'])
-            print('..........')
-            print(ctx.params)
-
+            min = ctx.params.get("range", [])[0]
+            max = ctx.params.get("range", [])[1]
+            filter = {}
+            filter[ctx.params.get("x_data_source")] = {"$gte": min, "$lte": max}
+            ctx.trigger("set_view", dict(view=[
+                {
+                    "_cls": "fiftyone.core.stages.Match",
+                    "kwargs": [
+                    [
+                        "filter",
+                        filter
+                    ]
+                    ],
+                }
+            ]))
 
 
 
