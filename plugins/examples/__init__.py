@@ -823,7 +823,7 @@ class PanelExample(foo.Operator):
         outputs.str("message", label="Message")
         outputs.btn("button", label="Click me", on_click="@voxel51/examples/panel_event_example")
         data = {"message": "Hello from the panel!"}
-        ctx.ops.set_panel_state(data)
+        ctx.ops.update_panel_state(data)
         ctx.ops.show_panel_output(outputs)
 
 class PanelEventExample(foo.Operator):
@@ -836,7 +836,7 @@ class PanelEventExample(foo.Operator):
         )
 
     def execute(self, ctx):
-        ctx.ops.set_panel_state({"message": "Button clicked!"})
+        ctx.ops.update_panel_state({"message": "Button clicked!"})
 
 class TargetViewExample(foo.Operator):
     @property
