@@ -1225,7 +1225,7 @@ def _get_merge_parameters(ctx, inputs):
         default=True,
         label="Insert new",
         description=(
-            "Whether to skip existing samples (True) or merge them (False)"
+            "Whether to insert new samples (True) or skip them (False)"
         ),
         view=types.CheckboxView(),
     )
@@ -1235,7 +1235,7 @@ def _get_merge_parameters(ctx, inputs):
         required=True,
         default=False,
         label="Skip existing",
-        description="Whether to insert new samples (True) or skip them (False)",
+        description="Whether to skip existing samples (True) or merge them (False)",
         view=types.CheckboxView(),
     )
 
