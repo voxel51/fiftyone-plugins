@@ -30,5 +30,8 @@ operators:
   - example_file_drop
   - lazy_field_example
   - example_target_view
+  - register_panel_example
+  - panel_example
+  - panel_event_example
 secrets:
   - FIFTYONE_EXAMPLE_SECRET

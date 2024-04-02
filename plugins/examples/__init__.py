@@ -805,7 +805,8 @@ class RegisterPanelExample(foo.Operator):
 
     def execute(self, ctx):
         ctx.ops.register_panel(
-            "Example Python Panel",
+            "panel_example",
+            "My Panel",
             on_load="@voxel51/examples/panel_example",
         )
 
@@ -824,7 +825,7 @@ class PanelExample(foo.Operator):
         outputs.btn("button", label="Click me", on_click="@voxel51/examples/panel_event_example")
         data = {"message": "Hello from the panel!"}
         ctx.ops.update_panel_state(data)
-        ctx.ops.show_panel_output(outputs)
+        # ctx.ops.show_panel_output(outputs)
 
 class PanelEventExample(foo.Operator):
     @property
@@ -885,3 +886,6 @@ def register(p):
     p.register(FileDropExample)
     p.register(LazyFieldExample)
     p.register(TargetViewExample)
+    p.register(RegisterPanelExample)
+    p.register(PanelExample)
+    p.register(PanelEventExample)
