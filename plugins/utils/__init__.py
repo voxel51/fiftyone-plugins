@@ -91,7 +91,7 @@ class CreateDataset(foo.Operator):
         if tags:
             dataset.tags = tags
 
-        ctx.trigger("open_dataset", dict(dataset=dataset.name))
+        ctx.ops.open_dataset(dataset.name)
 
 
 class LoadDataset(foo.Operator):
@@ -145,7 +145,7 @@ class LoadDataset(foo.Operator):
 
     def execute(self, ctx):
         name = ctx.params["name"]
-        ctx.trigger("open_dataset", dict(dataset=name))
+        ctx.ops.open_dataset(name)
 
 
 class EditDatasetInfo(foo.Operator):
@@ -1005,7 +1005,7 @@ class RenameDataset(foo.Operator):
 
         if ctx.dataset.name == name:
             ctx.dataset.name = new_name
-            ctx.trigger("open_dataset", dict(dataset=new_name))
+            ctx.ops.open_dataset(new_name)
         else:
             dataset = fo.load_dataset(name)
             dataset.name = new_name
@@ -1044,7 +1044,7 @@ class DeleteDataset(foo.Operator):
         name = ctx.params.get("name", None)
 
         if name == ctx.dataset.name:
-            ctx.trigger("open_dataset", dict(dataset=None))
+            ctx.ops.open_dataset(None)
 
         fo.delete_dataset(name)
 
