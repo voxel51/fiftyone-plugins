@@ -1144,7 +1144,7 @@ class LoadAnnotationView(foo.Operator):
     def execute(self, ctx):
         anno_key = ctx.params["anno_key"]
         anno_view = ctx.dataset.load_annotation_view(anno_key)
-        ctx.trigger("set_view", params={"view": serialize_view(anno_view)})
+        ctx.ops.set_view(view=anno_view)
 
 
 def serialize_view(view):

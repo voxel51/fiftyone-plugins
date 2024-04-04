@@ -1076,7 +1076,7 @@ class LoadEvaluationView(foo.Operator):
         eval_view = ctx.dataset.load_evaluation_view(
             eval_key, select_fields=select_fields
         )
-        ctx.trigger("set_view", params={"view": serialize_view(eval_view)})
+        ctx.ops.set_view(view=eval_view)
 
 
 def serialize_view(view):
