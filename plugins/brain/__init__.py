@@ -668,7 +668,7 @@ class SortBySimilarity(foo.Operator):
             query = ctx.params["query"]
 
         view = target_view.sort_by_similarity(query, k=k, brain_key=brain_key)
-        ctx.trigger("set_view", params={"view": serialize_view(view)})
+        ctx.ops.set_view(view=view)
 
 
 def sort_by_image_similarity(ctx, inputs):
@@ -837,7 +837,7 @@ class AddSimilarSamples(foo.Operator):
             sample_ids = ctx.selected + sample_ids
 
         view = dst_dataset.select(sample_ids)
-        ctx.trigger("set_view", params={"view": serialize_view(view)})
+        ctx.ops.set_view(view=view)
 
 
 def search_by_image_similarity(ctx, inputs, src_dataset):
@@ -1675,7 +1675,7 @@ class LoadBrainView(foo.Operator):
     def execute(self, ctx):
         brain_key = ctx.params["brain_key"]
         view = ctx.dataset.load_brain_view(brain_key)
-        ctx.trigger("set_view", params={"view": serialize_view(view)})
+        ctx.ops.set_view(view=view)
 
 
 def serialize_view(view):
