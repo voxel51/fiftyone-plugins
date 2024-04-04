@@ -186,7 +186,7 @@ class ImportSamples(foo.Operator):
             for update in _import_labels_only(ctx):
                 yield update
 
-        yield ctx.trigger("reload_dataset")
+        yield ctx.ops.reload_dataset()
 
 
 def _import_samples_inputs(ctx, inputs):
@@ -1055,7 +1055,7 @@ class MergeSamples(foo.Operator):
         )
 
         if dst_dataset is ctx.dataset:
-            ctx.trigger("reload_dataset")
+            ctx.ops.reload_dataset()
 
 
 def _merge_samples_inputs(ctx, inputs):
@@ -1410,7 +1410,7 @@ class MergeLabels(foo.Operator):
 
         view.merge_labels(in_field, out_field)
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def _merge_labels_inputs(ctx, inputs):

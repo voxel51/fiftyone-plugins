@@ -918,7 +918,7 @@ class LoadAnnotations(foo.Operator):
         ctx.dataset.load_annotations(
             anno_key, unexpected=unexpected, cleanup=cleanup
         )
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def load_annotations(ctx, inputs):
@@ -1232,7 +1232,7 @@ class DeleteAnnotationRun(foo.Operator):
                 results.cleanup()
 
         ctx.dataset.delete_annotation_run(anno_key)
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def get_anno_key(ctx, inputs, show_default=True):

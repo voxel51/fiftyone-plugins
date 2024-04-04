@@ -251,7 +251,7 @@ class EditDatasetInfo(foo.Operator):
         elif ctx.dataset.default_skeleton is not None:
             ctx.dataset.default_skeleton = None
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def _parse_mask_targets(mask_targets):
@@ -1076,7 +1076,7 @@ class DeleteSamples(foo.Operator):
         else:
             ctx.dataset.delete_samples(view)
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def _delete_samples_inputs(ctx, inputs):
@@ -1225,7 +1225,7 @@ class ComputeMetadata(foo.Operator):
             ):
                 yield update
 
-        yield ctx.trigger("reload_dataset")
+        yield ctx.ops.reload_dataset()
 
 
 def _compute_metadata_inputs(ctx, inputs):
@@ -1538,7 +1538,7 @@ class GenerateThumbnails(foo.Operator):
 
         ctx.dataset.save()
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def _generate_thumbnails_inputs(ctx, inputs):

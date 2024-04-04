@@ -986,7 +986,7 @@ class ComputeUniqueness(foo.Operator):
             skip_failures=skip_failures,
         )
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def compute_uniqueness(ctx, inputs):
@@ -1071,7 +1071,7 @@ class ComputeMistakenness(foo.Operator):
             mistakenness_field=mistakenness_field,
             **kwargs,
         )
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def compute_mistakenness(ctx, inputs):
@@ -1251,7 +1251,7 @@ class ComputeHardness(foo.Operator):
             label_field,
             hardness_field=hardness_field,
         )
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def compute_hardness(ctx, inputs):
@@ -1717,7 +1717,7 @@ class RenameBrainRun(foo.Operator):
         ctx.dataset.rename_brain_run(brain_key, new_brain_key)
 
         if run_type in ("uniqueness", "mistakenness", "hardness"):
-            ctx.trigger("reload_dataset")
+            ctx.ops.reload_dataset()
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -1781,7 +1781,7 @@ class DeleteBrainRun(foo.Operator):
         ctx.dataset.delete_brain_run(brain_key)
 
         if run_type in ("uniqueness", "mistakenness", "hardness"):
-            ctx.trigger("reload_dataset")
+            ctx.ops.reload_dataset()
 
     def resolve_output(self, ctx):
         outputs = types.Object()
