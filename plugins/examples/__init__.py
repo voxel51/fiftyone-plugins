@@ -808,7 +808,19 @@ class RegisterPanelExample(foo.Operator):
             "panel_example",
             "My Panel",
             on_load="@voxel51/examples/panel_example",
+            on_change="@voxel51/examples/panel_example",
         )
+
+def render_panel(ctx, state):
+    outputs = types.Object()
+    step = state.get('step', 1)
+    if step == 1:
+        outputs.str("step", label="Step 1", view=types.Notice())
+        outputs.btn("next", label="Next", on_click="@voxel51/examples/panel_event_example")
+    if step == 2:
+        outputs.str("step", label="Step 2", view=types.Notice())
+        outputs.btn('compute', label='Compute Similarity', on_click="@voxel51/brain/compute_similarity", prompt=True)
+    ctx.ops.show_panel_output(types.Property(outputs))
 
 class PanelExample(foo.Operator):
     @property
@@ -820,12 +832,8 @@ class PanelExample(foo.Operator):
         )
 
     def execute(self, ctx):
-        outputs = types.Object()
-        outputs.str("message", label="Message")
-        outputs.btn("button", label="Click me", on_click="@voxel51/examples/panel_event_example")
-        data = {"message": "Hello from the panel!"}
-        ctx.ops.update_panel_state(data)
-        # ctx.ops.show_panel_output(outputs)
+        panel_state = ctx.params.get("panel_state", {})
+        render_panel(ctx, ctx.params.get("panel_state", panel_state))
 
 class PanelEventExample(foo.Operator):
     @property
@@ -837,7 +845,12 @@ class PanelEventExample(foo.Operator):
         )
 
     def execute(self, ctx):
-        ctx.ops.update_panel_state({"message": "Button clicked!"})
+        ctx.ops.set_panel_state({"step": 2})
+        # ctx.ops.reduce_panel_state("""
+        #     (state) => {
+        #         return {...state, count: (state.count || 0) + 1}
+        #     }
+        # """)
 
 class TargetViewExample(foo.Operator):
     @property
