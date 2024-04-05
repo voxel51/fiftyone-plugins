@@ -1,0 +1,13 @@
+name: "@voxel51/dashboard"
+description: Utilities for working with delegated operations
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/delegated
+license: Apache 2.0
+operators:
+  - plotly_plot_controller
+  - plotly_plot_operator
+  - plot_panel_operator
+  - initialize_dashboard
+  - plot_panel_view_change
