@@ -1,0 +1,11 @@
+name: "@voxel51/runs"
+description: Utilities for working with the FiftyOne Runs
+version: 1.0.0
+fiftyone:
+  version: ">=0.23"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/runs
+license: Apache 2.0
+operators:
+  - get_run_info
+  - rename_run
+  - delete_run
