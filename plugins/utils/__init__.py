@@ -2237,8 +2237,10 @@ class ReloadSavedView(foo.Operator):
             for name in saved_views:
                 view_choices.add_choice(name, label=name)
 
-            # @todo set to current view if it is generated
-            default = None
+            if ctx.view.name in saved_views:
+                default = ctx.view.name
+            else:
+                default = None
 
             inputs.enum(
                 "name",
@@ -2272,9 +2274,9 @@ class ReloadSavedView(foo.Operator):
         view_doc.last_modified_at = datetime.utcnow()
         view_doc.save()
 
-        if view == ctx.view:
-            # @todo use set_view by saved view name here
-            ctx.trigger("reload_samples")
+        if ctx.view.name == view.name:
+            ctx.trigger("set_view", params={"name": name})
+            ctx.trigger("reload_dataset")
 
 
 def _get_generated_saved_views(dataset):
