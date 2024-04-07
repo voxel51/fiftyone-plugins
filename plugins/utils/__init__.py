@@ -2227,6 +2227,16 @@ class ReloadSavedView(foo.Operator):
             dynamic=True,
         )
 
+    def resolve_placement(self, ctx):
+        if ctx.view._is_generated and ctx.view.name is not None:
+            return types.Placement(
+                types.Places.SAMPLES_GRID_ACTIONS,
+                types.Button(
+                    label="Reload saved view",
+                    icon="/assets/autorenew.svg",
+                ),
+            )
+
     def resolve_input(self, ctx):
         inputs = types.Object()
 
