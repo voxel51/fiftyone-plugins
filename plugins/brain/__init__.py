@@ -1950,7 +1950,7 @@ _BRAIN_RUN_TYPES = {
     "mistakenness": MistakennessMethod,
     "similarity": Similarity,
     "uniqueness": Uniqueness,
-    "visualiazation": Visualization,
+    "visualization": Visualization,
 }
 
 
