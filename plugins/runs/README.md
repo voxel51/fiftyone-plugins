@@ -1,7 +1,7 @@
-# Custom Runs Plugin
+# Runs Plugin
 
-A plugin that contains utilities for working with the
-[FiftyOne's Custom Runs](https://docs.voxel51.com/plugins/developing_plugins.html#storing-custom-runs).
+A plugin that contains utilities for working with
+[custom runs](https://docs.voxel51.com/plugins/developing_plugins.html#storing-custom-runs).
 
 ## Installation
 

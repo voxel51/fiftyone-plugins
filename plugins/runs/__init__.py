@@ -1,5 +1,5 @@
 """
-FiftyOne Custom Runs operators.
+Custom runs operators.
 
 | Copyright 2017-2023, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
@@ -11,29 +11,6 @@ from datetime import datetime
 import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-
-
-def get_new_run_key(
-    ctx,
-    inputs,
-    name="run_key",
-    label="Run key",
-    description="Provide a key for this run",
-):
-    prop = inputs.str(
-        name,
-        required=True,
-        label=label,
-        description=description,
-    )
-
-    run_key = ctx.params.get(name, None)
-    if run_key is not None and run_key in ctx.dataset.list_brain_runs():
-        prop.invalid = True
-        prop.error_message = "Run key already exists"
-        run_key = None
-
-    return run_key
 
 
 class GetRunInfo(foo.Operator):
@@ -52,7 +29,7 @@ class GetRunInfo(foo.Operator):
         run_key = get_run_key(ctx, inputs, run_type=run_type)
 
         if run_key is not None:
-            d = ctx.dataset.get_run_info(run_key)
+            d = _get_run_info(ctx.dataset, run_key)
 
             # Run info
             inputs.view(
@@ -185,8 +162,6 @@ class LoadRunView(foo.Operator):
         return foo.OperatorConfig(
             name="load_run_view",
             label="Load run view",
-            light_icon="/assets/icon-light.svg",
-            dark_icon="/assets/icon-dark.svg",
             dynamic=True,
         )
 
@@ -233,13 +208,7 @@ class RenameRun(foo.Operator):
     def execute(self, ctx):
         run_key = ctx.params["run_key"]
         new_run_key = ctx.params["new_run_key"]
-
         ctx.dataset.rename_run(run_key, new_run_key)
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Rename successful")
-        return types.Property(outputs, view=view)
 
 
 class DeleteRun(foo.Operator):
@@ -272,11 +241,6 @@ class DeleteRun(foo.Operator):
         run_key = ctx.params["run_key"]
         ctx.dataset.delete_run(run_key)
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Deletion successful")
-        return types.Property(outputs, view=view)
-
 
 def get_run_type(ctx, inputs):
     run_types = []
@@ -294,8 +258,7 @@ def get_run_type(ctx, inputs):
         label="Method",
         description=(
             "You can optionally choose a specific method of interest "
-            "to narrow your search. Runs without a method are only shown"
-            "if no method is selected."
+            "to narrow your search"
         ),
         view=choices,
     )
@@ -306,9 +269,7 @@ def get_run_type(ctx, inputs):
 def _get_run_type(dataset, run_key):
     info = dataset.get_run_info(run_key)
     config = info.config
-    if hasattr(config, "method"):
-        return config.method
-    return None
+    return getattr(config, "method", None)
 
 
 def get_run_key(
@@ -358,6 +319,29 @@ def get_run_key(
     )
 
     return ctx.params.get("run_key", None)
+
+
+def get_new_run_key(
+    ctx,
+    inputs,
+    name="run_key",
+    label="Run key",
+    description="Provide a key for this run",
+):
+    prop = inputs.str(
+        name,
+        required=True,
+        label=label,
+        description=description,
+    )
+
+    run_key = ctx.params.get(name, None)
+    if run_key is not None and run_key in ctx.dataset.list_brain_runs():
+        prop.invalid = True
+        prop.error_message = "Run key already exists"
+        run_key = None
+
+    return run_key
 
 
 def register(p):
