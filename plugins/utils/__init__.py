@@ -9,6 +9,8 @@ import contextlib
 import json
 import multiprocessing.dummy
 
+from bson import json_util
+
 import eta.core.utils as etau
 
 import fiftyone as fo
@@ -1134,6 +1136,95 @@ def _delete_samples_inputs(ctx, inputs):
         prop.invalid = True
 
 
+class ApplySavedView(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="apply_saved_view",
+            label="Apply saved view",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _apply_saved_view_inputs(ctx, inputs)
+
+        view = types.View(label="Apply saved view")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        src_dataset = ctx.params["src_dataset"]
+        src_view = ctx.params["src_view"]
+
+        dataset = fo.load_dataset(src_dataset)
+        view = dataset.load_saved_view(src_view)
+        stages = view._serialize()
+
+        try:
+            view = fo.DatasetView._build(ctx.dataset, stages)
+        except Exception as e:
+            raise ValueError(
+                (
+                    "Failed to apply saved view '%s' from dataset '%s' to "
+                    "dataset '%s'"
+                )
+                % (src_view, src_dataset, ctx.dataset.name)
+            ) from e
+
+        ctx.trigger("set_view", params={"view": serialize_view(view)})
+
+
+def _apply_saved_view_inputs(ctx, inputs):
+    dataset_names = fo.list_datasets()
+
+    dataset_choices = types.AutocompleteView()
+    for name in dataset_names:
+        dataset_choices.add_choice(name, label=name)
+
+    inputs.enum(
+        "src_dataset",
+        dataset_choices.values(),
+        default=ctx.dataset.name,
+        required=True,
+        label="Source dataset",
+        description="Choose a source dataset from which to retrieve a view",
+        view=dataset_choices,
+    )
+
+    src_dataset = ctx.params.get("src_dataset", None)
+
+    if src_dataset in dataset_names:
+        src_dataset = fo.load_dataset(src_dataset)
+        view_names = src_dataset.list_saved_views()
+
+        if view_names:
+            view_choices = types.AutocompleteView()
+            for name in view_names:
+                view_choices.add_choice(name, label=name)
+
+            inputs.enum(
+                "src_view",
+                view_choices.values(),
+                required=True,
+                label="Saved view",
+                description="Choose a saved view to apply to this dataset",
+                view=view_choices,
+            )
+        else:
+            warning = types.Warning(
+                label="Dataset '%s' has no saved views" % src_dataset.name
+            )
+            prop = inputs.view("warning", warning)
+            prop.invalid = True
+
+
+def serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
+
+
 class ComputeMetadata(foo.Operator):
     @property
     def config(self):
@@ -1902,6 +1993,7 @@ def register(p):
     p.register(RenameDataset)
     p.register(DeleteDataset)
     p.register(DeleteSamples)
+    p.register(ApplySavedView)
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
     p.register(Delegate)
