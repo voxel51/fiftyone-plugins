@@ -336,7 +336,7 @@ def get_new_run_key(
     )
 
     run_key = ctx.params.get(name, None)
-    if run_key is not None and run_key in ctx.dataset.list_brain_runs():
+    if run_key is not None and run_key in ctx.dataset.list_runs():
         prop.invalid = True
         prop.error_message = "Run key already exists"
         run_key = None
