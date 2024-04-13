@@ -26,7 +26,9 @@ class GetRunInfo(foo.Operator):
         inputs = types.Object()
 
         run_type = get_run_type(ctx, inputs)
-        run_key = get_run_key(ctx, inputs, run_type=run_type)
+        run_key = get_run_key(
+            ctx, inputs, run_type=run_type, dynamic_param_name=True
+        )
 
         if run_key is not None:
             d = _get_run_info(ctx.dataset, run_key)
@@ -121,7 +123,7 @@ class GetRunInfo(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        run_key = ctx.params["run_key"]
+        run_key = _get_run_key(ctx)
         load_view = ctx.params.get("load_view", False)
 
         if load_view:
@@ -169,13 +171,13 @@ class LoadRunView(foo.Operator):
         inputs = types.Object()
 
         run_type = get_run_type(ctx, inputs)
-        get_run_key(ctx, inputs, run_type=run_type)
+        get_run_key(ctx, inputs, run_type=run_type, dynamic_param_name=True)
 
         view = types.View(label="Load run view")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        run_key = ctx.params["run_key"]
+        run_key = _get_run_key(ctx)
         view = ctx.dataset.load_run_view(run_key)
         ctx.ops.set_view(view=view)
 
@@ -193,7 +195,7 @@ class RenameRun(foo.Operator):
         inputs = types.Object()
 
         run_type = get_run_type(ctx, inputs)
-        get_run_key(ctx, inputs, run_type=run_type)
+        get_run_key(ctx, inputs, run_type=run_type, dynamic_param_name=True)
         get_new_run_key(
             ctx,
             inputs,
@@ -206,7 +208,7 @@ class RenameRun(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        run_key = ctx.params["run_key"]
+        run_key = _get_run_key(ctx)
         new_run_key = ctx.params["new_run_key"]
         ctx.dataset.rename_run(run_key, new_run_key)
 
@@ -225,7 +227,11 @@ class DeleteRun(foo.Operator):
 
         run_type = get_run_type(ctx, inputs)
         run_key = get_run_key(
-            ctx, inputs, run_type=run_type, show_default=False
+            ctx,
+            inputs,
+            run_type=run_type,
+            dynamic_param_name=True,
+            show_default=False,
         )
 
         if run_key is not None:
@@ -238,7 +244,7 @@ class DeleteRun(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        run_key = ctx.params["run_key"]
+        run_key = _get_run_key(ctx)
         ctx.dataset.delete_run(run_key)
 
 
@@ -250,11 +256,13 @@ def get_run_type(ctx, inputs):
             run_types.append(run_type)
 
     choices = types.DropdownView()
+    choices.add_choice(None, label="- all -")
     for run_type in sorted(run_types):
         choices.add_choice(run_type, label=run_type)
 
     inputs.str(
         "run_type",
+        default=None,
         label="Method",
         description=(
             "You can optionally choose a specific method of interest "
@@ -278,6 +286,7 @@ def get_run_key(
     label="Run key",
     description="Select a run key",
     dataset=None,
+    dynamic_param_name=False,
     show_default=True,
     error_message=None,
     run_type=None,
@@ -286,11 +295,16 @@ def get_run_key(
     if dataset is None:
         dataset = ctx.dataset
 
-    run_keys = dataset.list_runs()
+    if run_type is not None:
+        kwargs["method"] = run_type
+
+    run_keys = dataset.list_runs(**kwargs)
 
     if not run_keys:
         if error_message is None:
             error_message = "This dataset has no custom runs"
+            if run_type is not None:
+                error_message += f" of type {run_type}"
 
         warning = types.Warning(
             label=error_message,
@@ -303,14 +317,20 @@ def get_run_key(
 
     choices = types.DropdownView()
     for run_key in run_keys:
-        if run_type is not None:
-            if _get_run_type(dataset, run_key) != run_type:
-                continue
         choices.add_choice(run_key, label=run_key)
 
-    default = run_keys[0] if show_default else None
+    if dynamic_param_name:
+        run_key_param = _get_run_key_param(run_type)
+    else:
+        run_key_param = "run_key"
+
+    if show_default:
+        default = run_keys[0]
+    else:
+        default = None
+
     inputs.str(
-        "run_key",
+        run_key_param,
         default=default,
         required=True,
         label=label,
@@ -318,7 +338,20 @@ def get_run_key(
         view=choices,
     )
 
-    return ctx.params.get("run_key", None)
+    return ctx.params.get(run_key_param, None)
+
+
+def _get_run_key_param(run_type):
+    if run_type is None:
+        return "run_key"
+
+    return "run_key_%s" % run_type
+
+
+def _get_run_key(ctx):
+    run_type = ctx.params.get("run_type", None)
+    run_key_param = _get_run_key_param(run_type)
+    return ctx.params[run_key_param]
 
 
 def get_new_run_key(

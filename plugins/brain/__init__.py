@@ -1636,7 +1636,9 @@ class GetBrainInfo(foo.Operator):
         inputs = types.Object()
 
         run_type = get_brain_run_type(ctx, inputs)
-        brain_key = get_brain_key(ctx, inputs, run_type=run_type)
+        brain_key = get_brain_key(
+            ctx, inputs, run_type=run_type, dynamic_param_name=True
+        )
 
         if brain_key is not None:
             d = _get_brain_info(ctx.dataset, brain_key)
@@ -1733,7 +1735,7 @@ class GetBrainInfo(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        brain_key = ctx.params["brain_key"]
+        brain_key = _get_dynamic_brain_key(ctx)
         load_view = ctx.params.get("load_view", False)
 
         if load_view:
@@ -1783,13 +1785,13 @@ class LoadBrainView(foo.Operator):
         inputs = types.Object()
 
         run_type = get_brain_run_type(ctx, inputs)
-        get_brain_key(ctx, inputs, run_type=run_type)
+        get_brain_key(ctx, inputs, run_type=run_type, dynamic_param_name=True)
 
         view = types.View(label="Load brain view")
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        brain_key = ctx.params["brain_key"]
+        brain_key = _get_dynamic_brain_key(ctx)
         view = ctx.dataset.load_brain_view(brain_key)
         ctx.trigger("set_view", params={"view": serialize_view(view)})
 
@@ -1813,7 +1815,7 @@ class RenameBrainRun(foo.Operator):
         inputs = types.Object()
 
         run_type = get_brain_run_type(ctx, inputs)
-        get_brain_key(ctx, inputs, run_type=run_type)
+        get_brain_key(ctx, inputs, run_type=run_type, dynamic_param_name=True)
         get_new_brain_key(
             ctx,
             inputs,
@@ -1826,7 +1828,7 @@ class RenameBrainRun(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        brain_key = ctx.params["brain_key"]
+        brain_key = _get_dynamic_brain_key(ctx)
         new_brain_key = ctx.params["new_brain_key"]
         run_type = _get_brain_run_type(ctx.dataset, brain_key)
 
@@ -1857,7 +1859,11 @@ class DeleteBrainRun(foo.Operator):
 
         run_type = get_brain_run_type(ctx, inputs)
         brain_key = get_brain_key(
-            ctx, inputs, run_type=run_type, show_default=False
+            ctx,
+            inputs,
+            run_type=run_type,
+            dynamic_param_name=True,
+            show_default=False,
         )
 
         if brain_key is not None:
@@ -1884,15 +1890,14 @@ class DeleteBrainRun(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        brain_key = ctx.params["brain_key"]
+        brain_key = _get_dynamic_brain_key(ctx)
         cleanup = ctx.params.get("cleanup", False)
+        run_type = _get_brain_run_type(ctx.dataset, brain_key)
 
         if cleanup:
             results = ctx.dataset.load_brain_results(brain_key)
             if results is not None:
                 results.cleanup()
-
-        run_type = _get_brain_run_type(ctx.dataset, brain_key)
 
         ctx.dataset.delete_brain_run(brain_key)
 
@@ -1912,6 +1917,7 @@ def get_brain_run_type(ctx, inputs):
         run_types[run_type].append(brain_key)
 
     choices = types.DropdownView()
+    choices.add_choice(None, label="- all -")
     for run_type in sorted(run_types.keys()):
         choices.add_choice(run_type, label=run_type)
 
@@ -1962,6 +1968,7 @@ def get_brain_key(
     run_type=None,
     dataset=None,
     brain_keys=None,
+    dynamic_param_name=False,
     show_default=True,
     error_message=None,
     **kwargs,
@@ -1992,9 +1999,18 @@ def get_brain_key(
     for brain_key in brain_keys:
         choices.add_choice(brain_key, label=brain_key)
 
-    default = brain_keys[0] if show_default else None
+    if dynamic_param_name:
+        brain_key_param = _get_brain_key_param(run_type)
+    else:
+        brain_key_param = "brain_key"
+
+    if show_default:
+        default = brain_keys[0]
+    else:
+        default = None
+
     inputs.str(
-        "brain_key",
+        brain_key_param,
         default=default,
         required=True,
         label=label,
@@ -2002,7 +2018,20 @@ def get_brain_key(
         view=choices,
     )
 
-    return ctx.params.get("brain_key", None)
+    return ctx.params.get(brain_key_param, None)
+
+
+def _get_brain_key_param(run_type):
+    if run_type is None:
+        return "brain_key"
+
+    return "brain_key_%s" % run_type
+
+
+def _get_dynamic_brain_key(ctx):
+    run_type = ctx.params.get("run_type", None)
+    brain_key_param = _get_brain_key_param(run_type)
+    return ctx.params[brain_key_param]
 
 
 def _inject_brain_secrets(ctx):
