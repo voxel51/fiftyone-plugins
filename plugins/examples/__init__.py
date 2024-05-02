@@ -218,6 +218,11 @@ class ImageExample(foo.Operator):
             f"http://localhost:5151/media?filepath={sample.filepath}"
             for sample in samples
         ]
+        ctx.ops.set_selected_labels(labels=[{
+            "label_id": "5f452471ef00e6374aac53c8",
+            "field": "detections",
+            "sample_id": "660b44fc46ee4670ee74b21b"
+        }])
         return {"images": img_urls}
 
     def resolve_output(self, ctx):
@@ -875,6 +880,61 @@ class TargetViewExample(foo.Operator):
         outputs.int("target_view", label="Target View")
         return types.Property(outputs)
 
+class ExamplePanel(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelOperatorConfig(
+            name="example_panel_operator",
+            label="Examples: Panel Operator",
+            icon="cube",
+            allow_multiple=True,
+        )
+    
+    def on_load(self, ctx):
+        # before
+        # ctx.ops.set_panel_state({"message": "Panel loaded!"})
+
+        # new!
+        ctx.panel.state.message = "Panel loaded!"
+        ctx.panel.data.uniqueness = ctx.dataset.values('uniqueness')
+        # note: this will throw
+        # print(ctx.panel.data.uniqueness)
+
+    # def on_change(self, ctx, state):
+    #     print('ExamplePanelOperator changed!', ctx.params)
+
+    def render(self, ctx):
+        print(ctx.panel.state.radio_choices)
+        panel = types.Object()
+        
+        panel.str('message', label="Message", on_change=self.on_msg_change)
+
+        radio_choices = types.RadioGroup()
+        radio_choices.add_choice("choice1", label="Use Defaults")
+        radio_choices.add_choice("choice2", label="Advanced")
+        panel.enum(
+            "radio_choices",
+            radio_choices.values(),
+            default=radio_choices.choices[0].value,
+            label="Radio Choices",
+            view=radio_choices,
+            on_change=self.on_choice_change
+        )
+        
+        panel.btn('btn', label='Click me', on_click=self.on_click)
+        return types.Property(panel)
+    
+    # this works now !!
+    def on_msg_change(self, ctx):
+        print(ctx.params)
+
+    def on_choice_change(self, ctx):
+        ctx.panel.state.message = f"Choice changed to {ctx.params['value']}"
+
+    def on_click(self, ctx):
+        ctx.panel.state.message = "Button clicked!"
+
+
 def register(p):
     p.register(MessageExamples)
     p.register(SimpleInputExample)
@@ -902,3 +962,4 @@ def register(p):
     p.register(RegisterPanelExample)
     p.register(PanelExample)
     p.register(PanelEventExample)
+    p.register(ExamplePanel)

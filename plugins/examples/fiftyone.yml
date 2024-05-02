@@ -33,5 +33,6 @@ operators:
   - register_panel_example
   - panel_example
   - panel_event_example
+  - example_panel_operator
 secrets:
   - FIFTYONE_EXAMPLE_SECRET
