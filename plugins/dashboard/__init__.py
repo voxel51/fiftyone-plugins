@@ -46,8 +46,18 @@ class Dashboard(foo.Panel):
         data = get_plot_data(ctx.dataset, plot_config)
         ctx.panel.data.plot = data
 
+    def on_success(self, ctx):
+        print('on success')
+        print(ctx.params)
+        result = ctx.params.get('result', )
+        new_config = result.get('plot_config')
+        ctx.panel.state.plot_config = new_config
+        self.update_plot_data(ctx)
+
     def on_click_configure(self, ctx):
         ctx.prompt("@voxel51/dashboard/plotly_plot_operator", params=ctx.panel.state.plot_config, on_success=self.update_plot_data)
+
+
 
     def render(self, ctx):
         print('render')
@@ -191,6 +201,8 @@ def get_plot_view(plot_config, on_click=None):
         x_data_source=plot_config.get('x_field'),
         show_selected=True,
         height=85
+        # add a param to allow for pulling in ids in callbacks
+        # include_point_ids_in_callback=True
     )
 
     return plotly_view
