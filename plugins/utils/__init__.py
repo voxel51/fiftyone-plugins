@@ -498,6 +498,33 @@ def _dataset_info_inputs(ctx, inputs):
             view=field_choices,
         )
 
+    ## app_config.media_fallback (added in `fiftyone==0.24.0`)
+
+    if hasattr(ctx.dataset.app_config, "media_fallback"):
+        media_fallback = ctx.params.get("app_config_media_fallback", None)
+        edited_media_fallback = (
+            "app_config_media_fallback" in ctx.params  # can be None
+            and media_fallback != ctx.dataset.app_config.media_fallback
+        )
+        if edited_media_fallback:
+            num_changed += 1
+
+        if tab_choice == "APP_CONFIG":
+            inputs.bool(
+                "app_config_media_fallback",
+                default=ctx.dataset.app_config.media_fallback,
+                required=True,
+                description=(
+                    "Whether to fall back to the default media field "
+                    "('filepath') when the configured media field's value is "
+                    "not defined for a sample"
+                ),
+                view=types.CheckboxView(
+                    label="Media fallback"
+                    + (" (edited)" if edited_media_fallback else ""),
+                ),
+            )
+
     ## app_config.sidebar_mode
 
     sidebar_mode = ctx.params.get("app_config_sidebar_mode", None)
@@ -921,6 +948,9 @@ def _parse_app_config(ctx):
         app_config.modal_media_field = ctx.params[
             "app_config_modal_media_field"
         ]
+
+    if "app_config_media_fallback" in ctx.params:
+        app_config.media_fallback = ctx.params["app_config_media_fallback"]
 
     if "app_config_sidebar_mode" in ctx.params:
         app_config.sidebar_mode = ctx.params["app_config_sidebar_mode"]
