@@ -614,7 +614,7 @@ def _create_view_type_input(inputs):
         description="Select a type of component to create",
         required=True,
         default=radio_group.choices[0].value,
-        view=types.RadioView(),
+        view=types.DropdownView(),
     )
 
 
