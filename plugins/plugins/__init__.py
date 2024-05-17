@@ -831,9 +831,9 @@ def _create_float_code(ctx, inputs):
     if len(componentsPropsDict) == 0:
         component_props_code = ""
     else:
-        component_props_code = "componentsProps=" + str(componentProps).replace(
-            "{", "{"
-        ).replace("}", "}")
+        component_props_code = "componentsProps=" + str(
+            componentProps
+        ).replace("{", "{").replace("}", "}")
 
     code = f"""
     inputs.float(
@@ -1128,6 +1128,74 @@ def _operator_skeleton_tabs_input(inputs):
     )
 
 
+OPERATOR_CONFIG_EXECUTION_OPTIONS = [
+    (
+        "dynamic",
+        "Dynamic",
+        "Whether to re-execute resolve_input() after each user input",
+        False,
+    ),
+    (
+        "execute_as_generator",
+        "Execute as generator",
+        "Whether the operator's execute() method returns a generator that should be iterated over until exhausted",
+        False,
+    ),
+    (
+        "unlisted",
+        "Unlisted",
+        "Whether to hide this operator from the App's operator browser. Set this to True if the operator is only for internal use.",
+        False,
+    ),
+    (
+        "on_startup",
+        "On startup",
+        "Whether the operator should be executed every time a new App session starts",
+        False,
+    ),
+    (
+        "on_dataset_open",
+        "On dataset open",
+        "Whether the operator should be executed every time a new dataset is opened",
+        False,
+    ),
+    (
+        "allow_immediate_execution",
+        "Allow immediate execution",
+        "Whether the operator supports immediate execution",
+        False,
+    ),
+    (
+        "allow_delegated_execution",
+        "Allow delegated execution",
+        "Whether the operator supports delegated execution",
+        False,
+    ),
+    (
+        "default_choice_to_delegated",
+        "Default choice to delegated",
+        "Whether the default choice for delegated execution is selected",
+        False,
+    ),
+]
+
+OPERATOR_CONFIG_ICON_OPTIONS = [
+    ("icon", "Icon", "Whether to display an icon for the operator", False),
+    (
+        "light_icon",
+        "Light icon",
+        "Whether to display a light icon for the operator",
+        False,
+    ),
+    (
+        "dark_icon",
+        "Dark icon",
+        "Whether to display a dark icon for the operator",
+        False,
+    ),
+]
+
+
 def _operator_skeleton_config_flow(ctx, inputs):
     inputs.str(
         "operator_name",
@@ -1152,59 +1220,49 @@ def _operator_skeleton_config_flow(ctx, inputs):
         description="The description of your operator",
     )
 
-    obj = types.Object()
-    obj.bool(
-        "operator_dynamic",
-        label="Dynamic?",
+    inputs.bool(
+        "operator_more_config",
+        label="Configure more?",
         default=False,
-        view=types.CheckboxView(space=3),
     )
 
-    obj.bool(
-        "execute_as_generator",
-        label="Execute as generator?",
-        default=False,
-        view=types.CheckboxView(space=3),
-    )
+    more_config = ctx.params.get("operator_more_config", False)
 
-    obj.bool(
-        "unlisted",
-        label="Unlisted?",
-        default=False,
-        view=types.CheckboxView(space=3),
-    )
+    if not more_config:
+        return
 
-    obj.bool(
-        "on_startup",
-        label="On startup?",
-        default=False,
-        view=types.CheckboxView(space=3),
-    )
+    for prop, label, description, default in OPERATOR_CONFIG_EXECUTION_OPTIONS:
+        inputs.bool(
+            f"operator_{prop}",
+            label=label,
+            description=description,
+            default=default,
+            view=types.SwitchView(),
+        )
 
-    icon_obj = types.Object()
-    icon_obj.bool(
-        "config_icon",
-        label="Icon?",
-        default=True,
-        view=types.CheckboxView(space=3),
-    )
+    for prop, label, description, default in OPERATOR_CONFIG_ICON_OPTIONS:
+        inputs.bool(
+            f"operator_{prop}",
+            label=label,
+            description=description,
+            default=default,
+            view=types.SwitchView(),
+        )
 
-    icon_obj.bool(
-        "config_light_icon",
-        label="Light icon?",
-        default=False,
-        view=types.CheckboxView(space=3),
-    )
+        has_icon = ctx.params.get(f"operator_{prop}", False)
+        if has_icon:
+            file_explorer = types.FileExplorerView(
+                choose_dir=False,
+                button_label="Choose an SVG...",
+            )
 
-    icon_obj.bool(
-        "config_dark_icon",
-        label="Dark icon?",
-        default=False,
-        view=types.CheckboxView(space=3),
-    )
-
-    inputs.define_property("config_bool_props", obj)
-    inputs.define_property("config_icon_props", icon_obj)
+            inputs.file(
+                f"operator_{prop}_file",
+                required=True,
+                label=f"Select {label} file",
+                description="Must be an SVG. If not provided, a dummy path will be used",
+                view=file_explorer,
+            )
 
 
 def _create_operator_config_code(ctx):
@@ -1214,17 +1272,6 @@ def _create_operator_config_code(ctx):
         "operator_description", "My operator description"
     )
 
-    config_bool_props = ctx.params.get("config_bool_props", {})
-    dynamic = config_bool_props.get("operator_dynamic", False)
-    execute_as_generator = config_bool_props.get("execute_as_generator", False)
-    unlisted = config_bool_props.get("unlisted", False)
-    on_startup = config_bool_props.get("on_startup", False)
-
-    config_icon_props = ctx.params.get("config_icon_props", {})
-    config_icon = config_icon_props.get("config_icon", True)
-    config_light_icon = config_icon_props.get("config_light_icon", False)
-    config_dark_icon = config_icon_props.get("config_dark_icon", False)
-
     code = f"""
     @property
     def config(self):
@@ -1233,27 +1280,20 @@ def _create_operator_config_code(ctx):
             label="{operator_label}",
             description="{operator_description}","""
 
-    if dynamic:
-        code += f"""
-            dynamic={dynamic},"""
-    if execute_as_generator:
-        code += f"""
-            execute_as_generator={execute_as_generator},"""
-    if unlisted:
-        code += f"""
-            unlisted={unlisted},"""
-    if on_startup:
-        code += f"""
-            on_startup={on_startup},"""
-    if config_icon:
-        code += f"""
-            icon="/path/to/icon.svg","""
-    if config_light_icon:
-        code += f"""
-            light_icon="/path/to/light_icon.svg","""
-    if config_dark_icon:
-        code += f"""
-            dark_icon="/path/to/dark_icon.svg","""
+    for prop, _, _, default in OPERATOR_CONFIG_EXECUTION_OPTIONS:
+        prop_val = ctx.params.get(f"operator_{prop}", default)
+        if prop_val:
+            code += f"""
+            {prop}={prop_val},"""
+
+    for prop, _, _, default in OPERATOR_CONFIG_ICON_OPTIONS:
+        prop_val = ctx.params.get(f"operator_{prop}", default)
+        if prop_val:
+            file = ctx.params.get(f"operator_{prop}_file", {})
+            path = file.get("absolute_path", f"/path/to/{prop}.svg")
+
+            code += f"""
+            {prop}="{path}","""
 
     code += f"""
         )"""
