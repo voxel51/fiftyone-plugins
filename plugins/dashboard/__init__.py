@@ -35,16 +35,20 @@ class Dashboard(foo.Panel):
         )
     
     def on_load(self, ctx):
-        print('on load')
         # if ctx.panel.state.plot_config:
-            # self.update_plot_data(ctx)
+        #     self.update_plot_data(ctx)
+        pass
 
     def update_plot_data(self, ctx):
         print('update plot data --------')
         print(ctx.params)
-        plot_config = ctx.panel.state.plot_config
+        success_result = ctx.params.get('result', {})
+        success_results_plot_config = success_result.get('plot_config', None)
+        plot_config = success_results_plot_config or ctx.panel.state.plot_config
         data = get_plot_data(ctx.dataset, plot_config)
         ctx.panel.data.plot = data
+        if success_results_plot_config:
+            ctx.panel.state.plot_config = plot_config
 
     def on_success(self, ctx):
         print('on success')
@@ -333,12 +337,6 @@ class PlotlyPlotOperator(foo.Operator):
     def execute(self, ctx):
         plot_config = ctx.params
         plot_config.pop('panel_state') # todo: remove this and panel_state from params
-
-        # NOTE: this should not be needed
-        #       so that operators can be composed
-        #       without needing to know about
-        #       each other
-        ctx.panel.state.plot_config = plot_config
         return {"plot_config": plot_config}
         
 def register(plugin):
