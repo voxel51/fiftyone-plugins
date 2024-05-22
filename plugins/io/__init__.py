@@ -2117,16 +2117,23 @@ def _is_valid_csv_field(field):
     return isinstance(field, fof._PRIMITIVE_FIELDS)
 
 
-def _get_fields_with_type(view, type, media_type="image"):
-    get_field_schema = (
-        view.get_frame_field_schema
-        if media_type == fom.VIDEO
-        else view.get_field_schema
-    )
-    if issubclass(type, fo.Field):
-        return get_field_schema(ftype=type).keys()
+def _get_fields_with_type(view, type, frames=False):
+    if frames:
+        get_field_schema = view.get_frame_field_schema
+    else:
+        get_field_schema = view.get_field_schema
 
-    return get_field_schema(embedded_doc_type=type).keys()
+    if issubclass(type, fo.Field):
+        label_schema = get_field_schema(ftype=type)
+    else:
+        label_schema = get_field_schema(embedded_doc_type=type)
+
+    label_fields = list(label_schema.keys())
+
+    if frames:
+        label_fields = [view._FRAMES_PREFIX + lf for lf in label_fields]
+
+    return label_fields
 
 
 def _get_export_types(view, export_type, allow_coercion=False):
@@ -2528,8 +2535,6 @@ class DrawLabels(foo.Operator):
         target = ctx.params.get("target", None)
         output_dir = _parse_path(ctx, "output_dir")
         label_fields = ctx.params.get("label_fields", None)
-        if ctx.dataset.media_type == fom.VIDEO:
-            label_fields = [f"frames.{field}" for field in label_fields]
         overwrite = ctx.params.get("overwrite", False)
 
         target_view = _get_target_view(ctx, target)
@@ -2581,7 +2586,7 @@ def _draw_labels_inputs(ctx, inputs):
 
     label_field_choices = types.Dropdown(multiple=True)
     label_fields = _get_fields_with_type(
-        target_view, fo.Label, media_type=ctx.dataset.media_type
+        target_view, fo.Label, frames=target_view._contains_videos()
     )
     for field in label_fields:
         label_field_choices.add_choice(field, label=field)
