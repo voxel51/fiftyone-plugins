@@ -22,13 +22,22 @@ class IncCountPanel(foo.Panel):
         grid.str('message', view=types.View(space=3))
         grid.btn('btn', label="+1", on_click=self.on_click)
         grid.btn('notify_btn', label="Notify", on_click=self.on_click_notify)
-        return types.Property(panel)
+        choices = types.Choices()
+        choices.add_choice(1, label="One")
+        choices.add_choice(2, label="Two")
+        choices.add_choice(3, label="Three")
+        grid.enum('choice', values=choices.values(), on_change=self.on_change_choice)
+        return types.Property(panel, view=types.GridView(height=100, align_x="center", align_y="center"))
     def on_click(self, ctx):
         grid = ctx.panel.state.grid or {}
         current_count = grid.get("count", 0)
         count = current_count + 1
         message = f"The count is {count}"
-        ctx.panel.state.grid = {"count": count, "message": message}
+        ctx.panel.state.grid = {"message": message}
+        ctx.panel.set_state('grid.count', count)
+    def on_change_choice(self, ctx):
+        print("Choice changed", ctx.panel.state)
+        ctx.ops.notify(f"Choice changed to {ctx.panel.state.grid.get('choice', 'No choice')}")
     def on_click_notify(self, ctx):
         ctx.ops.notify(ctx.panel.state.grid.get("message", "No message"))
 
@@ -185,12 +194,12 @@ class EmbeddingsPanel(foo.Panel):
         self.load_plot_data(ctx)
 
     def on_selected(self, ctx):
-        # print(ctx.params)
         selected_points = ctx.params.get("data", [])
         selected_sample_ids = [sample.get("id", None) for sample in selected_points]
-        print(selected_sample_ids)
         if len(selected_sample_ids) > 0:
-            ctx.ops.show_samples(selected_sample_ids, use_extended_selection=True)
+            ctx.ops.set_extended_selection(selected_sample_ids, scope="embeddings_panel")
+            ctx.panel.state.selected = selected_sample_ids
+        self.load_plot_data(ctx)
 
 
     def render(self, ctx):
@@ -209,8 +218,21 @@ class EmbeddingsPanel(foo.Panel):
                 label_choices.add_choice(field, label=field)
             panel.enum('label_field', values=label_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
             plot_layout = create_plot_layout(ctx.panel.state)
-            panel.plot('embeddings', config=PLOT_CONFIG, layout=plot_layout, on_selected=self.on_selected)
+            panel.plot('embeddings', config=PLOT_CONFIG, layout=plot_layout, on_selected=self.on_selected, on_deselect=self.on_deselect)
         return types.Property(panel)
+
+    def on_change_extended_selection(self, ctx):
+        extended_selection = (ctx.extended_selection or {}).get("selection", None)
+        ctx.panel.state.selected = extended_selection
+        print("Extended selection changed", extended_selection)
+        self.load_plot_data(ctx)
+
+    def on_change_view(self, ctx):
+        self.load_plot_data(ctx)
+
+    def on_deselect(self, ctx):
+        ctx.panel.state.selected = None
+        ctx.ops.set_extended_selection(reset=True, scope="embeddings_panel")
 
     def load_plot_data(self, ctx):
         dataset = ctx.dataset
@@ -218,9 +240,10 @@ class EmbeddingsPanel(foo.Panel):
         label_field = ctx.panel.state.label_field
 
         print("Loading plot data")
-        print('brain_key:', brain_key)
-        print('label_field:', label_field)
-        if not brain_key or not label_field:
+        # print('brain_key:', brain_key)
+        # print('label_field:', label_field)
+        if not brain_key:
+            ctx.panel.state.embeddings = None
             return
 
         try:
@@ -231,7 +254,9 @@ class EmbeddingsPanel(foo.Panel):
                 "Failed to load results for brain run with key '%s'. Try "
                 "regenerating the results"
             ) % brain_key
-            return {"error": msg}
+            ctx.ops.notify(msg)
+            ctx.panel.state.embeddings = None
+            return
 
         view = ctx.view
 
@@ -305,10 +330,8 @@ class EmbeddingsPanel(foo.Panel):
 
         traces_dict = create_embeddings_traces(style, points, ids, sample_ids, labels, selected)
         ctx.panel.state.style = style
-        ctx.panel.state.embeddings = traces_to_data(traces_dict, style, get_color, None, None, [], None)
-        
-
-
+        plot_selection = ctx.panel.state.selected
+        ctx.panel.state.embeddings = traces_to_data(traces_dict, style, get_color, plot_selection, None, [], None)
     
     def on_change_config(self, ctx):
         self.load_plot_data(ctx)
@@ -328,14 +351,16 @@ def traces_to_data(traces, style, get_color, plot_selection, selection_style, co
 
     for key, trace in sorted_traces:
         selected_points = [get_point_index(trace, id_) for id_ in plot_selection] if plot_selection else None
+        # print('plot_selection------------')
+        # print(plot_selection)
+        # print('selected_points------------')
+        # print(selected_points)
         # TODO impl selected points
-        selected_points = [] #[p for p in selected_points if p is not None]
+        # selected_points = [] #[p for p in selected_points if p is not None]
 
         color = (255, 165, 0) # get_label_color(key, setting) or convert_color(get_color(key)) or (255, 165, 0)  # Default orange
         
         mapped_colorscale = [(idx / (len(colorscale) - 1), convert_color(Color.from_css_rgb_values(*c))) for idx, c in enumerate(colorscale)]
-
-        print(trace)
 
         result.append({
             "x": trace["x"],
@@ -373,8 +398,10 @@ def traces_to_data(traces, style, get_color, plot_selection, selection_style, co
     return result
 
 def get_point_index(trace, id_):
-    # Implementation needed
-    pass
+    try:
+        return trace["ids"].index(id_)
+    except ValueError:
+        return None
 
 def get_label_color(key, setting):
     # Implementation needed
@@ -506,7 +533,7 @@ def get_color_by_choices(dataset, brain_key, brain_info):
 
 
 def get_markdown(value):
-    if value is 3:
+    if value == 3:
         return dedent(f"""
         ### Good job!
 
@@ -551,8 +578,8 @@ class TutorialPanel(foo.Panel):
         count = ctx.panel.state.count or 0
         panel = types.Object()
         panel.str('message', view=types.MarkdownView(), default=get_markdown(count))
-        panel.btn('btn', label="Notify", on_click=self.on_click)
-        panel.btn('btn2', label="Compute Similarity", prompt=True, on_click="@voxel51/brain/compute_similarity")
+        panel.btn('btn', label="Notify", on_click=self.on_click, space=6)
+        panel.btn('btn2', label="Compute Similarity", prompt=True, on_click="@voxel51/brain/compute_similarity", space=6)
         return types.Property(panel)
     
     def on_click(self, ctx):
