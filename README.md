@@ -102,6 +102,14 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/fiftyone_mlflow_plugin">@voxel51/mlflow</a></b></td>
         <td>📋 Track model training experiments on your FiftyOne datasets with MLflow!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-huggingface-plugins/tree/main/plugins/huggingface_hub">@voxel51/huggingface_hub</a></b></td>
+        <td>🤗 Push FiftyOne datasets to the Hugging Face Hub, and load datasets from the Hub into FiftyOne!</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-huggingface-plugins/tree/main/plugins/transformers">@voxel51/transformers</a></b></td>
+        <td>🤗 Run inference on your datasets using Hugging Face Transformers models!</td>
+    </tr>
 </table>
 
 ## Example Plugins
