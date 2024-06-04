@@ -6,6 +6,7 @@ Utility operators.
 |
 """
 import contextlib
+from datetime import datetime
 import json
 import multiprocessing.dummy
 
@@ -2016,6 +2017,90 @@ class Delegate(foo.Operator):
             fcn(*args, **kwargs)
 
 
+class ReloadSavedView(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="reload_saved_view",
+            label="Reload saved view",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_placement(self, ctx):
+        if ctx.view._is_generated and ctx.view.name is not None:
+            return types.Placement(
+                types.Places.SAMPLES_GRID_ACTIONS,
+                types.Button(
+                    label="Reload saved view",
+                    icon="/assets/autorenew.svg",
+                ),
+            )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        saved_views = _get_generated_saved_views(ctx.dataset)
+
+        if saved_views:
+            view_choices = types.AutocompleteView()
+            for name in saved_views:
+                view_choices.add_choice(name, label=name)
+
+            if ctx.view.name in saved_views:
+                default = ctx.view.name
+            else:
+                default = None
+
+            inputs.enum(
+                "name",
+                view_choices.values(),
+                default=default,
+                required=True,
+                label="Saved view",
+                description="The name of a saved view to reload",
+                view=view_choices,
+            )
+        else:
+            warning = types.Warning(
+                label="This dataset has no saved views that need reloading"
+            )
+            prop = inputs.view("warning", warning)
+            prop.invalid = True
+
+        view = types.View(label="Reload saved view")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        name = ctx.params["name"]
+
+        view = ctx.dataset.load_saved_view(name)
+        view.reload()
+
+        view_doc = ctx.dataset._get_saved_view_doc(name)
+        view_doc.view_stages = [
+            json_util.dumps(s) for s in view._serialize(include_uuids=False)
+        ]
+        view_doc.last_modified_at = datetime.utcnow()
+        view_doc.save()
+
+        if ctx.view.name == view.name:
+            ctx.trigger("set_view", params={"name": name})
+            ctx.trigger("reload_dataset")
+
+
+def _get_generated_saved_views(dataset):
+    generated_views = set()
+
+    for view_doc in dataset._doc.saved_views:
+        for stage_str in view_doc.view_stages:
+            if '"_state"' in stage_str:
+                generated_views.add(view_doc.name)
+
+    return sorted(generated_views)
+
+
 def register(p):
     p.register(CreateDataset)
     p.register(LoadDataset)
@@ -2027,3 +2112,4 @@ def register(p):
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
     p.register(Delegate)
+    p.register(ReloadSavedView)
