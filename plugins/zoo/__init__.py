@@ -59,8 +59,7 @@ class LoadZooDataset(foo.Operator):
             **kwargs,
         )
         dataset.persistent = True
-
-        ctx.trigger("open_dataset", dict(dataset=dataset.name))
+        ctx.ops.open_dataset(dataset.name)
 
 
 def _get_zoo_datasets():

@@ -373,7 +373,7 @@ class ExampleProgress(foo.Operator):
                 "outputs": types.Property(loading_schema).to_json(),
                 "results": {"percent_complete": i / MAX},
             }
-            yield ctx.trigger("show_output", show_output_params)
+            yield ctx.ops.show_output(show_output_params)
             # simulate computation
             await asyncio.sleep(0.5)
 
@@ -428,7 +428,7 @@ class SetFieldExample(foo.Operator):
         for sample in view:
             sample.set_field(field, value)
             sample.save()
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
         return {"field": field, "updated": len(view)}
 
     def resolve_output(self, ctx):

@@ -685,7 +685,7 @@ class SortBySimilarity(foo.Operator):
             query = ctx.params["query"]
 
         view = target_view.sort_by_similarity(query, k=k, brain_key=brain_key)
-        ctx.trigger("set_view", params={"view": serialize_view(view)})
+        ctx.ops.set_view(view=view)
 
 
 def _embed_query_image(ctx):
@@ -938,7 +938,7 @@ class AddSimilarSamples(foo.Operator):
             sample_ids = ctx.selected + sample_ids
 
         view = dst_dataset.select(sample_ids)
-        ctx.trigger("set_view", params={"view": serialize_view(view)})
+        ctx.ops.set_view(view=view)
 
 
 def search_by_image_similarity(ctx, inputs, src_dataset):
@@ -1087,7 +1087,7 @@ class ComputeUniqueness(foo.Operator):
             skip_failures=skip_failures,
         )
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def compute_uniqueness(ctx, inputs):
@@ -1172,7 +1172,7 @@ class ComputeMistakenness(foo.Operator):
             mistakenness_field=mistakenness_field,
             **kwargs,
         )
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def compute_mistakenness(ctx, inputs):
@@ -1352,7 +1352,7 @@ class ComputeHardness(foo.Operator):
             label_field,
             hardness_field=hardness_field,
         )
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def compute_hardness(ctx, inputs):
@@ -1793,7 +1793,7 @@ class LoadBrainView(foo.Operator):
     def execute(self, ctx):
         brain_key = _get_dynamic_brain_key(ctx)
         view = ctx.dataset.load_brain_view(brain_key)
-        ctx.trigger("set_view", params={"view": serialize_view(view)})
+        ctx.ops.set_view(view=view)
 
 
 def serialize_view(view):
@@ -1835,7 +1835,7 @@ class RenameBrainRun(foo.Operator):
         ctx.dataset.rename_brain_run(brain_key, new_brain_key)
 
         if run_type in ("uniqueness", "mistakenness", "hardness"):
-            ctx.trigger("reload_dataset")
+            ctx.ops.reload_dataset()
 
     def resolve_output(self, ctx):
         outputs = types.Object()
@@ -1902,7 +1902,7 @@ class DeleteBrainRun(foo.Operator):
         ctx.dataset.delete_brain_run(brain_key)
 
         if run_type in ("uniqueness", "mistakenness", "hardness"):
-            ctx.trigger("reload_dataset")
+            ctx.ops.reload_dataset()
 
     def resolve_output(self, ctx):
         outputs = types.Object()

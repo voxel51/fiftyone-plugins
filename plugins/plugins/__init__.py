@@ -1400,7 +1400,7 @@ def _operator_skeleton_execution_code(ctx):
             def execute(self, ctx):
                 ### Your logic here ###
 
-                ctx.trigger("reload_samples")
+                ctx.ops.reload_samples()
                 return {}
             """
         elif trigger_type == "Reload Dataset":
@@ -1408,7 +1408,7 @@ def _operator_skeleton_execution_code(ctx):
             def execute(self, ctx):
                 ### Your logic here ###
 
-                ctx.trigger("reload_dataset")
+                ctx.ops.reload_dataset()
                 return {}
             """
         elif trigger_type == "Set View":

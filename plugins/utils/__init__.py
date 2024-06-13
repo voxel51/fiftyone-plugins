@@ -93,7 +93,7 @@ class CreateDataset(foo.Operator):
         if tags:
             dataset.tags = tags
 
-        ctx.trigger("open_dataset", dict(dataset=dataset.name))
+        ctx.ops.open_dataset(dataset.name)
 
 
 class LoadDataset(foo.Operator):
@@ -147,7 +147,7 @@ class LoadDataset(foo.Operator):
 
     def execute(self, ctx):
         name = ctx.params["name"]
-        ctx.trigger("open_dataset", dict(dataset=name))
+        ctx.ops.open_dataset(name)
 
 
 class EditDatasetInfo(foo.Operator):
@@ -253,7 +253,7 @@ class EditDatasetInfo(foo.Operator):
         elif ctx.dataset.default_skeleton is not None:
             ctx.dataset.default_skeleton = None
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def _parse_mask_targets(mask_targets):
@@ -1037,7 +1037,7 @@ class RenameDataset(foo.Operator):
 
         if ctx.dataset.name == name:
             ctx.dataset.name = new_name
-            ctx.trigger("open_dataset", dict(dataset=new_name))
+            ctx.ops.open_dataset(new_name)
         else:
             dataset = fo.load_dataset(name)
             dataset.name = new_name
@@ -1076,7 +1076,7 @@ class DeleteDataset(foo.Operator):
         name = ctx.params.get("name", None)
 
         if name == ctx.dataset.name:
-            ctx.trigger("open_dataset", dict(dataset=None))
+            ctx.ops.open_dataset(None)
 
         fo.delete_dataset(name)
 
@@ -1108,7 +1108,7 @@ class DeleteSamples(foo.Operator):
         else:
             ctx.dataset.delete_samples(view)
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def _delete_samples_inputs(ctx, inputs):
@@ -1346,7 +1346,7 @@ class ComputeMetadata(foo.Operator):
             ):
                 yield update
 
-        yield ctx.trigger("reload_dataset")
+        yield ctx.ops.reload_dataset()
 
 
 def _compute_metadata_inputs(ctx, inputs):
@@ -1659,7 +1659,7 @@ class GenerateThumbnails(foo.Operator):
 
         ctx.dataset.save()
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def _generate_thumbnails_inputs(ctx, inputs):

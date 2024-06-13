@@ -72,7 +72,7 @@ class EvaluateModel(foo.Operator):
             **kwargs,
         )
 
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def evaluate_model(ctx, inputs):
@@ -1076,7 +1076,7 @@ class LoadEvaluationView(foo.Operator):
         eval_view = ctx.dataset.load_evaluation_view(
             eval_key, select_fields=select_fields
         )
-        ctx.trigger("set_view", params={"view": serialize_view(eval_view)})
+        ctx.ops.set_view(view=eval_view)
 
 
 def serialize_view(view):
@@ -1113,7 +1113,7 @@ class RenameEvaluation(foo.Operator):
         eval_key = ctx.params["eval_key"]
         new_eval_key = ctx.params["new_eval_key"]
         ctx.dataset.rename_evaluation(eval_key, new_eval_key)
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 class DeleteEvaluation(foo.Operator):
@@ -1144,7 +1144,7 @@ class DeleteEvaluation(foo.Operator):
     def execute(self, ctx):
         eval_key = ctx.params["eval_key"]
         ctx.dataset.delete_evaluation(eval_key)
-        ctx.trigger("reload_dataset")
+        ctx.ops.reload_dataset()
 
 
 def get_eval_key(

@@ -29,7 +29,7 @@ class PythonView(foo.Operator):
 
         view = eval(src, {"view": ctx.dataset.view()})
 
-        ctx.trigger("set_view", {"view": view._serialize()})
+        ctx.ops.set_view(view=view)
 
 
 def register(p):
