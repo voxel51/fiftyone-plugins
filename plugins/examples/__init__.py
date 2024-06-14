@@ -793,6 +793,65 @@ class LazyFieldExample(foo.Operator):
         outputs.str("url", label="URL")
         return types.Property(outputs)
 
+
+class RegisterPanelExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="register_panel_example",
+            label="Examples: Register Panel",
+            on_startup=True,
+        )
+
+    def execute(self, ctx):
+        ctx.ops.register_panel(
+            "panel_example",
+            "My Panel",
+            on_load="@voxel51/examples/panel_example",
+            on_change="@voxel51/examples/panel_example",
+        )
+
+def render_panel(ctx, state):
+    outputs = types.Object()
+    step = state.get('step', 1)
+    if step == 1:
+        outputs.str("step", label="Step 1", view=types.Notice())
+        outputs.btn("next", label="Next", on_click="@voxel51/examples/panel_event_example")
+    if step == 2:
+        outputs.str("step", label="Step 2", view=types.Notice())
+        outputs.btn('compute', label='Compute Similarity', on_click="@voxel51/brain/compute_similarity", prompt=True)
+    ctx.ops.show_panel_output(types.Property(outputs))
+
+class PanelExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="panel_example",
+            label="Examples: Panel",
+            unlisted=True
+        )
+
+    def execute(self, ctx):
+        panel_state = ctx.params.get("panel_state", {})
+        render_panel(ctx, ctx.params.get("panel_state", panel_state))
+
+class PanelEventExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="panel_event_example",
+            label="Examples: Panel Event",
+            unlisted=True
+        )
+
+    def execute(self, ctx):
+        ctx.ops.set_panel_state({"step": 2})
+        # ctx.ops.reduce_panel_state("""
+        #     (state) => {
+        #         return {...state, count: (state.count || 0) + 1}
+        #     }
+        # """)
+
 class TargetViewExample(foo.Operator):
     @property
     def config(self):
@@ -840,3 +899,6 @@ def register(p):
     p.register(FileDropExample)
     p.register(LazyFieldExample)
     p.register(TargetViewExample)
+    p.register(RegisterPanelExample)
+    p.register(PanelExample)
+    p.register(PanelEventExample)
