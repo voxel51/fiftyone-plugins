@@ -2,6 +2,7 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.core.fields as fof
 import itertools
+import random
 
 from textwrap import dedent
 
@@ -203,23 +204,44 @@ class EmbeddingsPanel(foo.Panel):
 
 
     def render(self, ctx):
-        brain_key = ctx.panel.state.brain_key
+        brain_key = ctx.panel.get_state("menu.actions.brain_key")
         panel = types.Object()
+        
         brain_key_choices = types.Choices()
         valid_brain_keys = get_visualization_brain_keys(ctx.dataset)
         for brain_key in valid_brain_keys:
             brain_key_choices.add_choice(brain_key, label=brain_key)
-        panel.enum('brain_key', values=brain_key_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
+        menu = panel.menu('menu', width=100, align_y="center")
+        actions = menu.btn_group('actions')
+        actions.enum('brain_key', label="Brain key", values=brain_key_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
         if brain_key:
             brain_info = ctx.dataset.get_brain_info(brain_key)
             color_by_fields = get_color_by_choices(ctx.dataset, brain_key, brain_info)
             label_choices = types.Choices()
             for field in color_by_fields:
                 label_choices.add_choice(field, label=field)
-            panel.enum('label_field', values=label_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
+            actions.enum('label_field', label="Color by", values=label_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
+            if ctx.panel.state.selected:
+                actions.btn('clear_selection', icon="clear", icon_variant="square", label="Clear Selection", on_click=self.on_deselect)
+            actions.btn('clear_zoom', icon="center_focus_weak", icon_variant="square", label="Clear Zoom", on_click=self.on_click_clear_zoom)
+            actions.btn('lasso_mode', icon="highlight_alt", icon_variant="square", label="Select", on_click=self.on_click_lasso_mode)
+            actions.btn('pan_mode', icon="open_with", icon_variant="square", label="Pan", on_click=self.on_click_pan_mode)
+            actions.btn('learn_more', icon="help", icon_variant="square", label="Learn More", on_click=self.on_click_learn_more)
             plot_layout = create_plot_layout(ctx.panel.state)
             panel.plot('embeddings', config=PLOT_CONFIG, layout=plot_layout, on_selected=self.on_selected, on_deselect=self.on_deselect)
         return types.Property(panel)
+
+    def on_click_learn_more(self, ctx):
+        pass
+
+    def on_click_clear_zoom(self, ctx):
+        pass
+
+    def on_click_lasso_mode(self, ctx):
+        ctx.panel.state.drag_mode = "lasso"
+
+    def on_click_pan_mode(self, ctx):
+        ctx.panel.state.drag_mode = "pan"
 
     def on_change_extended_selection(self, ctx):
         extended_selection = (ctx.extended_selection or {}).get("selection", None)
@@ -236,8 +258,8 @@ class EmbeddingsPanel(foo.Panel):
 
     def load_plot_data(self, ctx):
         dataset = ctx.dataset
-        brain_key = ctx.panel.state.brain_key
-        label_field = ctx.panel.state.label_field
+        brain_key = ctx.panel.get_state("menu.actions.brain_key")
+        label_field = ctx.panel.get_state("menu.actions.label_field")
 
         print("Loading plot data")
         # print('brain_key:', brain_key)
@@ -532,66 +554,53 @@ def get_color_by_choices(dataset, brain_key, brain_info):
     return fields
 
 
-def get_markdown(value):
-    if value == 3:
+def get_markdown(value, clicked):
+    if clicked:
+        return dedent(f"""
+        ### Computing visualization
+
+        Please wait while we compute the visualization.
+        """)
+
+    if value >= 3:
         return dedent(f"""
         ### Good job!
 
         You've selected {value} samples.
+        
+        #### Did you know you can do this in python?
+
+        ```python
+        import fiftyone as fo
+        import fiftyone.zoo as foz
+
+        # Load a sample dataset
+        dataset = foz.load_zoo_dataset("quickstart")
+
+        # Launch the FiftyOne app
+        session = fo.launch_app(dataset)
+
+        # Get a list of sample IDs to select (for example, the first 5 samples)
+        sample_ids = [sample.id for sample in dataset[:{value}]]
+
+        # Select the samples in the app
+        session.selected = sample_ids
+        session.refresh()
+        ```
+    
+        #### Let's keep going...
+
+        Click the button below to start the process!
         """)
 
     return dedent(f"""
-    ### Try FiftyOne
+    ### Let's compute visualization!
 
-    This is a tutorial panel. You can use this panel to display markdown content and interact with the dataset.
-
-    You can use the buttons below to interact with the panel.
-
-    ##### Notify
-
-    Click the "Notify" button to display a notification with the message you provide.
-
-    ##### Example
-
-    ```python
-    ctx.ops.notify("Hello, world!")
-    ```
-
-    ##### Dynamic Content
-
-    This value here: {value} is dynamic.
-
+    First lets select a few samples.
     """)
-
-class TutorialPanel(foo.Panel):
-    @property
-    def config(self):
-        return foo.PanelOperatorConfig(
-            name="tutorial_panel",
-            label="Tutorial Panel"
-        )
-    
-    def on_load(self, ctx):
-        print("Panel loaded")
-    
-    def render(self, ctx):
-        count = ctx.panel.state.count or 0
-        panel = types.Object()
-        panel.str('message', view=types.MarkdownView(), default=get_markdown(count))
-        panel.btn('btn', label="Notify", on_click=self.on_click, space=6)
-        panel.btn('btn2', label="Compute Similarity", prompt=True, on_click="@voxel51/brain/compute_similarity", space=6)
-        return types.Property(panel)
-    
-    def on_click(self, ctx):
-        ctx.ops.notify("Hello World")
-
-    def on_change_selected(self, ctx):
-        ctx.panel.state.count = len(ctx.selected)
-        print("Selected changed", ctx.selected)
 
 def register(p):
     p.register(IncCountPanel)
     p.register(TodoListPanel)
     p.register(CtxChangeEventsPanel)
     p.register(EmbeddingsPanel)
-    p.register(TutorialPanel)
