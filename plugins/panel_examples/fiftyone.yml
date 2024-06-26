@@ -1,0 +1,12 @@
+name: "@voxel51/panel_examples"
+description: Examples of how to build custom FiftyOne panels
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/examples
+license: Apache 2.0
+operators:
+  - inc_count_panel
+  - todo_list_panel
+  - ctx_change_events_panel
+  - embeddings_panel
