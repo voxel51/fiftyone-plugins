@@ -680,16 +680,9 @@ class DashboardExamplePanel(foo.Panel):
     def render(self, ctx):
         layout = ctx.params.get("layout", None)
         panel = types.Object()
-        btns = panel.btn_group('btns')
-        btns.btn('add', label="Add Chart", on_click=self.on_click_add_chart)
-        btns.btn('add_md', label="Add Markdown", on_click=self.on_click_add_md)
-        btns.btn('clear', label="Clear", on_click=self.on_click_clear)
-        dashboard = panel.dashboard('dashboard', layout=layout, on_close_item=self.on_close_item, on_layout_change=self.on_layout_change)
+        dashboard = panel.dashboard('dashboard', height=100, layout=layout, on_add_item=self.on_click_add_chart, on_close_item=self.on_close_item, on_layout_change=self.on_layout_change)
         for key, value in ctx.panel.state.dashboard.items():
-            if key.startswith("plot"):
-                dashboard.plot(key)
-        # for key, value in ctx.panel.state.md_items.items():
-        #     dashboard.md(value, name=key)
+            dashboard.plot(key)
         return types.Property(panel)
 
 
