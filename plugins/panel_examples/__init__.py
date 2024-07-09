@@ -213,20 +213,20 @@ class EmbeddingsPanel(foo.Panel):
             brain_key_choices.add_choice(brain_key, label=brain_key)
         menu = panel.menu('menu', width=100, align_y="center")
         actions = menu.btn_group('actions')
-        actions.enum('brain_key', label="Brain key", values=brain_key_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
+        actions.enum('brain_key', placeholder="Brain key", values=brain_key_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
         if brain_key:
             brain_info = ctx.dataset.get_brain_info(brain_key)
             color_by_fields = get_color_by_choices(ctx.dataset, brain_key, brain_info)
             label_choices = types.Choices()
             for field in color_by_fields:
                 label_choices.add_choice(field, label=field)
-            actions.enum('label_field', label="Color by", values=label_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
+            actions.enum('label_field', placeholder="Color by", values=label_choices.values(), on_change=self.on_change_config, view=types.View(space=3))
             if ctx.panel.state.selected:
-                actions.btn('clear_selection', icon="clear", icon_variant="square", label="Clear Selection", on_click=self.on_deselect)
-            actions.btn('clear_zoom', icon="center_focus_weak", icon_variant="square", label="Clear Zoom", on_click=self.on_click_clear_zoom)
-            actions.btn('lasso_mode', icon="highlight_alt", icon_variant="square", label="Select", on_click=self.on_click_lasso_mode)
-            actions.btn('pan_mode', icon="open_with", icon_variant="square", label="Pan", on_click=self.on_click_pan_mode)
-            actions.btn('learn_more', icon="help", icon_variant="square", label="Learn More", on_click=self.on_click_learn_more)
+                actions.btn('clear_selection', icon="clear", variant="outlined", label="Clear Selection", on_click=self.on_deselect)
+            actions.btn('clear_zoom', icon="center_focus_weak", variant="outlined", label="Clear Zoom", on_click=self.on_click_clear_zoom)
+            actions.btn('lasso_mode', icon="highlight_alt", variant="outlined", label="Select", on_click=self.on_click_lasso_mode)
+            actions.btn('pan_mode', icon="open_with", variant="outlined", label="Pan", on_click=self.on_click_pan_mode)
+            actions.btn('learn_more', icon="help", variant="outlined", label="Learn More", on_click=self.on_click_learn_more)
             plot_layout = create_plot_layout(ctx.panel.state)
             panel.plot('embeddings', config=PLOT_CONFIG, layout=plot_layout, on_selected=self.on_selected, on_deselect=self.on_deselect)
         return types.Property(panel)
@@ -599,8 +599,149 @@ def get_markdown(value, clicked):
     First lets select a few samples.
     """)
 
+def get_random_markdown(idx):
+    examples = [
+        dedent("""
+        ### Example 1
+        
+        This is an example of a markdown item.
+        """),
+        dedent("""
+        ### Example 2
+               
+        - list item 1
+        - list item 2
+        - list item 3
+        """),
+        dedent("""
+        ### Example 3
+               
+        ```python
+        # code block
+        print("Hello, world!")
+        ```
+        """)     
+    ]
+
+    return examples[idx]
+
+
+
+class DashboardExamplePanel(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelOperatorConfig(
+            name="dashboard_example_panel",
+            label="Example: Dashboard"
+        )
+    
+    def on_load(self, ctx):
+        ctx.panel.state.dashboard = ctx.panel.state.dashboard or {}
+
+    def on_click_add_chart(self, ctx):
+        dashboard = ctx.panel.state.dashboard
+        count = len(dashboard)
+        new_key = f"plot{count + 1}"
+        dashboard[new_key] = {
+            "x": [1, 2, 3, 4, 5],
+            "y": [random.randint(1, 20) for _ in range(5)]
+        }
+        ctx.panel.state.dashboard = dashboard
+
+    def on_click_clear(self, ctx):
+        ctx.panel.set_state('dashboard', None)
+        ctx.panel.state.dashboard = {}
+        ctx.panel.state.md_items = None
+        ctx.panel.state.md_items = {}
+        ctx.panel.state.layout = None
+
+    def on_close_item(self, ctx):
+        id = ctx.params.get('id')
+        dashboard = ctx.panel.state.dashboard
+        del dashboard[id]
+        ctx.panel.state.dashboard = {}
+        ctx.panel.state.dashboard = dashboard
+        # md_items = ctx.panel.state.md_items 
+        # del md_items[id]
+        # ctx.panel.state.md_items = {}
+        # ctx.panel.state.md_items = md_items
+
+    def on_click_add_md(self, ctx):
+        md_items = ctx.panel.state.md_items or {}
+        count = len(md_items)
+        new_key = f"md{count + 1}"
+        md_items[new_key] = get_random_markdown(count % 3)
+        ctx.panel.state.md_items = md_items
+
+    def on_layout_change(self, ctx):
+        print("Layout changed", ctx.params)
+        ctx.panel.state.layout = ctx.params.get("layout", None)
+
+    def render(self, ctx):
+        layout = ctx.params.get("layout", None)
+        panel = types.Object()
+        btns = panel.btn_group('btns')
+        btns.btn('add', label="Add Chart", on_click=self.on_click_add_chart)
+        btns.btn('add_md', label="Add Markdown", on_click=self.on_click_add_md)
+        btns.btn('clear', label="Clear", on_click=self.on_click_clear)
+        dashboard = panel.dashboard('dashboard', layout=layout, on_close_item=self.on_close_item, on_layout_change=self.on_layout_change)
+        for key, value in ctx.panel.state.dashboard.items():
+            if key.startswith("plot"):
+                dashboard.plot(key)
+        # for key, value in ctx.panel.state.md_items.items():
+        #     dashboard.md(value, name=key)
+        return types.Property(panel)
+
+
+class EvaluationLitePanel(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelOperatorConfig(
+            name="evaluation_lite_panel",
+            label="Evaluation Lite"
+        )
+    
+    def on_load(self, ctx):
+        ctx.panel.state.evaluations = [
+            {"name": "Accuracy", "value": 0.85, "description": "The accuracy of the model"},
+            {"name": "Precision", "value": 0.75, "description": "The precision of the model"},
+            {"name": "Recall", "value": 0.65, "description": "The recall of the model"},
+        ]
+        ctx.panel.state.plot1 = {
+            "type": "scatter",
+            "x": [1, 2, 3, 4, 5],
+            "y": [random.randint(1, 20) for _ in range(5)]
+        }
+        ctx.panel.state.plot2 = {
+            "type": "heatmap",
+            "x": [1, 2, 3, 4, 5],
+            "y": [random.randint(1, 20) for _ in range(5)],
+            "z": [random.randint(1, 20) for _ in range(5)]
+        }
+
+        pass
+
+    def render(self, ctx):
+        panel = types.Object()
+        item_obj = types.Object()
+        item_obj.str('name')
+        item_obj.float('value')
+        item_obj.str('description')
+
+        table_view = types.TableView() 
+        table_view.add_column('name')
+        table_view.add_column('value')
+        table_view.add_column('description')
+        panel.list('evaluations', element_type=item_obj, view=table_view)
+
+        panel.plot('plot1', space=6)
+        panel.plot('plot2', space=6)
+        return types.Property(panel)
+
 def register(p):
     p.register(IncCountPanel)
     p.register(TodoListPanel)
     p.register(CtxChangeEventsPanel)
     p.register(EmbeddingsPanel)
+    p.register(DashboardExamplePanel)
+    p.register(EvaluationLitePanel)

@@ -71,6 +71,7 @@ class Dashboard(foo.Panel):
         outputs.define_property(
             "menu", menu, view=types.GridView(orientation="horizontal",align_x="center")
         )
+
         menu.btn("configure", label="Configure Dashboard", on_click=self.on_click_configure)
         if ctx.panel.state.plot_config:
             plot_config = ctx.panel.state.plot_config
