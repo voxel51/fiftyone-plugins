@@ -4,26 +4,6 @@ from fiftyone.operators import types
 import fiftyone.core.fields as fof
 from fiftyone import ViewField as F
 
-
-# class PlotPanelOperator(foo.Operator):
-#     @property
-#     def config(self):
-#         return foo.OperatorConfig(
-#             name="plot_panel_operator",
-#             label="Plot Panel Operator",
-#             description="Allows users to create various types of plots",
-#             on_startup=True
-#         )
-    
-#     def execute(self, ctx):
-#         ctx.ops.register_panel(
-#             name="plot_panel",
-#             label="Dashboard",
-#             on_load="@voxel51/dashboard/initialize_dashboard",
-#             on_view_change="@voxel51/dashboard/plot_panel_view_change",
-#             allow_duplicates=True
-#         )
-
 class Dashboard(foo.Panel):
     @property
     def config(self):
