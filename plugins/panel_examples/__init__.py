@@ -637,6 +637,7 @@ class DashboardExamplePanel(foo.Panel):
     
     def on_load(self, ctx):
         ctx.panel.state.dashboard = ctx.panel.state.dashboard or {}
+        ctx.panel.state.editable = True
 
     def on_click_add_chart(self, ctx):
         dashboard = ctx.panel.state.dashboard
@@ -677,10 +678,15 @@ class DashboardExamplePanel(foo.Panel):
         print("Layout changed", ctx.params)
         ctx.panel.state.layout = ctx.params.get("layout", None)
 
+    def on_click_toggle_editable(self, ctx):
+        ctx.panel.state.editable = not ctx.panel.state.editable
+
     def render(self, ctx):
+        editable = ctx.panel.state.editable
         layout = ctx.params.get("layout", None)
         panel = types.Object()
-        dashboard = panel.dashboard('dashboard', height=100, layout=layout, on_add_item=self.on_click_add_chart, on_close_item=self.on_close_item, on_layout_change=self.on_layout_change)
+        panel.btn('toggle_editable', label="Toggle Editable", on_click=self.on_click_toggle_editable)
+        dashboard = panel.dashboard('dashboard', height=100, allow_addition=editable, allow_deletion=editable, layout=layout, on_add_item=self.on_click_add_chart, on_close_item=self.on_close_item, on_layout_change=self.on_layout_change)
         for key, value in ctx.panel.state.dashboard.items():
             dashboard.plot(key)
         return types.Property(panel)
