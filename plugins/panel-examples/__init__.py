@@ -23,7 +23,7 @@ class CounterPanel(foo.Panel):
         )
 
     @staticmethod
-    def on_load(self, ctx: ExecutionContext):
+    def on_load(ctx: ExecutionContext):
         ctx.panel.state.my_count = 0
 
     def increment(self, ctx: ExecutionContext):
@@ -135,7 +135,7 @@ class MarkdownPanel(foo.Panel):
         )
 
     @staticmethod
-    def render(self, ctx: ExecutionContext):
+    def render(ctx: ExecutionContext):
         panel = types.Object()
 
         # load markdown as a panel string type with MarkdownView
@@ -158,7 +158,7 @@ class MarkdownPanel(foo.Panel):
 
         # load markdown.md file from py-panel-example-2 folder
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        markdown_path = os.path.join(current_dir, "markdown.md")
+        markdown_path = os.path.join(current_dir, "assets/markdown.md")
 
         with open(markdown_path, "r") as markdown_file:
             panel.md(markdown_file.read(), name="markdown2")
