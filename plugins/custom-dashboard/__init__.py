@@ -127,25 +127,32 @@ class PlotDefinition(object):
 
 
 class DashboardPlotProperty(types.Property):
-    def __init__(self, name, label, plot_config={}, plot_layout={}, on_click_plot=None):
+    def __init__(self, item, on_click_plot=None, on_plot_select=None):
+        name = item.name
+        label = item.label
+        plot_config = item.config
+        plot_layout = item.layout
+        x_field = item.x_field
+        y_field = item.y_field
         type = types.Object()
         view = types.PlotlyView(
             config=plot_config,
             layout=plot_layout,
-            on_click=on_click_plot
+            on_click=on_click_plot,
+            on_selected=on_plot_select,
+            x_data_source=x_field,
+            y_data_source=y_field
         )
         super().__init__(type, view=view)
         self.name = name
         self.label = label
 
     @staticmethod
-    def from_item(item, on_click_plot):
+    def from_item(item, on_click_plot, on_plot_select):
         return DashboardPlotProperty(
-            item.name,
-            item.label,
-            plot_config=item.config,
-            plot_layout=item.layout,
-            on_click_plot=on_click_plot
+            item,
+            on_click_plot=on_click_plot,
+            on_plot_select=on_plot_select
         )
 
 
@@ -220,6 +227,10 @@ class DashboardState(object):
         return True
     
     @property
+    def view(self):
+        return self.ctx.view
+
+    @property
     def items(self):
         return self._items.values()
     
@@ -290,7 +301,7 @@ class DashboardState(object):
         field = item.field
         if not field:
             return {}
-        counts = self.ctx.dataset.count_values(field)
+        counts = self.view.count_values(field)
         
         histogram_data = {
             'x': list(counts.keys()),
@@ -309,7 +320,7 @@ class DashboardState(object):
         if not x:
             return {}
         
-        counts, edges, other = self.ctx.dataset.histogram_values(
+        counts, edges, other = self.view.histogram_values(
             x,
             bins=bins,
         )
@@ -330,8 +341,9 @@ class DashboardState(object):
         return histogram_data
 
     def load_scatter_data(self, item):
-        x = self.ctx.dataset.values(F(item.x_field))
-        y = self.ctx.dataset.values(F(item.y_field))
+        x = self.view.values(F(item.x_field))
+        y = self.view.values(F(item.y_field))
+        ids = self.view.values("id")
         
         if not x or not y:
             return {}
@@ -339,6 +351,7 @@ class DashboardState(object):
         scatter_data = {
             'x': x,
             'y': y,
+            'ids': ids,
             'type': 'scatter',
             'mode': 'markers'
         }
@@ -349,8 +362,8 @@ class DashboardState(object):
         if item.x_field is None or item.y_field is None:
             return {}
         
-        x = self.ctx.dataset.values(F(item.x_field))
-        y = self.ctx.dataset.values(F(item.y_field))
+        x = self.view.values(F(item.x_field))
+        y = self.view.values(F(item.y_field))
         
         line_data = {
             'x': x,
@@ -366,7 +379,7 @@ class DashboardState(object):
         if not field:
             return {}
 
-        values = self.ctx.dataset.count_values(field)
+        values = self.view.count_values(field)
 
         pie_data = {
             'values': list(values.values()),
@@ -385,7 +398,6 @@ class DashboardState(object):
             exec(code, {'ctx': self.ctx}, local_vars)
             data = local_vars.get('data', {})
             data['type'] = get_plotly_plot_type(plot_type).value
-            print("data", data)
             return data
         except Exception as e:
             print(f"Error loading data: {e}")
@@ -456,11 +468,73 @@ class CustomDashboard(foo.Panel):
             dashboard_state.remove_item(plot_id)
 
     def on_click_plot(self, ctx):
-        print("click", ctx.params)
-        plot_type = ctx.params.get("data", {}).get("config", {}).get("plot_type")
-        if plot_type == 'categorical_histogram' or plot_type == 'numeric_histogram':
-            print(f"{plot_type} clicked")
+        plot_id = ctx.params.get("relative_path")
+        dashboard = DashboardState(ctx)
+        item = dashboard.get_item(plot_id)
+        if item.use_code or item.type == PlotType.pie:
+            return
+        x_field = item.x_field
+        y_field = item.y_field
+        if item.type == PlotType.categorical_histogram or item.type == PlotType.numeric_histogram:
+            if item.type == PlotType.categorical_histogram:
+                x_field = item.field
+                x = ctx.params.get("x")
+                view = ctx.dataset.match_values(x_field, x)
+                ctx.ops.set_view(view)
+                return
+            range = ctx.params.get("range")
+            if range:
+                min, max = range
+                filter = {}
+                print(ctx.params)
+                filter[x_field] = {"$gte": min, "$lte": max}
+                ctx.trigger("set_view", dict(view=[
+                    {
+                        "_cls": "fiftyone.core.stages.Match",
+                        "kwargs": [
+                        [
+                            "filter",
+                            filter
+                        ]
+                        ],
+                    }
+                ]))
+        if item.type == PlotType.scatter or item.type == PlotType.line:
+            range = ctx.params.get("range")
+            if range:
+                x = ctx.params.get("x")
+                y = ctx.params.get("y")
+                filter = {}
+                filter[x_field] = x
+                filter[y_field] = y
+                ctx.trigger("set_view", dict(view=[
+                    {
+                        "_cls": "fiftyone.core.stages.Match",
+                        "kwargs": [
+                        [
+                            "filter",
+                            filter
+                        ]
+                        ],
+                    }
+                ]))
 
+    def on_plot_select(self, ctx):
+        plot_id = ctx.params.get("relative_path")
+        dashboard = DashboardState(ctx)
+        item = dashboard.get_item(plot_id)
+        if item.use_code or item.type == PlotType.pie:
+            return
+        if item.type == PlotType.scatter or item.type == PlotType.line:
+            data = ctx.params.get("data")
+            # data[n] = {idx, id}
+            ids = [d.get("id") for d in data]
+            if len(ids) == 0:
+                # this is being triggered from the ui incorrectly after a valid on selected event
+                return
+            matched_ids_view = ctx.dataset.select(ids)
+            ctx.ops.set_view(matched_ids_view)
+        pass
     #
     # Load plot data
     #     
@@ -477,13 +551,13 @@ class CustomDashboard(foo.Panel):
         # menu.btn('btn', label='Button')
         return types.Property(menu)
     
-    def render_dashboard(self, ctx, on_click_plot):
+    def render_dashboard(self, ctx, on_click_plot, on_plot_select):
         dashboard = types.Object()
         dashboard_state = DashboardState(ctx)
         for dashboard_item in dashboard_state.items:
             dashboard.add_property(
                 dashboard_item.name,
-                DashboardPlotProperty.from_item(dashboard_item, on_click_plot)
+                DashboardPlotProperty.from_item(dashboard_item, on_click_plot, on_plot_select)
             )
         dashboard_view = types.DashboardView(
             on_add_item=self.on_add,
@@ -494,7 +568,7 @@ class CustomDashboard(foo.Panel):
     def render(self, ctx):
         panel = types.Object()
         panel.add_property('menu', self.render_menu(ctx))
-        panel.add_property('items', self.render_dashboard(ctx, self.on_click_plot))
+        panel.add_property('items', self.render_dashboard(ctx, self.on_click_plot, self.on_plot_select))
         return types.Property(panel)
 
 #
@@ -514,14 +588,14 @@ class ConfigurePlot(foo.Operator):
     
     def get_number_field_choices(self, ctx):
         fields = types.Choices(space=6)
-        paths = get_fields_with_type(ctx.dataset, NUMERIC_TYPES)
+        paths = get_fields_with_type(ctx.view, NUMERIC_TYPES)
         for field_path in paths:
             fields.add_choice(field_path, label=field_path)
         return fields
 
     def get_categorical_field_choices(self, ctx):
         fields = types.Choices(space=6)
-        paths = get_fields_with_type(ctx.dataset, CATEGORICAL_TYPES)
+        paths = get_fields_with_type(ctx.view, CATEGORICAL_TYPES)
         for field_path in paths:
             fields.add_choice(field_path, label=field_path)
         return fields
