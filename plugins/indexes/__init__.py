@@ -77,6 +77,9 @@ def _manage_indexes(ctx, inputs):
             divider=True,
         ),
     )
+    support_size = False
+    if len(indexes) > 0:
+        support_size = "size" in indexes[next(iter(indexes))]
 
     obj = types.Object()
     obj.str(
@@ -97,12 +100,13 @@ def _manage_indexes(ctx, inputs):
         description="Whether the index has a uniqueness constraint",
         view=types.MarkdownView(read_only=True, space=4),
     )
-    obj.str(
-        "size",
-        label="Size",
-        description="The size of the index",
-        view=types.MarkdownView(read_only=True, space=4),
-    )
+    if support_size:
+        obj.str(
+            "size",
+            label="Size",
+            description="The size of the index",
+            view=types.MarkdownView(read_only=True, space=4),
+        )
     inputs.define_property("header", obj)
 
     for name in sorted(indexes):
@@ -113,7 +117,7 @@ def _manage_indexes(ctx, inputs):
             # The `id` index is unique, but backend doesn't report it
             # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/collections.py#L8552
             unique = True
-        size =indexes[name].get("size", "NA")
+        size = indexes[name].get("size", "NA")
 
         obj = types.Object()
         obj.str(
@@ -131,11 +135,12 @@ def _manage_indexes(ctx, inputs):
             default=unique,
             view=types.CheckboxView(read_only=True, space=4),
         )
-        obj.str(
-            "size",
-            default=size,
-            view=types.MarkdownView(read_only=True, space=4),
-        )
+        if support_size:
+            obj.str(
+                "size",
+                default=size,
+                view=types.MarkdownView(read_only=True, space=4),
+            )
         inputs.define_property(prop_name, obj)
 
     inputs.list(
@@ -196,7 +201,11 @@ def _istr(n):
 
 
 def _get_existing_indexes(ctx):
-    return ctx.dataset.get_index_information(include_size=True)
+    try:
+        return ctx.dataset.get_index_information(include_size=True)
+    except TypeError:
+        # `include_size` is not supported by the backend
+        return ctx.dataset.get_index_information()
 
 
 def _create_index(ctx):
