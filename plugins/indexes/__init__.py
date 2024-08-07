@@ -77,35 +77,34 @@ def _manage_indexes(ctx, inputs):
             divider=True,
         ),
     )
-    support_size = False
-    if len(indexes) > 0:
-        support_size = "size" in indexes[next(iter(indexes))]
+    support_size = True if len(indexes) > 0 and "size" in indexes[next(iter(indexes))] else False
+    space_size = 3 if support_size else 4
 
     obj = types.Object()
     obj.str(
         "field_name",
         label="Field name",
         description="The field name or compound index name",
-        view=types.MarkdownView(read_only=True, space=4),
+        view=types.MarkdownView(read_only=True, space=space_size),
     )
     obj.str(
         "default",
         label="Default",
         description="Whether the index is a default index",
-        view=types.MarkdownView(read_only=True, space=4),
+        view=types.MarkdownView(read_only=True, space=space_size),
     )
     obj.str(
         "unique",
         label="Unique",
         description="Whether the index has a uniqueness constraint",
-        view=types.MarkdownView(read_only=True, space=4),
+        view=types.MarkdownView(read_only=True, space=space_size),
     )
     if support_size:
         obj.str(
             "size",
             label="Size",
             description="The size of the index",
-            view=types.MarkdownView(read_only=True, space=4),
+            view=types.MarkdownView(read_only=True, space=space_size),
         )
     inputs.define_property("header", obj)
 
@@ -123,23 +122,23 @@ def _manage_indexes(ctx, inputs):
         obj.str(
             "field_name",
             default=name,
-            view=types.MarkdownView(read_only=True, space=4),
+            view=types.MarkdownView(read_only=True, space=space_size),
         )
         obj.bool(
             "default",
             default=default,
-            view=types.CheckboxView(read_only=True, space=4),
+            view=types.CheckboxView(read_only=True, space=space_size),
         )
         obj.bool(
             "unique",
             default=unique,
-            view=types.CheckboxView(read_only=True, space=4),
+            view=types.CheckboxView(read_only=True, space=space_size),
         )
         if support_size:
             obj.str(
                 "size",
                 default=size,
-                view=types.MarkdownView(read_only=True, space=4),
+                view=types.MarkdownView(read_only=True, space=space_size),
             )
         inputs.define_property(prop_name, obj)
 
