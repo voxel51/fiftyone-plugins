@@ -5,6 +5,7 @@ Custom Dashboards.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+
 import enum
 import numpy as np
 import random
@@ -17,51 +18,45 @@ import fiftyone.types as fot
 import fiftyone.core.fields as fof
 from fiftyone import ViewField as F
 
+
 class PlotlyPlotType(enum.Enum):
-    bar = 'bar'
-    scatter = 'scatter'
-    line = 'line'
-    pie = 'pie'
+    BAR = 'bar'
+    SCATTER = 'scatter'
+    LINE = 'line'
+    PIE = 'pie'
+
 
 class PlotType(enum.Enum):
-    categorical_histogram = 'categorical_histogram'
-    numeric_histogram = 'numeric_histogram'
-    line = 'line'
-    scatter = 'scatter'
-    pie = 'pie'
+    CATEGORICAL_HISTOGRAM = 'categorical_histogram'
+    NUMERIC_HISTOGRAM = 'numeric_histogram'
+    LINE = 'line'
+    SCATTER = 'scatter'
+    PIE = 'pie'
 
-NUMERIC_TYPES = (
-    fof.IntField,
-    fof.FloatField,
-)
 
-CATEGORICAL_TYPES = (
-    fof.StringField,
-    fof.BooleanField,
-    fof.IntField,
-    fof.FloatField,
-)
+NUMERIC_TYPES = (fof.IntField, fof.FloatField)
+
+CATEGORICAL_TYPES = (fof.StringField, fof.BooleanField)
+
 
 def get_plotly_plot_type(plot_type):
-    if plot_type == PlotType.categorical_histogram:
-        return PlotlyPlotType.bar
-    elif plot_type == PlotType.numeric_histogram:
-        return PlotlyPlotType.bar
-    elif plot_type == PlotType.line:
-        return PlotlyPlotType.line
-    elif plot_type == PlotType.scatter:
-        return PlotlyPlotType.scatter
-    elif plot_type == PlotType.pie:
-        return PlotlyPlotType.pie
+    return {
+        PlotType.CATEGORICAL_HISTOGRAM: PlotlyPlotType.BAR,
+        PlotType.NUMERIC_HISTOGRAM: PlotlyPlotType.BAR,
+        PlotType.LINE: PlotlyPlotType.LINE,
+        PlotType.SCATTER: PlotlyPlotType.SCATTER,
+        PlotType.PIE: PlotlyPlotType.PIE,
+    }.get(plot_type)
+
 
 def get_plotly_config_and_layout(plot_config):
-    config = {}
     layout = {}
     if plot_config.get('plot_title'):
-        layout['title'] = plot_config.get('plot_title')
+        # rely on the dashboard title for now
+        # layout['title'] = plot_config.get('plot_title')
+        pass
     if plot_config.get('color'):
-        color = plot_config.get('color')
-        layout['marker'] = {'color': color.get('hex')}
+        layout['marker'] = {'color': plot_config['color'].get('hex')}
     if plot_config.get('xaxis'):
         layout['xaxis'] = plot_config.get('xaxis')
     if plot_config.get('yaxis'):
@@ -69,22 +64,23 @@ def get_plotly_config_and_layout(plot_config):
     if plot_config.get('plot_type') == 'numeric_histogram':
         layout['bargap'] = 0
         layout['bargroupgap'] = 0
-    return {
-        'config': config,
-        'layout': layout
-    }
 
-requires_x = [PlotType.scatter, PlotType.line, PlotType.numeric_histogram]
-requires_y = [PlotType.scatter, PlotType.line]
+    return {'config': {}, 'layout': layout}
+
+
+REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
+REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
+
 
 def get_root(dataset, path):
     root = None
     schema = dataset.get_field_schema(flat=True)
     for _path, field in schema.items():
-        if path.startswith(_path + ".") and isinstance(field. fo.ListField):
+        if path.startswith(_path + ".") and isinstance(field, fo.ListField):
             root = _path
 
     return root
+
 
 def get_fields_with_type(dataset, field_types, root=None):
     schema = dataset.get_field_schema(flat=True)
@@ -101,9 +97,6 @@ def get_fields_with_type(dataset, field_types, root=None):
 
     return paths
 
-#
-# Types
-#
 
 class PlotDefinition(object):
     def __init__(self, plot_type, layout={}, config={}, sources={}, code=None):
@@ -118,9 +111,9 @@ class PlotDefinition(object):
     @staticmethod
     def requires_source(cls, plot_type, dim):
         if dim == 'x':
-            return plot_type in requires_x
+            return plot_type in REQUIRES_X
         if dim == 'y':
-            return plot_type in requires_y
+            return plot_type in REQUIRES_Y
 
 
 class DashboardPlotProperty(types.Property):
@@ -154,7 +147,7 @@ class DashboardPlotProperty(types.Property):
 
 
 class DashboardPlotItem(object):
-    def __init__(self, name, type, config, layout, raw_params=None, use_code=False, code=None, update_on_change=None, x_field=None, y_field=None, field=None, bins=10):
+    def __init__(self, name, type, config, layout, raw_params=None, use_code=False, code=None, update_on_change=None, x_field=None, y_field=None, field=None, bins=10, order="alphabetical", reverse=False, limit=None):
         self.name = name
         self.type = PlotType(type)
         self.raw_params = raw_params
@@ -167,6 +160,9 @@ class DashboardPlotItem(object):
         self.y_field = y_field
         self.field = field
         self.bins = bins
+        self.order = order
+        self.reverse = reverse
+        self.limit = limit
 
     @staticmethod
     def from_dict(data):
@@ -182,13 +178,16 @@ class DashboardPlotItem(object):
             data.get('x_field', None),
             data.get('y_field', None),
             data.get('field', None),
-            data.get('bins', 10)
+            data.get('bins', 10),
+            data.get('order', 'alphabetical'),
+            data.get('reverse', False),
+            data.get('limit', None)
         )
-    
+
     @property
     def label(self):
         return self.config.get('title', self.name)
-    
+
     def to_configure_plot_params(self):
         return {
             **self.raw_params,
@@ -208,7 +207,10 @@ class DashboardPlotItem(object):
             'x_field': self.x_field,
             'y_field': self.y_field,
             'field': self.field,
-            'bins': self.bins
+            'bins': self.bins,
+            'order': self.order,
+            'reverse': self.reverse,
+            'limit': self.limit
         }
 
 
@@ -231,7 +233,7 @@ class DashboardState(object):
         if exc_type is not None:
             print(f"An exception occurred: {exc_type}, {exc_value}")
         return True
-    
+
     @property
     def is_empty(self):
         return len(self._items) == 0
@@ -243,14 +245,14 @@ class DashboardState(object):
     @property
     def items(self):
         return self._items.values()
-    
+
     @property
     def item_count(self):
         return len(self._items)
 
     def items_as_dict(self):
         return {k: v.to_dict() for k, v in self._items.items()}
-    
+
     def apply_state(self):
         items_dict = self.items_as_dict()
         self.panel.set_state("items_config", items_dict)
@@ -262,14 +264,14 @@ class DashboardState(object):
 
     def get_item(self, item_id):
         return self._items.get(item_id, None)
-    
+
     def remove_item(self, item_id):
         self._items.pop(item_id)
         # TODO: properly handle clearing of state/data
 
     def clear_items(self):
         self._items = {}
-    
+
     def get_next_item_id(self):
         return f"plot_{random.randint(0, 1000)}"
 
@@ -289,27 +291,57 @@ class DashboardState(object):
         print("data", data)
         self._data[item.name] = data
         self.apply_data()
-            
+
     def load_plot_data(self, plot_id):
         item = self.get_item(plot_id)
         if item is None:
             return {}
-        return self.load_plot_data_for_item(item)
-    
+        data = self.load_plot_data_for_item(item)
+        if isinstance(data, dict):
+            return data
+        return {}
+
     def load_plot_data_for_item(self, item):
+        fo_orange = 'rgb(255, 109, 5)'
+        bar_color = {
+            "marker": {
+                "color": fo_orange
+            }
+        }
+        pie_color = {
+            "marker": {
+                "colors": ["rgb(255, 109, 5)", "rgb(255, 109, 5)", "rgb(255, 109, 5)"]
+            }
+        }
         if item.use_code:
-            return self.load_data_from_code(item.code, item.type)
-        if item.type == PlotType.categorical_histogram:
-            return self.load_categorical_histogram_data(item)
-        elif item.type == PlotType.numeric_histogram:
-            return self.load_numeric_histogram_data(item)
-        elif item.type == PlotType.scatter:
-            return self.load_scatter_data(item)
-        elif item.type == PlotType.line:
-            return self.load_line_data(item)
-        elif item.type == PlotType.pie:
-            return self.load_pie_data(item)
-    
+            data = self.load_data_from_code(item.code, item.type)
+        elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
+            data = self.load_categorical_histogram_data(item)
+        elif item.type == PlotType.NUMERIC_HISTOGRAM:
+            data = self.load_numeric_histogram_data(item)
+        elif item.type == PlotType.SCATTER:
+            data = self.load_scatter_data(item)
+        elif item.type == PlotType.LINE:
+            data = self.load_line_data(item)
+        elif item.type == PlotType.PIE:
+            data = self.load_pie_data(item)
+
+        if isinstance(data, dict):
+            plot_data_type = data.get('type', None)
+            if plot_data_type == 'pie':
+                # pie_color = {
+                #     "marker": {
+                #         "colors": fo.app_config.color_pool[:len(data['labels'])]
+                #     }
+                # }
+                # data.update(pie_color)
+                pass
+            else:
+                data.update(bar_color)
+            print('loaded data', data)
+            return data
+        return {}
+
     def load_all_plot_data(self):
         for item in self.items:
             data = self.load_plot_data(item.name)
@@ -320,16 +352,27 @@ class DashboardState(object):
         field = item.field
         if not field:
             return {}
+
         counts = self.view.count_values(field)
+        raw_keys = list(counts.keys())
+        keys = [str(k) for k in raw_keys]
         
+        if item.order == "alphabetical":
+            sorted_items = sorted(zip(keys, counts.values()), key=lambda x: x[0], reverse=item.reverse)
+        elif item.order == "frequency":
+            sorted_items = sorted(zip(keys, counts.values()), key=lambda x: x[1], reverse=not item.reverse)
+        
+        if item.limit:
+            sorted_items = sorted_items[:item.limit]
+
+        keys, values = zip(*sorted_items)
+
         histogram_data = {
-            'x': list(counts.keys()),
-            'y': list(counts.values()),
+            'x': keys,
+            'y': values,
             'type': 'bar'
         }
 
-        print("histogram_data", histogram_data)
-        
         return histogram_data
 
     def load_numeric_histogram_data(self, item):
@@ -338,32 +381,29 @@ class DashboardState(object):
 
         if not x:
             return {}
-        
-        counts, edges, other = self.view.histogram_values(
-            x,
-            bins=bins,
-        )
-        
+
+        counts, edges, _ = self.view.histogram_values(x, bins=bins)
+
         counts = np.asarray(counts)
         edges = np.asarray(edges)
-        
+
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
-        
+
         histogram_data = {
             'x': left_edges.tolist(),
             'y': counts.tolist(),
             'type': 'bar',
             'width': widths.tolist()
         }
-        
+
         return histogram_data
 
     def load_scatter_data(self, item):
         x = self.view.values(F(item.x_field))
         y = self.view.values(F(item.y_field))
         ids = self.view.values("id")
-        
+
         if not x or not y:
             return {}
 
@@ -374,22 +414,22 @@ class DashboardState(object):
             'type': 'scatter',
             'mode': 'markers'
         }
-        
+
         return scatter_data
 
     def load_line_data(self, item):
         if item.x_field is None or item.y_field is None:
             return {}
-        
+
         x = self.view.values(F(item.x_field))
         y = self.view.values(F(item.y_field))
-        
+
         line_data = {
             'x': x,
             'y': y,
             'type': 'line'
         }
-        
+
         return line_data
 
     def load_pie_data(self, item):
@@ -401,8 +441,8 @@ class DashboardState(object):
         counts = self.view.count_values(field)
         values = list(counts.values())
         keys = list(counts.keys())
-        sum = np.sum(values)
-        factor = 100.0 / sum
+        total = np.sum(values)
+        factor = 100.0 / total
         factored_values = [v * factor for v in values]
 
         pie_data = {
@@ -411,7 +451,10 @@ class DashboardState(object):
             'type': 'pie',
             'name': item.config.get('title', 'Pie Chart')
         }
-        
+
+        if len(values) > 10:
+            pie_data['textinfo'] = 'none'
+
         return pie_data
 
     def load_data_from_code(self, code, plot_type):
@@ -422,40 +465,43 @@ class DashboardState(object):
             exec(code, {'ctx': self.ctx}, local_vars)
             data = local_vars.get('data', {})
             data['type'] = get_plotly_plot_type(plot_type).value
+            print('returned data', data)
             return data
         except Exception as e:
             print(f"Error loading data: {e}")
             return {}
-    
+
     def can_load_data(self, item):
         if item.code:
             return True
-        if item.type == PlotType.categorical_histogram:
+        if item.type == PlotType.CATEGORICAL_HISTOGRAM:
             return item.field is not None
-        elif item.type == PlotType.numeric_histogram:
+        elif item.type == PlotType.NUMERIC_HISTOGRAM:
             return item.x_field is not None
-        elif item.type == PlotType.scatter:
+        elif item.type == PlotType.SCATTER:
             return item.x_field is not None and item.y_field is not None
-        elif item.type == PlotType.line:
+        elif item.type == PlotType.LINE:
             return item.x_field is not None and item.y_field is not None
-        elif item.type == PlotType.pie:
+        elif item.type == PlotType.PIE:
             return item.field is not None
+
 
 def can_edit(ctx: foo.executor.ExecutionContext):
     is_teams = hasattr(ctx, 'user')
     if is_teams:
         return ctx.user and ctx.user.dataset_permission == "can_edit"
-    return True # for oss
-        
+    return True  # for oss
+
+
 class CustomDashboard(foo.Panel):
     @property
     def config(self):
         return foo.PanelOperatorConfig(
             name="custom_dashboard",
-            label="Custom Dashboard",
-            description="A custom dashboard"
+            label="Dashboard",
+            allow_multiple=True
         )
-    
+
     #
     # Events
     #
@@ -492,7 +538,10 @@ class CustomDashboard(foo.Panel):
             item = DashboardPlotItem(
                 name=name,
                 type=plot_type,
-                config=plot_config,
+                config={
+                    **plot_config,
+                    "scrollZoom": False
+                },
                 layout=plot_layout,
                 raw_params=result,
                 use_code=result.get('use_code', False),
@@ -501,7 +550,10 @@ class CustomDashboard(foo.Panel):
                 x_field=result.get('x_field', None),
                 y_field=result.get('y_field', None),
                 field=result.get('field', None),
-                bins=result.get('bins', 10)
+                bins=result.get('bins', 10),
+                order=result.get('order', 'alphabetical'),
+                reverse=result.get('reverse', False),
+                limit=result.get('limit', None)
             )
             if edit:
                 dashboard_state.edit_plot(item)
@@ -523,6 +575,18 @@ class CustomDashboard(foo.Panel):
         if can_edit(ctx):
             ctx.prompt("@voxel51/custom_dashboard/configure_plot", on_success=self.on_edit_success, params=item.to_configure_plot_params())
 
+    def on_save_layout(self, ctx):
+        rows = ctx.params.get("rows")
+        items = ctx.params.get("items")
+        cols = ctx.params.get("cols")
+        auto_layout = ctx.params.get("auto_layout")
+        ctx.panel.state.dashboard_config = {
+            "rows": rows,
+            "cols": cols,
+            "items": items,
+            "auto_layout": auto_layout
+        }
+
     def on_remove(self, ctx):
         if can_edit(ctx):
             plot_id = ctx.params.get("id")
@@ -533,35 +597,42 @@ class CustomDashboard(foo.Panel):
         plot_id = ctx.params.get("relative_path")
         dashboard = DashboardState(ctx)
         item = dashboard.get_item(plot_id)
-        if item.use_code or item.type == PlotType.pie:
+        if item.use_code or item.type == PlotType.PIE:
             return
         x_field = item.x_field
         y_field = item.y_field
-        if item.type == PlotType.categorical_histogram or item.type == PlotType.numeric_histogram:
-            if item.type == PlotType.categorical_histogram:
+        if item.type == PlotType.CATEGORICAL_HISTOGRAM or item.type == PlotType.NUMERIC_HISTOGRAM:
+            if item.type == PlotType.CATEGORICAL_HISTOGRAM:
+                view = None
                 x_field = item.field
                 x = ctx.params.get("x")
-                view = ctx.dataset.match_values(x_field, x)
-                ctx.ops.set_view(view)
+                print("x", x)
+                print("x_field", x_field)
+
+                is_label_field = x_field.endswith(".label")  # REPLACE WITH BETTER LOGIC
+                if is_label_field:
+                    view = ctx.dataset.filter_labels(F(x_field) == x)
+                    # filter_tags() is not implemented yet
+                else:
+                    view = ctx.dataset.filter(F(x_field) == x)
+                if view:
+                    ctx.ops.set_view(view)
                 return
             range = ctx.params.get("range")
             if range:
-                min, max = range
+                min_val, max_val = range
                 filter = {}
                 print(ctx.params)
-                filter[x_field] = {"$gte": min, "$lte": max}
+                filter[x_field] = {"$gte": min_val, "$lte": max_val}
                 ctx.trigger("set_view", dict(view=[
                     {
                         "_cls": "fiftyone.core.stages.Match",
                         "kwargs": [
-                        [
-                            "filter",
-                            filter
-                        ]
+                            ["filter", filter]
                         ],
                     }
                 ]))
-        if item.type == PlotType.scatter or item.type == PlotType.line:
+        if item.type == PlotType.SCATTER or item.type == PlotType.LINE:
             range = ctx.params.get("range")
             if range:
                 x = ctx.params.get("x")
@@ -573,10 +644,7 @@ class CustomDashboard(foo.Panel):
                     {
                         "_cls": "fiftyone.core.stages.Match",
                         "kwargs": [
-                        [
-                            "filter",
-                            filter
-                        ]
+                            ["filter", filter]
                         ],
                     }
                 ]))
@@ -585,9 +653,9 @@ class CustomDashboard(foo.Panel):
         plot_id = ctx.params.get("relative_path")
         dashboard = DashboardState(ctx)
         item = dashboard.get_item(plot_id)
-        if item.use_code or item.type == PlotType.pie:
+        if item.use_code or item.type == PlotType.PIE:
             return
-        if item.type == PlotType.scatter or item.type == PlotType.line:
+        if item.type == PlotType.SCATTER or item.type == PlotType.LINE:
             data = ctx.params.get("data")
             # data[n] = {idx, id}
             ids = [d.get("id") for d in data]
@@ -597,9 +665,10 @@ class CustomDashboard(foo.Panel):
             matched_ids_view = ctx.dataset.select(ids)
             ctx.ops.set_view(matched_ids_view)
         pass
+
     #
     # Load plot data
-    #     
+    #
 
     def load_data(self, ctx):
         pass
@@ -610,9 +679,8 @@ class CustomDashboard(foo.Panel):
 
     def render_menu(self, ctx):
         menu = types.Object()
-        # menu.btn('btn', label='Button')
         return types.Property(menu)
-    
+
     def render_dashboard(self, ctx, on_click_plot, on_plot_select):
         dashboard = types.Object()
         dashboard_state = DashboardState(ctx)
@@ -626,11 +694,16 @@ class CustomDashboard(foo.Panel):
             on_add_item=self.on_add,
             on_remove_item=self.on_remove,
             on_edit_item=self.on_edit,
+            on_save_layout=self.on_save_layout,
             allow_edit=user_can_edit,
             allow_remove=user_can_edit,
             allow_add=user_can_edit,
             width=100,
-            height=100 if dashboard_state.is_empty else None
+            height=100 if dashboard_state.is_empty else None,
+            cta_title="Add a Plot",
+            cta_body="Add a new plot to the dashboard.",
+            cta_button_label="Add Plot",
+            **(ctx.panel.state.dashboard_config or {})
         )
         return types.Property(dashboard, view=dashboard_view)
 
@@ -639,6 +712,7 @@ class CustomDashboard(foo.Panel):
         panel.add_property('menu', self.render_menu(ctx))
         panel.add_property('items', self.render_dashboard(ctx, self.on_click_plot, self.on_plot_select))
         return types.Property(panel, view=types.GridView(padding=0, gap=0))
+
 
 #
 # Operators
@@ -654,7 +728,7 @@ class ConfigurePlot(foo.Operator):
             dynamic=True,
             unlisted=True
         )
-    
+
     def get_number_field_choices(self, ctx):
         fields = types.Choices(space=6)
         paths = get_fields_with_type(ctx.view, NUMERIC_TYPES)
@@ -671,48 +745,25 @@ class ConfigurePlot(foo.Operator):
 
     def create_axis_input(self, ctx, inputs, axis):
         axis_obj = types.Object()
-        axis_bool_view = types.CheckboxView(space=3)
-        axis_obj.str('title', default=None, label=f"Title")
-        # axis_obj.bool('showgrid', default=True, label="Show Grid", view=axis_bool_view)
-        # axis_obj.bool('zeroline', default=False, label="Show Zero Line", view=axis_bool_view)
-        # axis_obj.bool('showline', default=True, label="Show Line", view=axis_bool_view)
-        # axis_obj.bool('mirror', default=False, label="Mirror", view=axis_bool_view)
-        # axis_obj.bool('autotick', default=True, label="Auto Tick", view=axis_bool_view)
-        # axis_obj.bool('showticklabels', default=True, label="Show Tick Labels", view=axis_bool_view)
-        # axis_obj.bool('showspikes', default=False, label="Show Spikes", view=axis_bool_view)
-
-        # scale_choices = types.Choices()
-        # scale_choices.add_choice("linear", label="Linear")
-        # scale_choices.add_choice("log", label="Log")
-        # scale_choices.add_choice("date", label="Date")
-        # scale_choices.add_choice("category", label="Category")
-        # axis_obj.enum('type', values=scale_choices.values(), view=scale_choices, default="linear", label="Scale Type")
-
-        # axis_obj.float('tickangle', default=0, label="Tick Angle")
-        # axis_obj.str('tickformat', default=None, label="Tick Format", view=types.View(space=3))
-
-        # Range settings
-        # axis_obj.bool('autorange', default=True, label="Auto Range", view=axis_bool_view)
+        axis_obj.str('title', default=None, label=f"{axis.capitalize()} Axis Title")
         inputs.define_property(f"{axis}axis", axis_obj, label=f"{axis.capitalize()} Axis")
 
     def get_code_example(self, plot_type):
-        if plot_type == 'categorical_histogram':
-            return dedent("""
+        examples = {
+            'categorical_histogram': dedent("""
                 import random
                 categories = ['A', 'B', 'C', 'D', 'E']
                 data = {
                     'x': random.choices(categories, k=100),
                 }
-            """).strip()
-        elif plot_type == 'numeric_histogram':
-            return dedent("""
+            """).strip(),
+            'numeric_histogram': dedent("""
                 import numpy as np
                 data = {
                     'x': np.random.normal(size=1000),
                 }
-            """).strip()
-        elif plot_type == 'line':
-            return dedent("""
+            """).strip(),
+            'line': dedent("""
                 import numpy as np
                 x = np.arange(0, 10, 0.1)
                 y = np.sin(x)
@@ -720,9 +771,8 @@ class ConfigurePlot(foo.Operator):
                     'x': x.tolist(),
                     'y': y.tolist(),
                 }
-            """).strip()
-        elif plot_type == 'scatter':
-            return dedent("""
+            """).strip(),
+            'scatter': dedent("""
                 import numpy as np
                 x = np.random.rand(100)
                 y = np.random.rand(100)
@@ -731,14 +781,15 @@ class ConfigurePlot(foo.Operator):
                     'y': y.tolist(),
                     'mode': 'markers'
                 }
-            """).strip()
-        elif plot_type == 'pie':
-            return dedent("""
+            """).strip(),
+            'pie': dedent("""
                 data = {
                     'values': [33, 33, 33],
                     'labels': ['A', 'B', 'C'],
                 }
             """).strip()
+        }
+        return examples.get(plot_type, "")
 
     def resolve_input(self, ctx):
         prompt = types.PromptView(submit_button_label="Create Plot")
@@ -778,7 +829,15 @@ class ConfigurePlot(foo.Operator):
 
             if plot_type == 'numeric_histogram':
                 inputs.int('bins', default=10, label="Number of Bins", view=types.View(space=6))
-            
+
+            if plot_type == 'categorical_histogram':
+                order_choices = types.Choices(label="Order")
+                order_choices.add_choice("alphabetical", label="Alphabetical")
+                order_choices.add_choice("frequency", label="Frequency")
+                inputs.enum('order', values=order_choices.values(), view=order_choices, default="alphabetical", label="Order")
+                inputs.bool('reverse', default=False, label="Reverse Order")
+                inputs.int('limit', default=None, label="Limit Number of Bars", view=types.View(space=6))
+
             inputs.bool('update_on_change', default=True, label="Update On View Change")
 
             # plot preview
@@ -795,7 +854,10 @@ class ConfigurePlot(foo.Operator):
                 'x_field': ctx.params.get('x_field', None),
                 'y_field': ctx.params.get('y_field', None),
                 'field': ctx.params.get('field', None),
-                'bins': ctx.params.get('bins', 10)
+                'bins': ctx.params.get('bins', 10),
+                'order': ctx.params.get('order', 'alphabetical'),
+                'reverse': ctx.params.get('reverse', False),
+                'limit': ctx.params.get('limit', None)
             })
             db = DashboardState(ctx)
             if db.can_load_data(item):
@@ -806,15 +868,16 @@ class ConfigurePlot(foo.Operator):
                 preview_container.plot('plot_preview', label='Plot Preview', config=preview_config, layout=preview_layout, data=preview_data, height=preview_height, width="600px")
 
         return types.Property(inputs, view=prompt)
-    
+
     def execute(self, ctx):
         plot_config = ctx.params
-        plot_config.pop('panel_state') # todo: remove this and panel_state from params
+        plot_config.pop('panel_state')  # todo: remove this and panel_state from params
         plotly_layout_and_config = get_plotly_config_and_layout(plot_config)
         return {
             **ctx.params,
             **plotly_layout_and_config
         }
+
 
 def register(p):
     p.register(ConfigurePlot)
