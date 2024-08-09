@@ -1,0 +1,9 @@
+name: "@voxel51/panel_repl"
+description: Build custom dashboards for your FiftyOne datasets
+version: 1.0.0
+fiftyone:
+  version: ">=0.25.0"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/panel-repl
+license: Apache 2.0
+operators:
+  - panel_repl

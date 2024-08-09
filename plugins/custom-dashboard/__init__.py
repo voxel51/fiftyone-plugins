@@ -487,9 +487,8 @@ class DashboardState(object):
 
 
 def can_edit(ctx: foo.executor.ExecutionContext):
-    is_teams = hasattr(ctx, 'user')
-    if is_teams:
-        return ctx.user and ctx.user.dataset_permission == "can_edit"
+    if ctx.user:
+        return ctx.user.dataset_permission == "can_edit"
     return True  # for oss
 
 
