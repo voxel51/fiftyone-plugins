@@ -525,6 +525,35 @@ def _dataset_info_inputs(ctx, inputs):
                 ),
             )
 
+    ## app_config.disable_frame_filtering (added in `fiftyone==0.25.0`)
+
+    if hasattr(ctx.dataset.app_config, "disable_frame_filtering"):
+        disable_frame_filtering = ctx.params.get(
+            "app_config_disable_frame_filtering", None
+        )
+        edited_disable_frame_filtering = (
+            "app_config_disable_frame_filtering" in ctx.params  # can be None
+            and disable_frame_filtering
+            != ctx.dataset.app_config.disable_frame_filtering
+        )
+        if edited_disable_frame_filtering:
+            num_changed += 1
+
+        if tab_choice == "APP_CONFIG":
+            inputs.bool(
+                "app_config_disable_frame_filtering",
+                default=ctx.dataset.app_config.disable_frame_filtering,
+                required=False,
+                description=(
+                    "Whether to disable frame filtering for video datasets in "
+                    "the App's grid view"
+                ),
+                view=types.CheckboxView(
+                    label="Disable frame filtering"
+                    + (" (edited)" if edited_disable_frame_filtering else ""),
+                ),
+            )
+
     ## app_config.sidebar_mode
 
     sidebar_mode = ctx.params.get("app_config_sidebar_mode", None)
@@ -951,6 +980,11 @@ def _parse_app_config(ctx):
 
     if "app_config_media_fallback" in ctx.params:
         app_config.media_fallback = ctx.params["app_config_media_fallback"]
+
+    if "app_config_disable_frame_filtering" in ctx.params:
+        app_config.disable_frame_filtering = ctx.params[
+            "app_config_disable_frame_filtering"
+        ]
 
     if "app_config_sidebar_mode" in ctx.params:
         app_config.sidebar_mode = ctx.params["app_config_sidebar_mode"]
