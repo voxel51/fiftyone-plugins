@@ -201,7 +201,7 @@ defined as an example in `__init__.py`.
 -   **Description:** A panel that showcases a dropdown menu of selectable
     options. Selecting an option from the dropdown menu will trigger
     functionality that can alter the panel state itself, perform an operator or
-    auxillary function, or change the state of the running `fiftyone` instance.
+    auxiliary function, or change the state of the running `fiftyone` instance.
 -   Shows example of:
     -   how to use the `DropdownView` component
     -   how to add selectable choices to a dropdown menu
@@ -212,3 +212,18 @@ defined as an example in `__init__.py`.
         panel layout
     -   how to use if/else statements to show/hide objects from view within a
         panel
+
+### example_walkthrough_tutorial
+
+-   **Description:** A panel that imitates the ability to create a step-by-step
+    tutorial style walkthrough via a panel.
+-   Shows example of:
+    -   how to utilize a `v_stack()` (i.e.,vertical stack view) within a panel
+    -   how to create style buttons with CSS formatted code
+    -   how to launch existing panels within a panel using the
+        `ctx.ops.open_panel()` function
+    -   how to retrieve metadata from your sample dataset via the `ctx`
+        variable
+    -   how to create a container within a panel to holder the formatting of
+        sub-objects like buttons
+    -   how to position components _relative_ and _absolute_ to one another
