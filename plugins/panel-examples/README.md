@@ -195,3 +195,20 @@ defined as an example in `__init__.py`.
             changes
         -   `on_change_view`: a method that fires anytime a dataset view
             changes
+
+### example_dropdown_menu
+
+-   **Description:** A panel that showcases a dropdown menu of selectable
+    options. Selecting an option from the dropdown menu will trigger
+    functionality that can alter the panel state itself, perform an operator or
+    auxillary function, or change the state of the running `fiftyone` instance.
+-   Shows example of:
+    -   how to use the `DropdownView` component
+    -   how to add selectable choices to a dropdown menu
+    -   how to capture the value selected from a `DropdownView` choice
+    -   how to trigger a callback on the change or selection of a choice in a
+        dropdown menu
+    -   how to adjust the layout of a markdown rendering independent of the
+        panel layout
+    -   how to use if/else statements to show/hide objects from view within a
+        panel
