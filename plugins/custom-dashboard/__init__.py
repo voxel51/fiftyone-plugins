@@ -488,7 +488,11 @@ class DashboardState(object):
 
 def can_edit(ctx: foo.executor.ExecutionContext):
     if ctx.user:
-        return ctx.user.dataset_permission == "can_edit"
+        ds_perm = ctx.user.dataset_permission
+        allowed = ["edit", "admin", "manage"]
+        if ds_perm and ds_perm.lower() in allowed:
+            return True
+        return False
     return True  # for oss
 
 
@@ -708,7 +712,6 @@ class CustomDashboard(foo.Panel):
 
     def render(self, ctx):
         panel = types.Object()
-        panel.add_property('menu', self.render_menu(ctx))
         panel.add_property('items', self.render_dashboard(ctx, self.on_click_plot, self.on_plot_select))
         return types.Property(panel, view=types.GridView(padding=0, gap=0))
 
