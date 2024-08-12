@@ -397,6 +397,8 @@ class DashboardState(object):
             'width': widths.tolist()
         }
 
+        print(histogram_data)
+
         return histogram_data
 
     def load_scatter_data(self, item):
@@ -613,11 +615,12 @@ class CustomDashboard(foo.Panel):
                 print("x_field", x_field)
 
                 is_label_field = x_field.endswith(".label")  # REPLACE WITH BETTER LOGIC
+                is_tag_field = x_field.endswith("tags")  # REPLACE WITH BETTER LOGIC
                 if is_label_field:
                     view = ctx.dataset.filter_labels(F(x_field) == x)
                     # filter_tags() is not implemented yet
-                else:
-                    view = ctx.dataset.filter(F(x_field) == x)
+                elif is_tag_field:
+                    view = ctx.dataset.match_tags(x)
                 if view:
                     ctx.ops.set_view(view)
                 return
@@ -739,7 +742,7 @@ class ConfigurePlot(foo.Operator):
         return fields
 
     def get_categorical_field_choices(self, ctx):
-        fields = types.Choices(space=6)
+        fields = types.Choices(space=3)
         paths = get_fields_with_type(ctx.view, CATEGORICAL_TYPES)
         for field_path in paths:
             fields.add_choice(field_path, label=field_path)
@@ -797,15 +800,21 @@ class ConfigurePlot(foo.Operator):
         prompt = types.PromptView(submit_button_label="Create Plot")
         inputs = types.Object()
         plot_choices = types.Choices(label="Plot Type")
-        plot_choices.add_choice("categorical_histogram", label="Categorical Histogram")
-        plot_choices.add_choice("numeric_histogram", label="Numeric Histogram")
-        plot_choices.add_choice("line", label="Line")
-        plot_choices.add_choice("scatter", label="Scatter")
-        plot_choices.add_choice("pie", label="Pie")
+        plot_choices.add_choice("categorical_histogram", label="Categorical Histogram",
+                                description="Displays the frequency of each category in a field")
+        plot_choices.add_choice("numeric_histogram", label="Numeric Histogram",
+                                description="Displays the distribution of a numeric field")
+        plot_choices.add_choice("line", label="Line",
+                                description="Displays a line plot")
+        plot_choices.add_choice("scatter", label="Scatter",
+                                description="Displays a scatter plot")
+        plot_choices.add_choice("pie", label="Pie",
+                                description="Displays a pie chart")
 
         plot_type = ctx.params.get('plot_type')
 
-        inputs.enum('plot_type', values=plot_choices.values(), view=plot_choices, required=True)
+        inputs.enum('plot_type', values=plot_choices.values(), view=plot_choices, required=True,
+                    description="Select the type of plot to create")
         use_code = ctx.params.get('use_code')
 
         if plot_type:
@@ -820,27 +829,37 @@ class ConfigurePlot(foo.Operator):
                 categorical_fields = self.get_categorical_field_choices(ctx)
 
                 if plot_type == 'line' or plot_type == 'scatter':
-                    inputs.enum('y_field', values=number_fields.values(), view=number_fields, required=True, label="Y Data Source")
+                    inputs.enum('y_field', values=number_fields.values(), view=number_fields, required=True, label="Y Data Source",
+                                description="The field to use for the Y axis")
                     self.create_axis_input(ctx, inputs, 'y')
                 if plot_type != 'pie' and plot_type != 'categorical_histogram':
-                    inputs.enum('x_field', values=number_fields.values(), view=number_fields, required=True, label="X Data Source")
+                    inputs.enum('x_field', values=number_fields.values(), view=number_fields, required=True, label="X Data Source",
+                                description="The field to use for the X axis")
                     self.create_axis_input(ctx, inputs, 'x')
 
                 if plot_type == 'categorical_histogram' or plot_type == 'pie':
-                    inputs.enum('field', values=categorical_fields.values(), view=categorical_fields, required=True, label="Category Field")
+                    inputs.enum('field', values=categorical_fields.values(), view=categorical_fields, required=True, label="Category Field",
+                                description="The field to plot categories from")
 
-            if plot_type == 'numeric_histogram':
-                inputs.int('bins', default=10, label="Number of Bins", view=types.View(space=6))
+            if plot_type == 'numeric_histogram' and not use_code:
+                inputs.int('bins', default=10, label="Number of Bins", view=types.View(space=6),
+                            description="The number of bins to split the histogram data into")
 
             if plot_type == 'categorical_histogram':
-                order_choices = types.Choices(label="Order")
-                order_choices.add_choice("alphabetical", label="Alphabetical")
-                order_choices.add_choice("frequency", label="Frequency")
-                inputs.enum('order', values=order_choices.values(), view=order_choices, default="alphabetical", label="Order")
-                inputs.bool('reverse', default=False, label="Reverse Order")
-                inputs.int('limit', default=None, label="Limit Number of Bars", view=types.View(space=6))
+                order_choices = types.Choices(label="Order", space=3)
+                order_choices.add_choice("alphabetical", label="Alphabetical",
+                                         description="Sort by alphabetical order of each category")
+                order_choices.add_choice("frequency", label="Frequency", 
+                                         description="Sort by frequency of each category")
+                inputs.enum('order', values=order_choices.values(), view=order_choices, default="alphabetical", label="Order",
+                            description="The order to display the categories", space=3)
+                inputs.int('limit', default=None, label="Limit Number of Bars", view=types.View(space=3),
+                            description="Will only display the top N bars", space=3)
+                inputs.bool('reverse', default=False, label="Reverse Order",
+                            description="Reverse the order of the categories", view=types.View(space=3))
 
-            inputs.bool('update_on_change', default=True, label="Update On View Change")
+            inputs.bool('update_on_change', default=True, label="Update On View Change",
+                        description="Update the plot when the view changes")
 
             # plot preview
             plotly_layout_and_config = get_plotly_config_and_layout(ctx.params)
