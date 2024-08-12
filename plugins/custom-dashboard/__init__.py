@@ -617,10 +617,10 @@ class CustomDashboard(foo.Panel):
                 is_label_field = x_field.endswith(".label")  # REPLACE WITH BETTER LOGIC
                 is_tag_field = x_field.endswith("tags")  # REPLACE WITH BETTER LOGIC
                 if is_label_field:
-                    view = ctx.dataset.filter_labels(F(x_field) == x)
-                    # filter_tags() is not implemented yet
+                    parent_field = x_field.split(".")[0]
+                    view = dashboard.view.filter_labels(parent_field, F('label') == x)
                 elif is_tag_field:
-                    view = ctx.dataset.match_tags(x)
+                    view = dashboard.view.match_tags(x)
                 if view:
                     ctx.ops.set_view(view)
                 return
@@ -630,14 +630,16 @@ class CustomDashboard(foo.Panel):
                 filter = {}
                 print(ctx.params)
                 filter[x_field] = {"$gte": min_val, "$lte": max_val}
-                ctx.trigger("set_view", dict(view=[
-                    {
-                        "_cls": "fiftyone.core.stages.Match",
-                        "kwargs": [
-                            ["filter", filter]
-                        ],
-                    }
-                ]))
+                # ctx.trigger("set_view", dict(view=[
+                #     {
+                #         "_cls": "fiftyone.core.stages.Match",
+                #         "kwargs": [
+                #             ["filter", filter]
+                #         ],
+                #     }
+                # ]))
+                view = dashboard.view.match(F(x_field) >= min_val).match(F(x_field) <= max_val)
+                ctx.ops.set_view(view)
         if item.type == PlotType.SCATTER or item.type == PlotType.LINE:
             range = ctx.params.get("range")
             if range:
