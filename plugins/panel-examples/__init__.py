@@ -643,6 +643,102 @@ class InteractivePlot(foo.Panel):
         )
 
 
+###
+# Dropdown Menu
+###
+
+
+class DropdownMenuPanel(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelOperatorConfig(
+            name="example_dropdown_menu",
+            label="Python Panel Example: Dropdown Menu",
+        )
+
+    def on_load(self, ctx: ExecutionContext):
+        ctx.panel.state.selection = None
+
+    def alter_selection(self, ctx: ExecutionContext):
+        ctx.panel.state.selection = ctx.params["value"]
+
+    def refresh_page(self, ctx: ExecutionContext):
+        ctx.ops.reload_dataset()
+
+    def reload_samples(self, ctx: ExecutionContext):
+        ctx.ops.reload_samples()
+
+    def say_hi(self, ctx: ExecutionContext):
+        ctx.ops.notify("Hi!")
+
+    def render(self, ctx: ExecutionContext):
+        panel = types.Object()
+
+        panel.md(
+            """
+            ### Welcome to the Python Panel Dropdown Menu Example
+            Use the menu below to select what you would like to do next!
+            
+            ---
+            
+        """,
+            name="header",
+            width="500px",
+            height="200px",
+        )
+
+        # define a dropdown menu and add choices
+        dropdown = types.DropdownView()
+        dropdown.add_choice(
+            "refresh",
+            label="Display Refresh Button",
+            description="Displays button that will refresh the FiftyOne App",
+        )
+        dropdown.add_choice(
+            "reload_samples",
+            label="Display Reload Samples Button",
+            description="Displays button that will reload the samples view",
+        )
+        dropdown.add_choice(
+            "say_hi",
+            label="Display Hi Button",
+            description="Displays button that will say hi",
+        )
+
+        # add dropdown menu to the panel as a view, and use the on_change callback method to trigger the alter_selection function
+        panel.view(
+            "dropdown",
+            view=dropdown,
+            label="Dropdown Menu",
+            on_change=self.alter_selection,
+        )
+
+        # change panel visual state dependent on dropdown menu selection
+        if ctx.panel.state.selection == "refresh":
+            panel.btn(
+                "refresh", label="Refresh FiftyOne", on_click=self.refresh_page
+            )
+        elif ctx.panel.state.selection == "reload_samples":
+            panel.btn(
+                "reload_samples",
+                label="Reload Samples",
+                on_click=self.reload_samples,
+            )
+        elif ctx.panel.state.selection == "say_hi":
+            panel.btn("say_hi", label="Say Hi", on_click=self.say_hi)
+
+        return types.Property(
+            panel,
+            view=types.GridView(
+                height=100,
+                width=100,
+                align_x="center",
+                align_y="center",
+                orientation="vertical",
+            ),
+        )
+
+
 def register(p):
     p.register(CounterPanel)
     p.register(PlotPanel)
@@ -653,3 +749,4 @@ def register(p):
     p.register(MultiViewPanel)
     p.register(DuplicatedPanel)
     p.register(InteractivePlot)
+    p.register(DropdownMenuPanel)

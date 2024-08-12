@@ -16,3 +16,4 @@ operators:
   - example_duplicated
   - example_inputs
   - example_interactive_plot
+  - example_dropdown_menu
