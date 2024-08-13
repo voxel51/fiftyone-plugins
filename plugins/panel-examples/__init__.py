@@ -565,16 +565,10 @@ class InteractivePlot(foo.Panel):
     @staticmethod
     def on_load(ctx: ExecutionContext):
 
-        # tabulate histogram values
-        label_counts = {}
-        for sample in ctx.dataset.iter_samples():
-            if sample.ground_truth.detections is not None:
-                for detection in sample.ground_truth.detections:
-                    label = detection.label
-                    if label not in label_counts:
-                        label_counts[label] = 1
-                    else:
-                        label_counts[label] += 1
+        # get label counts from the dataset
+        label_counts = ctx.dataset.count_values(
+            "ground_truth.detections.label"
+        )
 
         # sort label counts by values and create list of only the keys of label counts in descending order
         sorted_label_counts = sorted(
@@ -601,7 +595,8 @@ class InteractivePlot(foo.Panel):
             "title": "A Fancy Plot",
         }
 
-        ctx.panel.state.histogram = histogram_data
+        # The histogram data can get large, so we store it in the data field
+        ctx.panel.data.histogram = histogram_data
         ctx.panel.state.layout = layout
 
     @staticmethod
