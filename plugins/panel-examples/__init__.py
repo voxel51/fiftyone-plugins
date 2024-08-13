@@ -99,15 +99,13 @@ class PlotPanel(foo.Panel):
             "hoverongaps": False,
         }
 
-        ctx.panel.state.data = plot_data
+        ctx.panel.data.data = plot_data
 
     def render(self, ctx: ExecutionContext):
         panel = types.Object()
 
         # grab data field from state and render it in a plotly view
-        panel.plot("data", label="Plotly Panel")  # shortcut for panel creation
-
-        panel.obj("data", view=types.PlotlyView())
+        panel.plot("data", label="Plotly Panel")  # shortcut for plot creation
 
         return types.Property(
             panel,
@@ -389,7 +387,7 @@ class MultiViewPanel(foo.Panel):
         ]
 
         ctx.panel.state.code = "def main():\n\tprint('Hello World!')"
-        ctx.panel.state.plot = [
+        ctx.panel.data.plot = [
             {
                 "x": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                 "y": [2, 6, 3, 9, 5, 12, 7, 16, 8, 20],
@@ -455,7 +453,7 @@ class DuplicatedPanel(MultiViewPanel):
         ]
 
         ctx.panel.state.code = "def main():\n\tchanged_message = 'I am duplicate!'\n\tprint(changed_message)"
-        ctx.panel.state.plot = [
+        ctx.panel.data.plot = [
             {
                 "values": [19, 26, 55],
                 "labels": ["Residential", "Non-Residential", "Utility"],
