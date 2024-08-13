@@ -97,6 +97,22 @@ def get_fields_with_type(dataset, field_types, root=None):
 
     return paths
 
+def get_view_for_category(field, category, view):
+    print("field", field)
+    print("category", category)
+    is_label_field = field.endswith(".label")  # REPLACE WITH BETTER LOGIC
+    is_tag_field = field.endswith("tags")  # REPLACE WITH BETTER LOGIC
+    print("is_label_field", is_label_field)
+    print("is_tag_field", is_tag_field)
+    if is_label_field:
+        parent_field = field.split(".")[0]
+        return view.filter_labels(parent_field, F('label') == category)
+    elif is_tag_field:
+        print("tag field")
+        return view.match_tags(category)
+    else:
+        return view.match(F(field) == category)
+    return None
 
 class PlotDefinition(object):
     def __init__(self, plot_type, layout={}, config={}, sources={}, code=None):
@@ -501,7 +517,7 @@ def can_edit(ctx: foo.executor.ExecutionContext):
 class CustomDashboard(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="custom_dashboard",
             label="Dashboard",
             allow_multiple=True
@@ -602,7 +618,7 @@ class CustomDashboard(foo.Panel):
         plot_id = ctx.params.get("relative_path")
         dashboard = DashboardState(ctx)
         item = dashboard.get_item(plot_id)
-        if item.use_code or item.type == PlotType.PIE:
+        if item.use_code:
             return
         x_field = item.x_field
         y_field = item.y_field
@@ -614,13 +630,7 @@ class CustomDashboard(foo.Panel):
                 print("x", x)
                 print("x_field", x_field)
 
-                is_label_field = x_field.endswith(".label")  # REPLACE WITH BETTER LOGIC
-                is_tag_field = x_field.endswith("tags")  # REPLACE WITH BETTER LOGIC
-                if is_label_field:
-                    parent_field = x_field.split(".")[0]
-                    view = dashboard.view.filter_labels(parent_field, F('label') == x)
-                elif is_tag_field:
-                    view = dashboard.view.match_tags(x)
+                view = get_view_for_category(x_field, x, dataset.view)
                 if view:
                     ctx.ops.set_view(view)
                 return
@@ -647,6 +657,11 @@ class CustomDashboard(foo.Panel):
                         ],
                     }
                 ]))
+        if item.type == PlotType.PIE:
+            category = ctx.params.get("label")
+            view = get_view_for_category(item.field, category, dashboard.view)
+            if view:
+                ctx.ops.set_view(view)
 
     def on_plot_select(self, ctx):
         plot_id = ctx.params.get("relative_path")
