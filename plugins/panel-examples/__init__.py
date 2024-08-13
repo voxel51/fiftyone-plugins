@@ -18,7 +18,7 @@ from fiftyone.operators.executor import ExecutionContext
 class CounterPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_counter", label="Python Panel Example: Counter"
         )
 
@@ -74,7 +74,7 @@ class CounterPanel(foo.Panel):
 class PlotPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_plot", label="Python Panel Example: Plot"
         )
 
@@ -123,7 +123,7 @@ class PlotPanel(foo.Panel):
 class MarkdownPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_markdown", label="Python Panel Example: Markdown"
         )
 
@@ -179,7 +179,7 @@ class MarkdownPanel(foo.Panel):
 class TablePanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_table", label="Python Panel Example: Table"
         )
 
@@ -267,7 +267,7 @@ class TablePanel(foo.Panel):
 class MediaPlayerPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_media_player",
             label="Python Panel Example: Media Player",
         )
@@ -311,7 +311,7 @@ class MediaPlayerPanel(foo.Panel):
 class ImagePanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_image", label="Python Panel Example: Image"
         )
 
@@ -376,7 +376,7 @@ class ImagePanel(foo.Panel):
 class MultiViewPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_multi_view",
             label="Python Panel Example: Multiple Views",
         )
@@ -441,7 +441,7 @@ class MultiViewPanel(foo.Panel):
 class DuplicatedPanel(MultiViewPanel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_duplicated",
             label="Python Panel Example: Templating (Inheritance)",
         )
@@ -481,7 +481,7 @@ class DuplicatedPanel(MultiViewPanel):
 class InputMutationsPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_inputs",
             label="Python Panel Example: Input Mutations",
         )
@@ -546,7 +546,7 @@ class InputMutationsPanel(foo.Panel):
 class InteractivePlot(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_interactive_plot",
             label="Python Panel Example: Interactive Plot",
         )
@@ -651,7 +651,7 @@ class InteractivePlot(foo.Panel):
 class DropdownMenuPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_dropdown_menu",
             label="Python Panel Example: Dropdown Menu",
         )
@@ -747,7 +747,7 @@ class DropdownMenuPanel(foo.Panel):
 class WalkthroughTutorialPanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_walkthrough_tutorial",
             label="Python Panel Example: Walkthrough Tutorial",
         )
