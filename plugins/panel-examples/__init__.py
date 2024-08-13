@@ -577,10 +577,14 @@ class InteractivePlot(foo.Panel):
         target_field = ctx.panel.state.target_field or "ground_truth.detections.label"
         ctx.panel.state.target_field = target_field
         counts = ctx.dataset.count_values(target_field)
+        raw_keys = list(counts.keys())
+        keys = [str(k) for k in raw_keys]
+        sorted_items = sorted(zip(keys, counts.values()), key=lambda x: x[0])
+        keys, values = zip(*sorted_items)
 
         histogram_data = {
-            'x': list(counts.keys()),
-            'y': list(counts.values()),
+            'x': keys,
+            'y': values,
             'type': 'bar'
         }
 
