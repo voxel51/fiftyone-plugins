@@ -606,7 +606,12 @@ class InteractivePlot(foo.Panel):
         panel.plot(
             "histogram",
             layout={
-                "title": "Interactive Histogram",
+                "title": {
+                    'text': "Interactive Histogram",
+                    'xanchor': 'center',
+                    'yanchor': 'top',
+                    'automargin': True
+                },
                 "xaxis": {"title": "Labels"},
                 "yaxis": {"title": "Count"},
             },
