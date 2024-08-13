@@ -786,7 +786,16 @@ class WalkthroughTutorialPanel(foo.Panel):
             gap=2, align_x="left", align_y="center"
         )
 
-        if ctx.panel.state.page == 1:
+        page = ctx.panel.get_state("page", 1)
+        panel.arrow_nav(
+            "page_nav",
+            on_forward=self.go_to_next_page,
+            on_backward=self.go_to_previous_page,
+            forward=page < 3,
+            backward=page > 1,
+        )
+
+        if page == 1:
             stack.md(
                 """
                 ### A Tutorial Walkthrough
@@ -801,15 +810,7 @@ class WalkthroughTutorialPanel(foo.Panel):
                 align_x="center",
                 align_y="center",
             )
-            # define tutorial navigation buttons
-            add_panel_navigation(
-                panel,
-                left=False,
-                right=True,
-                on_left=self.go_to_previous_page,
-                on_right=self.go_to_next_page,
-            )
-        elif ctx.panel.state.page == 2:
+        elif page == 2:
             stack.md(
                 """
                 ### Information About Your Dataset
@@ -831,15 +832,7 @@ class WalkthroughTutorialPanel(foo.Panel):
                 label="Cool Info About Your Data",
             )
 
-            add_panel_navigation(
-                panel,
-                left=True,
-                right=True,
-                on_left=self.go_to_previous_page,
-                on_right=self.go_to_next_page,
-            )
-
-        elif ctx.panel.state.page == 3:
+        elif page == 3:
 
             if ctx.panel.state.operator_status != "opened":
                 stack.md(
@@ -855,15 +848,8 @@ class WalkthroughTutorialPanel(foo.Panel):
                     "open_operator_io",
                     label="Do Something Cool",
                     on_click=self.open_operator_io,
+                    variant="contained",
                 )
-
-            add_panel_navigation(
-                panel,
-                left=True,
-                right=True,
-                on_left=self.go_to_previous_page,
-                on_right=self.go_to_next_page,
-            )
         else:
             stack.md(
                 """
@@ -877,50 +863,8 @@ class WalkthroughTutorialPanel(foo.Panel):
         return types.Property(
             panel,
             view=types.GridView(
-                height=100,
-                width=100,
-                align_x="center",
-                align_y="center",
-                componentsProps={
-                    "container": {"sx": {"position": "relative"}}
-                },
+                height=100, width=100, align_x="center", align_y="center"
             ),
-        )
-
-
-# Utility function to enhance styling of navigation buttons
-
-
-def add_panel_navigation(
-    panel, left=True, right=False, on_left=None, on_right=None
-):
-    base_btn_styles = {
-        "position": "absolute",
-        "top": "50%",
-        "minWidth": 0,
-        "padding": "8px",
-        "background": "#333333",
-        "&:hover": {"background": "#2b2a2a"},
-    }
-    if left:
-        panel.btn(
-            "previous",
-            label="Previous",
-            icon="arrow_back",
-            variant="contained",
-            componentsProps={"button": {"sx": {**base_btn_styles, "left": 8}}},
-            on_click=on_left,
-        )
-    if right:
-        panel.btn(
-            "next",
-            label="Next",
-            icon="arrow_forward",
-            variant="contained",
-            componentsProps={
-                "button": {"sx": {**base_btn_styles, "right": 8}}
-            },
-            on_click=on_right,
         )
 
 
