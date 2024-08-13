@@ -553,6 +553,17 @@ class InputMutationsPanel(foo.Panel):
 # Interactive Plot
 ###
 
+def get_view_for_category(field, category, view):
+    is_label_field = field.endswith(".label")
+    is_tag_field = field.endswith("tags")
+    if is_label_field:
+        parent_field = field.split(".")[0]
+        return view.filter_labels(parent_field, F('label') == category)
+    elif is_tag_field:
+        return view.match_tags(category)
+    else:
+        return view.match(F(field) == category)
+    return None
 
 class InteractivePlot(foo.Panel):
     @property
@@ -562,63 +573,31 @@ class InteractivePlot(foo.Panel):
             label="Python Panel Example: Interactive Plot",
         )
 
-    @staticmethod
-    def on_load(ctx: ExecutionContext):
+    def on_load(self, ctx: ExecutionContext):
+        target_field = ctx.panel.state.target_field or "ground_truth.detections.label"
+        ctx.panel.state.target_field = target_field
+        counts = ctx.dataset.count_values(target_field)
 
-        # get label counts from the dataset
-        label_counts = ctx.dataset.count_values(
-            "ground_truth.detections.label"
-        )
-
-        # sort label counts by values and create list of only the keys of label counts in descending order
-        sorted_label_counts = sorted(
-            label_counts.items(), key=lambda x: x[1], reverse=True
-        )
-        labels = [label_count[0] for label_count in sorted_label_counts]
-        values = [label_count[1] for label_count in sorted_label_counts]
-
-        ctx.panel.state.labels = labels
-        ctx.panel.state.values = values
-
-        histogram_data = [
-            {
-                "x": ctx.panel.state.labels,
-                "y": ctx.panel.state.values,
-                "type": "bar",
-                "marker": {"color": "orange"},
-            }
-        ]
-        layout = {
-            "width": 600,
-            "xaxis": {"title": "Label Name"},
-            "yaxis": {"title": "Count"},
-            "title": "A Fancy Plot",
+        histogram_data = {
+            'x': list(counts.keys()),
+            'y': list(counts.values()),
+            'type': 'bar'
         }
 
-        # The histogram data can get large, so we store it in the data field
-        ctx.panel.data.histogram = histogram_data
-        ctx.panel.state.layout = layout
+        ctx.panel.state.histogram = histogram_data
 
-    @staticmethod
-    def on_change_ctx(ctx: ExecutionContext):
-        # trigger actions when any change happens within fiftyone server
-        pass
-
-    @staticmethod
-    def on_change_view(ctx: ExecutionContext):
-        # trigger actions when any change happens within fiftyone view such as sample filtering
-        pass
+    def on_change_view(self, ctx: ExecutionContext):
+        self.on_load(ctx)
 
     def filter_data(self, ctx: ExecutionContext):
-        filter_label = ctx.params.get("x", None)
-        if not filter_label:
-            return ctx.ops.notify("No label selected", variant="error")
-        # create a view of the dataset that only includes samples with the filter label
-        filtered_view = ctx.dataset.filter_labels(
-            "ground_truth", F("label") == filter_label
-        )
-        # display the filtered view
-        ctx.ops.set_view(view=filtered_view)
+        x = ctx.params.get("x")
+        view = get_view_for_category(ctx.panel.state.target_field, x, ctx.dataset)
+        if view:
+            ctx.ops.set_view(view)
+
+    def reset(self, ctx: ExecutionContext):
+        ctx.ops.clear_view()
+        self.on_load(ctx)
 
     def render(self, ctx: ExecutionContext):
         panel = types.Object()
@@ -626,16 +605,23 @@ class InteractivePlot(foo.Panel):
         # Bar Chart - Histogram
         panel.plot(
             "histogram",
-            layout=ctx.panel.state.layout,
-            label="Interactive Histogram",
+            layout={
+                "title": "Interactive Histogram",
+                "xaxis": {"title": "Labels"},
+                "yaxis": {"title": "Count"},
+            },
             on_click=self.filter_data,
-            width=75,
-            height=75,
+            width=100
         )
+
+        # Button
+        panel.btn("reset", label="Reset Chart", on_click=self.reset, variant="contained")
+
         return types.Property(
             panel,
             view=types.GridView(
-                width=100, height=100, align_x="center", align_y="center"
+                align_x="center", align_y="center", orientation="vertical",
+                height=100, width=100, gap=2, padding=0
             ),
         )
 
@@ -877,6 +863,39 @@ class WalkthroughTutorialPanel(foo.Panel):
             ),
         )
 
+
+# Utility function to enhance styling of navigation buttons
+def add_panel_navigation(
+    panel, left=True, right=False, on_left=None, on_right=None
+):
+    base_btn_styles = {
+        "position": "absolute",
+        "top": "50%",
+        "minWidth": 0,
+        "padding": "8px",
+        "background": "#333333",
+        "&:hover": {"background": "#2b2a2a"},
+    }
+    if left:
+        panel.btn(
+            "previous",
+            label="Previous",
+            icon="arrow_back",
+            variant="contained",
+            componentsProps={"button": {"sx": {**base_btn_styles, "left": 8}}},
+            on_click=on_left,
+        )
+    if right:
+        panel.btn(
+            "next",
+            label="Next",
+            icon="arrow_forward",
+            variant="contained",
+            componentsProps={
+                "button": {"sx": {**base_btn_styles, "right": 8}}
+            },
+            on_click=on_right,
+        )
 
 def register(p):
     p.register(CounterPanel)
