@@ -40,28 +40,41 @@ class CounterPanel(foo.Panel):
 
     def render(self, ctx: ExecutionContext):
         panel = types.Object()
-        panel.message("my_count", f"Count: {ctx.panel.state.my_count}")
-        panel.btn(
-            "increment", icon="add", label="Increment", on_click=self.increment
+
+        # Add menu to panel
+        menu = panel.menu("menu", variant="square", color="51")
+        menu.btn(
+            "increment",
+            icon="add",
+            label="Increment",
+            on_click=self.increment,
         )
-        panel.btn(
+        menu.btn(
             "decrement",
             icon="remove",
             label="Decrement",
             on_click=self.decrement,
         )
-        panel.btn("reset", icon="360", label="Reset", on_click=self.reset)
-        panel.btn(
+        menu.btn("reset", icon="360", label="Reset", on_click=self.reset)
+        menu.btn(
             "say_hi",
             icon="emoji_people",
             label="Say hi!",
             on_click=self.say_hi,
             variant="contained",
+            color="white",
         )
+
+        # Add counter info to panel
+        panel.message("my_count", f"Count: {ctx.panel.state.my_count}")
+
         return types.Property(
             panel,
             view=types.GridView(
-                align_y="center", align_x="center", orientation="vertical"
+                align_y="center",
+                align_x="center",
+                orientation="vertical",
+                height=100,
             ),
         )
 
