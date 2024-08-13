@@ -588,7 +588,7 @@ class InteractivePlot(foo.Panel):
             'type': 'bar'
         }
 
-        ctx.panel.state.histogram = histogram_data
+        ctx.panel.data.histogram = histogram_data
 
     def on_change_view(self, ctx: ExecutionContext):
         self.on_load(ctx)
