@@ -615,22 +615,15 @@ class InteractivePlot(foo.Panel):
         pass
 
     def filter_data(self, ctx: ExecutionContext):
-        filter_label = ctx.params["data"]["label"]
+        filter_label = ctx.params.get("x", None)
+        if not filter_label:
+            return ctx.ops.notify("No label selected", variant="error")
         # create a view of the dataset that only includes samples with the filter label
         filtered_view = ctx.dataset.filter_labels(
             "ground_truth", F("label") == filter_label
         )
         # display the filtered view
-        ctx.trigger(
-            "set_view",
-            params=dict(
-                view=json.loads(json_util.dumps(filtered_view._serialize()))
-            ),
-        )
-
-    def reset(self, ctx: ExecutionContext):
-        ctx.ops.clear_view()
-        self.on_load(ctx)
+        ctx.ops.set_view(view=filtered_view)
 
     def render(self, ctx: ExecutionContext):
         panel = types.Object()
@@ -641,15 +634,13 @@ class InteractivePlot(foo.Panel):
             layout=ctx.panel.state.layout,
             label="Interactive Histogram",
             on_click=self.filter_data,
+            width=75,
+            height=75,
         )
-
-        # Button
-        panel.btn("reset", label="Reset Chart", on_click=self.reset)
-
         return types.Property(
             panel,
             view=types.GridView(
-                align_x="center", align_y="center", orientation="vertical"
+                width=100, height=100, align_x="center", align_y="center"
             ),
         )
 
