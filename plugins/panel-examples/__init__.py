@@ -680,7 +680,7 @@ class DropdownMenuPanel(foo.Panel):
         ctx.ops.reload_samples()
 
     def say_hi(self, ctx: ExecutionContext):
-        ctx.ops.notify("Hi!")
+        ctx.ops.notify("Hi!", variant="success")
 
     def render(self, ctx: ExecutionContext):
         panel = types.Object()
@@ -694,9 +694,11 @@ class DropdownMenuPanel(foo.Panel):
             
         """,
             name="header",
-            width="500px",
+            width=50,  # 50% of current panel width
             height="200px",
         )
+
+        menu = panel.menu("menu", variant="square", color="secondary")
 
         # define a dropdown menu and add choices
         dropdown = types.DropdownView()
@@ -717,7 +719,7 @@ class DropdownMenuPanel(foo.Panel):
         )
 
         # add dropdown menu to the panel as a view, and use the on_change callback method to trigger the alter_selection function
-        panel.view(
+        menu.str(
             "dropdown",
             view=dropdown,
             label="Dropdown Menu",
@@ -726,17 +728,26 @@ class DropdownMenuPanel(foo.Panel):
 
         # change panel visual state dependent on dropdown menu selection
         if ctx.panel.state.selection == "refresh":
-            panel.btn(
-                "refresh", label="Refresh FiftyOne", on_click=self.refresh_page
+            menu.btn(
+                "refresh",
+                label="Refresh FiftyOne",
+                on_click=self.refresh_page,
+                color="51",
             )
         elif ctx.panel.state.selection == "reload_samples":
-            panel.btn(
+            menu.btn(
                 "reload_samples",
                 label="Reload Samples",
                 on_click=self.reload_samples,
+                color="51",
             )
         elif ctx.panel.state.selection == "say_hi":
-            panel.btn("say_hi", label="Say Hi", on_click=self.say_hi)
+            menu.btn(
+                "say_hi",
+                label="Say Hi",
+                on_click=self.say_hi,
+                color="51",
+            )
 
         return types.Property(
             panel,
