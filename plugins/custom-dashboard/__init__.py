@@ -628,16 +628,7 @@ class CustomDashboard(foo.Panel):
             if range:
                 min_val, max_val = range
                 filter = {}
-                print(ctx.params)
                 filter[x_field] = {"$gte": min_val, "$lte": max_val}
-                # ctx.trigger("set_view", dict(view=[
-                #     {
-                #         "_cls": "fiftyone.core.stages.Match",
-                #         "kwargs": [
-                #             ["filter", filter]
-                #         ],
-                #     }
-                # ]))
                 view = dashboard.view.match(F(x_field) >= min_val).match(F(x_field) <= max_val)
                 ctx.ops.set_view(view)
         if item.type == PlotType.SCATTER or item.type == PlotType.LINE:
