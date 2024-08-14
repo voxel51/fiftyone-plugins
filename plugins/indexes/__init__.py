@@ -116,7 +116,9 @@ def _manage_indexes(ctx, inputs):
             # The `id` index is unique, but backend doesn't report it
             # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/collections.py#L8552
             unique = True
-        size = indexes[name].get("size", "NA")
+        index_info = indexes[name]
+        size = "In Progress" if index_info.get("in_progress") \
+            else index_info.get("size", "NA")
 
         obj = types.Object()
         obj.str(
@@ -201,9 +203,9 @@ def _istr(n):
 
 def _get_existing_indexes(ctx):
     try:
-        return ctx.dataset.get_index_information(include_size=True)
+        return ctx.dataset.get_index_information(include_stats=True)
     except TypeError:
-        # `include_size` is not supported by the backend
+        # `include_stats` is not supported by the backend
         return ctx.dataset.get_index_information()
 
 
