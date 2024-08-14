@@ -114,6 +114,66 @@ def get_view_for_category(field, category, view):
         return view.match(F(field) == category)
     return None
 
+def get_view_for_value(sample_collection, path, value):
+    """Returns a view into the given `sample_collection` that matches the given
+    `value` within the given `path`.
+
+    Supports label fields, list fields, and a combination of both.
+    """
+    root, leaf = _parse_path(sample_collection, path)
+    is_label_field = _is_field_type(sample_collection, root, fo.Label)
+    is_list_field = _is_field_type(sample_collection, path, fo.ListField)
+
+    if is_label_field:
+        if is_list_field:
+            expr = F(leaf).exists() & F(leaf).contains(value)
+        else:
+            expr = F(leaf) == value
+
+        return sample_collection.filter_labels(root, expr)
+
+    if is_list_field:
+        expr = F(path).exists() & F(path).contains(value)
+    else:
+        expr = F(path) == value
+
+    return sample_collection.match(expr)
+
+def get_view_for_range(sample_collection, path, min_val, max_val):
+    expr = F(path) >= min_val & F(path) <= max_val
+    return sample_collection.match(expr)
+
+def _is_field_type(sample_collection, path, field_or_type):
+    field = sample_collection.get_field(path)
+
+    if issubclass(field_or_type, fo.Field):
+        return isinstance(field, field_or_type)
+
+    return (
+        isinstance(field, fo.EmbeddedDocumentField)
+        and issubclass(field.document_type, field_or_type)
+    )
+
+
+def _parse_path(sample_collection, path):
+    if "." not in path:
+        return path, None
+
+    chunks = path.split(".")
+    root = chunks[0]
+    leaf = chunks[-1]
+
+    # Handle dynamic documents
+    idx = 0
+    while (
+        _is_field_type(sample_collection, root, fo.EmbeddedDocumentField)
+        and not _is_field_type(sample_collection, root, fo.Label)
+    ):
+        idx += 1
+        root += "." + chunks[idx]
+
+    return root, leaf
+
 class PlotDefinition(object):
     def __init__(self, plot_type, layout={}, config={}, sources={}, code=None):
         self.plot_type = plot_type
@@ -630,16 +690,14 @@ class CustomDashboard(foo.Panel):
                 print("x", x)
                 print("x_field", x_field)
 
-                view = get_view_for_category(x_field, x, dataset.view)
+                view = get_view_for_value(dataset.view, x_field, x)
                 if view:
                     ctx.ops.set_view(view)
                 return
             range = ctx.params.get("range")
             if range:
                 min_val, max_val = range
-                filter = {}
-                filter[x_field] = {"$gte": min_val, "$lte": max_val}
-                view = dashboard.view.match(F(x_field) >= min_val).match(F(x_field) <= max_val)
+                view = get_view_for_range(dataset.view, x_field, min_val, max_val)
                 ctx.ops.set_view(view)
         if item.type == PlotType.SCATTER or item.type == PlotType.LINE:
             range = ctx.params.get("range")
@@ -659,7 +717,7 @@ class CustomDashboard(foo.Panel):
                 ]))
         if item.type == PlotType.PIE:
             category = ctx.params.get("label")
-            view = get_view_for_category(item.field, category, dashboard.view)
+            view = get_view_for_value(dataset.view, item.field, category)
             if view:
                 ctx.ops.set_view(view)
 
@@ -678,14 +736,6 @@ class CustomDashboard(foo.Panel):
                 return
             matched_ids_view = ctx.dataset.select(ids)
             ctx.ops.set_view(matched_ids_view)
-        pass
-
-    #
-    # Load plot data
-    #
-
-    def load_data(self, ctx):
-        pass
 
     #
     # Render Properties
