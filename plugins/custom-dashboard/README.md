@@ -2,7 +2,7 @@
 
 A plugin that enables dashboards of user defined plots in the FiftyOne app.
 
-https://github.com/voxel51/fiftyone-plugins/assets/25985824/7a8186fb-636f-4f7d-9ac7-8822a76cfded
+https://github.com/user-attachments/assets/2ec5946e-ac43-48fa-b0a9-4d1d545ba0fc
 
 ## Installation
 
