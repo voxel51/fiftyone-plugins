@@ -9,6 +9,7 @@ import fiftyone as fo
 import fiftyone.core.media as fom
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
+import eta.core.utils as etau
 
 
 class ManageIndexes(foo.Operator):
@@ -29,7 +30,7 @@ class ManageIndexes(foo.Operator):
         if ready:
             _execution_mode(ctx, inputs)
 
-        view = types.View(label="Manage indexes with ease and comfort")
+        view = types.View(label="Manage indexes")
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
@@ -78,14 +79,14 @@ def _manage_indexes(ctx, inputs):
         ),
     )
     support_size = True if len(indexes) > 0 and "size" in indexes[next(iter(indexes))] else False
-    space_size = 3 if support_size else 4
+    space_size = 2 if support_size else 4
 
     obj = types.Object()
     obj.str(
         "field_name",
         label="Field name",
         description="The field name or compound index name",
-        view=types.MarkdownView(read_only=True, space=space_size),
+        view=types.MarkdownView(read_only=True, space=4),
     )
     obj.str(
         "default",
@@ -104,7 +105,7 @@ def _manage_indexes(ctx, inputs):
             "size",
             label="Size",
             description="The size of the index",
-            view=types.MarkdownView(read_only=True, space=space_size),
+            view=types.MarkdownView(read_only=True, space=4),
         )
     inputs.define_property("header", obj)
 
@@ -118,13 +119,13 @@ def _manage_indexes(ctx, inputs):
             unique = True
         index_info = indexes[name]
         size = "In Progress" if index_info.get("in_progress") \
-            else str(index_info.get("size", "NA"))
+            else etau.to_human_bytes_str(index_info.get("size", 0))
 
         obj = types.Object()
         obj.str(
             "field_name",
             default=name,
-            view=types.MarkdownView(read_only=True, space=space_size),
+            view=types.MarkdownView(read_only=True, space=4),
         )
         obj.bool(
             "default",
@@ -140,7 +141,7 @@ def _manage_indexes(ctx, inputs):
             obj.str(
                 "size",
                 default=size,
-                view=types.MarkdownView(read_only=True, space=space_size),
+                view=types.MarkdownView(read_only=True, space=4),
             )
         inputs.define_property(prop_name, obj)
 
