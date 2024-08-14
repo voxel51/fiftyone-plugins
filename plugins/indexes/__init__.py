@@ -29,7 +29,7 @@ class ManageIndexes(foo.Operator):
         if ready:
             _execution_mode(ctx, inputs)
 
-        view = types.View(label="Manage indexes")
+        view = types.View(label="Manage indexes with ease and comfort")
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
@@ -118,7 +118,7 @@ def _manage_indexes(ctx, inputs):
             unique = True
         index_info = indexes[name]
         size = "In Progress" if index_info.get("in_progress") \
-            else index_info.get("size", "NA")
+            else str(index_info.get("size", "NA"))
 
         obj = types.Object()
         obj.str(
