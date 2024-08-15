@@ -5,7 +5,7 @@ fiftyone:
   version: "*"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/panel-examples
 license: Apache 2.0
-operators:
+panels:
   - example_counter
   - example_plot
   - example_markdown
