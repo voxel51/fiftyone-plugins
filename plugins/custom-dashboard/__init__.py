@@ -333,7 +333,7 @@ class DashboardState(object):
     def apply_data(self):
 
         data_paths_dict = {f"items.{k}": v for k, v in self._data.items()}
-        self.panel.batch_set_data(data_paths_dict)
+        self.panel.set_data(data_paths_dict)
 
     def get_item(self, item_id):
         return self._items.get(item_id, None)
@@ -880,7 +880,6 @@ class ConfigurePlot(foo.Operator):
         return examples.get(plot_type, "")
 
     def resolve_input(self, ctx):
-        prompt = types.PromptView(submit_button_label="Create Plot")
         inputs = types.Object()
         plot_choices = types.Choices(label="Plot Type")
         plot_choices.add_choice(
@@ -1061,6 +1060,10 @@ class ConfigurePlot(foo.Operator):
                     height=preview_height,
                     width="600px",
                 )
+
+        is_edit = ctx.params.get("name", None) is not None
+        submit_button_label = "Update Plot" if is_edit else "Create Plot"
+        prompt = types.PromptView(submit_button_label=submit_button_label)
 
         return types.Property(inputs, view=prompt)
 
