@@ -446,6 +446,9 @@ class DashboardState(object):
         if item.limit:
             sorted_items = sorted_items[: item.limit]
 
+        if len(sorted_items) == 0:
+            return {"x": [], "y": [], "type": "bar"}
+
         keys, values = zip(*sorted_items)
 
         histogram_data = {"x": keys, "y": values, "type": "bar"}
