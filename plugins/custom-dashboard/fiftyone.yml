@@ -6,5 +6,6 @@ fiftyone:
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/custom-dashboard
 license: Apache 2.0
 operators:
-  - custom_dashboard
   - configure_plot
+panels:
+  - custom_dashboard
