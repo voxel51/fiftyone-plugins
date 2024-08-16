@@ -33,7 +33,7 @@ import fiftyone.operators as foo
 class ExamplePanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelOperatorConfig(
+        return foo.PanelConfig(
             name="example_panel", label="Example Python Panel"
         )
 
