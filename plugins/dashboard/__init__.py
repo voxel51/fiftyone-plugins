@@ -51,10 +51,9 @@ def get_plotly_plot_type(plot_type):
 
 def get_plotly_config_and_layout(plot_config):
     layout = {}
+    title = None
     if plot_config.get("plot_title"):
-        # rely on the dashboard title for now
-        # layout['title'] = plot_config.get('plot_title')
-        pass
+        title = plot_config.get("plot_title")
     if plot_config.get("color"):
         layout["marker"] = {"color": plot_config["color"].get("hex")}
     if plot_config.get("xaxis"):
@@ -65,9 +64,10 @@ def get_plotly_config_and_layout(plot_config):
         layout["bargap"] = 0
         layout["bargroupgap"] = 0
 
-    return {"config": {}, "layout": layout}
+    return {"config": {}, "layout": layout, "title": title}
 
 
+CONFIGURE_PLOT_OP_URI = "@voxel51/dashboard/configure_plot"
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 
@@ -262,7 +262,8 @@ class DashboardPlotItem(object):
 
     @property
     def label(self):
-        return self.config.get("title", self.name)
+        raw_params = self.raw_params or {}
+        return raw_params.get("plot_title", self.name)
 
     def to_configure_plot_params(self):
         return {**self.raw_params, "name": self.name}
@@ -412,7 +413,7 @@ class DashboardState(object):
             else:
                 data.update(bar_color)
 
-            return data
+            return {"name": item.label, **data}
         return {}
 
     def load_all_plot_data(self):
@@ -521,12 +522,7 @@ class DashboardState(object):
         factor = 100.0 / total
         factored_values = [v * factor for v in values]
 
-        pie_data = {
-            "values": factored_values,
-            "labels": keys,
-            "type": "pie",
-            "name": item.config.get("title", "Pie Chart"),
-        }
+        pie_data = {"values": factored_values, "labels": keys, "type": "pie"}
 
         if len(values) > 10:
             pie_data["textinfo"] = "none"
@@ -600,12 +596,11 @@ class DashboardPanel(foo.Panel):
     def on_add(self, ctx):
         if can_edit(ctx):
             ctx.prompt(
-                "@voxel51/custom_dashboard/configure_plot",
+                CONFIGURE_PLOT_OP_URI,
                 on_success=self.on_configure_plot,
             )
 
     def handle_plot_change(self, ctx, edit=False):
-
         result = ctx.params.get("result")
         p = get_plotly_config_and_layout(result)
         plot_layout = p.get("layout", {})
@@ -651,7 +646,7 @@ class DashboardPanel(foo.Panel):
             return
         if can_edit(ctx):
             ctx.prompt(
-                "@voxel51/custom_dashboard/configure_plot",
+                CONFIGURE_PLOT_OP_URI,
                 on_success=self.on_edit_success,
                 params=item.to_configure_plot_params(),
             )
