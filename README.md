@@ -55,7 +55,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/dashboard">@voxel51/dashboard</a></b></td>
-        <td>📊 Create your own dashboards from within the FiftyOne App</td>
+        <td>📊 Create your own custom dashboards from within the FiftyOne App</td>
     </tr>
     </tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/evaluation">@voxel51/evaluation</a></b></td>
