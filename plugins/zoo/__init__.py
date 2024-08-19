@@ -56,9 +56,9 @@ class LoadZooDataset(foo.Operator):
             label_field=label_field,
             dataset_name=dataset_name,
             drop_existing_dataset=True,
+            persistent=True,
             **kwargs,
         )
-        dataset.persistent = True
 
         ctx.trigger("open_dataset", dict(dataset=dataset.name))
 

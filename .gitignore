@@ -37,3 +37,4 @@ packages/watch_importer
 .yarn/cache/*
 *.pyc
 .idea
+*.zip
