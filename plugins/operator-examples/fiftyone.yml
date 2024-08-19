@@ -1,9 +1,9 @@
-name: "@voxel51/examples"
-description: Examples of how to use the operator type system to build custom FiftyOne operations
+name: "@voxel51/operator-examples"
+description: A collection of example operators showing how to use the operator type system to build custom FiftyOne operations
 version: 1.0.0
 fiftyone:
   version: "*"
-url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/examples
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/operator-examples
 license: Apache 2.0
 operators:
   - example_simple_input
@@ -28,7 +28,8 @@ operators:
   - example_delegated
   - example_secrets
   - example_file_drop
-  - lazy_field_example
   - example_target_view
+  - example_lazy_field
+  - example_create_view_with_python
 secrets:
   - FIFTYONE_EXAMPLE_SECRET

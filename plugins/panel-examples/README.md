@@ -1,14 +1,12 @@
-## Python Panel Examples
+## Panel Examples
 
-This directory contains various examples of how to creat objects, views, use
-operators, and manipulate context state with Python Panels. Use these as a
-starting point for building your own panels, or read the source to understand
-how to:
+This directory contains various example Python panels. Use these as a starting
+point for building your own panels, or read the source to understand how to:
 
 -   create a basic python panel
 -   use the panel type system
 -   create, show, and manipulate basic object types (images, media players,
-    strings, etc.)
+    strings, etc)
 -   create basic and interactive plots
 -   use state functions
 -   interact with FiftyOne datasets and views from within panels
@@ -22,9 +20,13 @@ fiftyone plugins download \
     --plugin-names @voxel51/panel-examples
 ```
 
-## Basic Structure
+Refer to the [main README](https://github.com/voxel51/fiftyone-plugins) for
+more information about managing downloaded plugins and developing plugins
+locally.
 
-Most python panels are built using this general basic structure:
+## Basic structure
+
+Python panels are built using this basic structure:
 
 ```python
 import fiftyone.operators as foo
@@ -33,14 +35,12 @@ import fiftyone.operators as foo
 class ExamplePanel(foo.Panel):
     @property
     def config(self):
-        return foo.PanelConfig(
-            name="example_panel", label="Example Python Panel"
-        )
+        return foo.PanelConfig(name="example_panel", label="Examples: Panel")
 
-    def on_load(ctx: ExecutionContext):
+    def on_load(self, ctx):
         pass
 
-    def render(self, ctx: ExecutionContext):
+    def render(self, ctx):
         pass
 
 
@@ -48,14 +48,13 @@ def register(p):
     p.register(ExamplePanel)
 ```
 
-For further details on how each individual function works and how to use them,
-please visit our [docs](https://docs.voxel51.com/plugins/index.html).
+[Refer to the docs](https://docs.voxel51.com/plugins/developing_plugins.html#developing-panels)
+for more details on how each method works and how to implement them.
 
-## Panels
+## Example panels
 
-Below are a list of panels that have been created to showcase the power of
-Python Panels and some best practices on how to build them. Each panel is
-defined as an example in `__init__.py`.
+Below are a list of panels that are included in this plugin. Each panel is
+defined in `__init__.py`.
 
 ### example_counter
 
@@ -94,7 +93,7 @@ defined as an example in `__init__.py`.
 
 ### example_table
 
--   **Description:** A panel that showcases how to create a column & row table.
+-   **Description:** A panel that showcases how to create a row/column table.
 -   Shows example of:
     -   how to create a `TableView` object
     -   how to add columns to a table object
@@ -114,7 +113,7 @@ defined as an example in `__init__.py`.
     -   usage of the `default` parameter to define a source url for a media
         player
     -   usage of `GridView` as return type to center align panel objects (i.e.,
-        media player & text)
+        media player and text)
 
 ### example_image
 
@@ -128,9 +127,9 @@ defined as an example in `__init__.py`.
     -   set multiple _state_ variables at once through use of iteration
     -   recall multiple _state_ variables values through use of iteration
 
-### example_multi_view
+### example_multiview
 
--   **Description:** A panel that showcases how to load in multiple views &
+-   **Description:** A panel that showcases how to load in multiple views and
     objects into one panel.
 -   Shows example of:
     -   `TableView`, `PlotView`, and `CodeView` in a singular panel
@@ -140,7 +139,7 @@ defined as an example in `__init__.py`.
     -   usage of `GridView` as a return type with a defined `gap` to space out
         objects within a panel
 
-### example_duplicated
+### example_inheritance
 
 -   **Description:** A panel that uses Python class inheritance to render the
     exact same components of another panel. Uses state variables to change data
@@ -213,7 +212,7 @@ defined as an example in `__init__.py`.
     -   how to use if/else statements to show/hide objects from view within a
         panel
 
-### example_walkthrough_tutorial
+### example_walkthrough
 
 -   **Description:** A panel that imitates the ability to create a step-by-step
     tutorial style walkthrough via a panel.

@@ -121,16 +121,17 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/hello-world">@voxel51/hello-world</a></b></td>
-        <td>👋 An example of JavaScript and Python components and operators in a single plugin</td>
-    </tr>
-        <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/python-view">@voxel51/python-view</a></b></td>
-        <td>🔎 Create views in the FiftyOne App with Python</td>
+        <td>👋 An example plugin that contains both Python and JavaScript components</td>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/examples">@voxel51/examples</a></b></td>
-        <td>📋 Examples of how to use the operator type system to build custom FiftyOne operations</td>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/operator-examples">@voxel51/operator-examples</a></b></td>
+        <td>⚙️ A collection of example operators showing how to use the operator type system to build custom FiftyOne operations</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/panel-examples">@voxel51/panel-examples</a></b></td>
+        <td>📊 A collection of example panels demonstrating common patterns for building Python panels</td>
+    </tr>
+
 </table>
 
 ## Community Plugins

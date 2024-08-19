@@ -1,19 +1,15 @@
+"""
+Example operators.
+
+| Copyright 2017-2024, Voxel51, Inc.
+| `voxel51.com <https://voxel51.com/>`_
+|
+"""
+import asyncio
+
+import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-import fiftyone as fo
-import asyncio
-import json
-
-from bson import json_util
-
-
-def serialize_view(view):
-    return json.loads(json_util.dumps(view._serialize()))
-
-
-###
-# Messages
-###
 
 
 class MessageExamples(foo.Operator):
@@ -47,11 +43,6 @@ class MessageExamples(foo.Operator):
         return {}
 
 
-###
-# Markdown
-###
-
-
 class MarkdownExample(foo.Operator):
     @property
     def config(self):
@@ -78,9 +69,6 @@ class MarkdownExample(foo.Operator):
         return types.Property(outputs)
 
 
-###
-# Simple Input
-###
 class SimpleInputExample(foo.Operator):
     @property
     def config(self):
@@ -103,11 +91,6 @@ class SimpleInputExample(foo.Operator):
         outputs.str("message", label="Message")
         header = "Simple Input Example: Success!"
         return types.Property(outputs, view=types.View(label=header))
-
-
-###
-# Advanced Input
-###
 
 
 class ChoicesExample(foo.Operator):
@@ -197,11 +180,6 @@ class InputListExample(foo.Operator):
         outputs = types.Object()
         outputs.list("people", types.String(), label="People")
         return types.Property(outputs)
-
-
-###
-# Advanced Output
-###
 
 
 class ImageExample(foo.Operator):
@@ -309,11 +287,6 @@ class PlotExample(foo.Operator):
         return types.Property(outputs)
 
 
-###
-# Show Output
-###
-
-
 class ExampleShowOutput(foo.Operator):
     @property
     def config(self):
@@ -378,9 +351,6 @@ class ExampleProgress(foo.Operator):
             await asyncio.sleep(0.5)
 
 
-###
-# Mutations
-###
 class SetFieldExample(foo.Operator):
     @property
     def config(self):
@@ -438,7 +408,6 @@ class SetFieldExample(foo.Operator):
         return types.Property(outputs)
 
 
-# an example operator that reads plugin settings
 class ExampleSettings(foo.Operator):
     @property
     def config(self):
@@ -694,10 +663,7 @@ class ExampleSetViewOperator(foo.Operator):
 
     def execute(self, ctx):
         view = ctx.dataset.take(10)
-        ctx.trigger(
-            "set_view",
-            params=dict(view=serialize_view(view)),
-        )
+        ctx.ops.set_view(view=view)
 
 
 class ExampleDelegatedOperator(foo.Operator):
@@ -773,7 +739,7 @@ class LazyFieldExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="lazy_field_example",
+            name="example_lazy_field",
             label="Examples: Lazy field",
             dynamic=True,
         )
@@ -793,6 +759,7 @@ class LazyFieldExample(foo.Operator):
         outputs.str("url", label="URL")
         return types.Property(outputs)
 
+
 class TargetViewExample(foo.Operator):
     @property
     def config(self):
@@ -810,11 +777,42 @@ class TargetViewExample(foo.Operator):
     def execute(self, ctx):
         target_view = ctx.target_view()
         return {"target_view": target_view.count()}
-    
+
     def resolve_output(self, ctx):
         outputs = types.Object()
         outputs.int("target_view", label="Target View")
         return types.Property(outputs)
+
+
+class CreateViewWithPython(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_create_view_with_python",
+            label="Examples: Create View with Python",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        src = ctx.params.get("python", None)
+        py = inputs.str("python", label="Python", required=True)
+        if src and not src.startswith("view."):
+            inputs.str("error", label="Error", view=types.Error())
+            py.invalid = True
+            py.error_message = "Python must start with view"
+
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        src = ctx.params.get("python", None)
+        if src is None:
+            return {}
+
+        view = eval(src, {"view": ctx.dataset.view()})
+
+        ctx.ops.set_view(view=view)
+
 
 def register(p):
     p.register(MessageExamples)
@@ -840,3 +838,4 @@ def register(p):
     p.register(FileDropExample)
     p.register(LazyFieldExample)
     p.register(TargetViewExample)
+    p.register(CreateViewWithPython)
