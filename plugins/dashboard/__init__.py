@@ -572,11 +572,11 @@ def can_edit(ctx: foo.executor.ExecutionContext):
     return True  # for oss
 
 
-class CustomDashboard(foo.Panel):
+class DashboardPanel(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
-            name="custom_dashboard", label="Dashboard", allow_multiple=True
+            name="dashboard", label="Dashboard", allow_multiple=True
         )
 
     #
@@ -1081,4 +1081,4 @@ class ConfigurePlot(foo.Operator):
 
 def register(p):
     p.register(ConfigurePlot)
-    p.register(CustomDashboard)
+    p.register(DashboardPanel)
