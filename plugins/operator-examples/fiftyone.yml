@@ -19,7 +19,6 @@ operators:
   - example_settings
   - example_markdown
   - example_custom_view
-  - example_open_embeddings_panel
   - example_open_histograms_panel
   - example_selected_labels
   - example_selected_samples
@@ -27,9 +26,9 @@ operators:
   - example_set_view
   - example_delegated
   - example_secrets
-  - example_file_drop
+  - example_file_dropzone
   - example_target_view
   - example_lazy_field
-  - example_create_view_with_python
+  - example_python_view
 secrets:
   - FIFTYONE_EXAMPLE_SECRET

@@ -113,7 +113,52 @@ is defined in `__init__.py`.
 
 -   Example rendering markdown as output
 
-### example_create_view_with_python
+### example_custom_view
+
+-   Example of defining a custom `types.View()`
+
+### example_open_histograms_panel
+
+-   Example of placing a custom button in the App's action row that opens a
+    panel
+
+### example_selected_labels
+
+-   Example of interacting with the currently selected labels in the App
+
+### example_selected_samples
+
+-   Example of interacting with the currently selected samples in the App
+
+### example_current_sample
+
+-   Example of interacting with the current sample in the App's modal
+
+### example_set_view
+
+-   Example of programmatically setting the App's current view
+
+### example_delegated
+
+-   Example of scheduling a delegated operation
+
+### example_secrets
+
+-   Example of accessing plugin secrets within an operator
+
+### example_file_dropzone
+
+-   Example of reading a user-uploaded file from a dropzone
+
+### example_target_view
+
+-   Example of using the builtin `ctx.target_view()` method
+
+### example_lazy_field
+
+-   Example of using the `types.LazyFieldView()` type
+
+### example_python_view
 
 -   Example of programmatically loading a view in the App by typing the
     corresponding Python as a string

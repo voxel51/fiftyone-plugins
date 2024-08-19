@@ -12,7 +12,7 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 
 
-class MessageExamples(foo.Operator):
+class MessagesExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
@@ -74,7 +74,7 @@ class SimpleInputExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_simple_input",
-            label="Examples: Simple Input",
+            label="Examples: Simple input",
         )
 
     def resolve_input(self, ctx):
@@ -147,7 +147,7 @@ class InputListExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_input_list",
-            label="Examples: Input List",
+            label="Examples: Input list",
         )
 
     def resolve_input(self, ctx):
@@ -287,12 +287,12 @@ class PlotExample(foo.Operator):
         return types.Property(outputs)
 
 
-class ExampleShowOutput(foo.Operator):
+class OutputStylesExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
             name="example_output_styles",
-            label="Examples: Output Styles",
+            label="Examples: Output styles",
             dynamic=True,
         )
 
@@ -324,7 +324,7 @@ class ExampleShowOutput(foo.Operator):
             return types.Property(outputs)
 
 
-class ExampleProgress(foo.Operator):
+class ProgressExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
@@ -356,7 +356,7 @@ class SetFieldExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_set_field",
-            label="Set Field",
+            label="Examples: Set field",
             dynamic=True,
         )
 
@@ -408,7 +408,7 @@ class SetFieldExample(foo.Operator):
         return types.Property(outputs)
 
 
-class ExampleSettings(foo.Operator):
+class SettingsExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
@@ -445,7 +445,7 @@ class CustomViewExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_custom_view",
-            label="Examples: custom view",
+            label="Examples: Custom view",
         )
 
     def execute(self, ctx):
@@ -466,12 +466,12 @@ class CustomViewExample(foo.Operator):
         return types.Property(inputs)
 
 
-class OpenHistogramsPanel(foo.Operator):
+class OpenHistogramsPanelExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
             name="example_open_histograms_panel",
-            label="Examples: open Histograms panel",
+            label="Examples: Open histograms panel",
         )
 
     def resolve_placement(self, ctx):
@@ -498,12 +498,12 @@ class OpenHistogramsPanel(foo.Operator):
         return {}
 
 
-class FileDropExample(foo.Operator):
+class FileDropzoneExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="example_file_drop",
-            label="Examples: File Drop",
+            name="example_file_dropzone",
+            label="Examples: File dropzone",
             dynamic=True,
         )
 
@@ -534,12 +534,45 @@ class FileDropExample(foo.Operator):
         return types.Property(outputs)
 
 
-class SelectedLabelsOperator(foo.Operator):
+class SelectedSamplesExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_selected_samples",
+            label="Examples: Selected samples",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.message(
+            "Number of Selected Samples",
+            label=f"Number of Selected Samples: {len(ctx.selected)}",
+        )
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        return {"num_selected_samples": len(ctx.selected)}
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+
+        outputs.message(
+            "Number of Selected Samples",
+            label=f"Number of Selected Samples: {len(ctx.selected)}",
+        )
+
+        outputs.int("num_selected_samples", label="Num Selected Samples")
+
+        return types.Property(outputs)
+
+
+class SelectedLabelsExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
             name="example_selected_labels",
-            label="Examples: Selected Labels",
+            label="Examples: Selected labels",
             dynamic=True,
         )
 
@@ -572,44 +605,12 @@ class SelectedLabelsOperator(foo.Operator):
         return types.Property(outputs)
 
 
-class SelectedSamplesOperator(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="example_selected_samples",
-            label="Examples: Selected Samples",
-            dynamic=True,
-        )
-
-    def resolve_input(self, ctx):
-        inputs = types.Object()
-        inputs.message(
-            "Number of Selected Samples",
-            label=f"Number of Selected Samples: {len(ctx.selected)}",
-        )
-        return types.Property(inputs)
-
-    def execute(self, ctx):
-        return {"num_selected_samples": len(ctx.selected)}
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-
-        outputs.message(
-            "Number of Selected Samples",
-            label=f"Number of Selected Samples: {len(ctx.selected)}",
-        )
-
-        outputs.int("num_selected_samples", label="Num Selected Samples")
-
-        return types.Property(outputs)
-
-
 class CurrentSampleExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="example_current_sample", label="Examples: Current Sample"
+            name="example_current_sample",
+            label="Examples: Current sample",
         )
 
     def execute(self, ctx):
@@ -644,12 +645,12 @@ class CurrentSampleExample(foo.Operator):
         return types.Property(outputs)
 
 
-class ExampleSetViewOperator(foo.Operator):
+class SetViewExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
             name="example_set_view",
-            label="Examples: Set View",
+            label="Examples: Set view",
             dynamic=True,
         )
 
@@ -666,7 +667,7 @@ class ExampleSetViewOperator(foo.Operator):
         ctx.ops.set_view(view=view)
 
 
-class ExampleDelegatedOperator(foo.Operator):
+class DelegatedExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
@@ -698,7 +699,7 @@ class ExampleDelegatedOperator(foo.Operator):
             print(f"Delegated execution in progress: {i+1}0% Complete")
 
 
-class ExampleSecretsOperator(foo.Operator):
+class SecretsExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
@@ -784,12 +785,12 @@ class TargetViewExample(foo.Operator):
         return types.Property(outputs)
 
 
-class CreateViewWithPython(foo.Operator):
+class PythonViewExample(foo.Operator):
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="example_create_view_with_python",
-            label="Examples: Create View with Python",
+            name="example_python_view",
+            label="Examples: Python view",
             dynamic=True,
         )
 
@@ -815,7 +816,7 @@ class CreateViewWithPython(foo.Operator):
 
 
 def register(p):
-    p.register(MessageExamples)
+    p.register(MessagesExample)
     p.register(SimpleInputExample)
     p.register(PlotExample)
     p.register(TableExample)
@@ -823,19 +824,19 @@ def register(p):
     p.register(ChoicesExample)
     p.register(ImageExample)
     p.register(SetFieldExample)
-    p.register(ExampleShowOutput)
-    p.register(ExampleProgress)
-    p.register(ExampleSettings)
+    p.register(OutputStylesExample)
+    p.register(ProgressExample)
+    p.register(SettingsExample)
     p.register(MarkdownExample)
     p.register(CustomViewExample)
-    p.register(OpenHistogramsPanel)
-    p.register(SelectedLabelsOperator)
-    p.register(SelectedSamplesOperator)
+    p.register(OpenHistogramsPanelExample)
+    p.register(SelectedSamplesExample)
+    p.register(SelectedLabelsExample)
     p.register(CurrentSampleExample)
-    p.register(ExampleSetViewOperator)
-    p.register(ExampleDelegatedOperator)
-    p.register(ExampleSecretsOperator)
-    p.register(FileDropExample)
+    p.register(SetViewExample)
+    p.register(DelegatedExample)
+    p.register(SecretsExample)
+    p.register(FileDropzoneExample)
     p.register(LazyFieldExample)
     p.register(TargetViewExample)
-    p.register(CreateViewWithPython)
+    p.register(PythonViewExample)

@@ -12,7 +12,7 @@ import fiftyone.operators.types as types
 from fiftyone import ViewField as F
 
 
-class CounterPanel(foo.Panel):
+class CounterExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -20,8 +20,7 @@ class CounterPanel(foo.Panel):
             label="Examples: Counter",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         ctx.panel.state.my_count = 0
 
     def increment(self, ctx):
@@ -77,7 +76,7 @@ class CounterPanel(foo.Panel):
         )
 
 
-class PlotPanel(foo.Panel):
+class PlotExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -85,8 +84,7 @@ class PlotPanel(foo.Panel):
             label="Examples: Plot",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         # set plot data with object
         plot_data = {
             "z": [
@@ -120,7 +118,7 @@ class PlotPanel(foo.Panel):
         )
 
 
-class MarkdownPanel(foo.Panel):
+class MarkdownExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -128,15 +126,13 @@ class MarkdownPanel(foo.Panel):
             label="Examples: Markdown",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         ctx.panel.state.title = "# Markdown Panel Title"
         ctx.panel.state.body = (
             "_The below code will be rendered via markdown in multiple ways._"
         )
 
-    @staticmethod
-    def render(ctx):
+    def render(self, ctx):
         panel = types.Object()
 
         # load markdown as a panel string type with MarkdownView
@@ -172,7 +168,7 @@ class MarkdownPanel(foo.Panel):
         )
 
 
-class TablePanel(foo.Panel):
+class TableExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -180,8 +176,7 @@ class TablePanel(foo.Panel):
             label="Examples: Table",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         table = [
             {
                 "Category": "Number",
@@ -251,16 +246,15 @@ class TablePanel(foo.Panel):
         return types.Property(panel, view=types.ObjectView())
 
 
-class MediaPlayerPanel(foo.Panel):
+class MediaPlayerExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
             name="example_media_player",
-            label="Examples: Media Player",
+            label="Examples: Media player",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         ctx.panel.state.media_player = {
             "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         }
@@ -290,7 +284,7 @@ class MediaPlayerPanel(foo.Panel):
         )
 
 
-class ImagePanel(foo.Panel):
+class ImageExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -298,8 +292,7 @@ class ImagePanel(foo.Panel):
             label="Examples: Image",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         ctx.panel.state.single_image = "https://static6.depositphotos.com/1119834/620/i/450/depositphotos_6201075-stock-photo-african-elephant-smelling.jpg"
 
         samples = ctx.dataset.limit(10)
@@ -347,7 +340,7 @@ class ImagePanel(foo.Panel):
         )
 
 
-class MultiviewPanel(foo.Panel):
+class MultiviewExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -355,8 +348,7 @@ class MultiviewPanel(foo.Panel):
             label="Examples: Multiview",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         ctx.panel.state.table = [
             {"name": "John", "age": 30},
             {"name": "Jane", "age": 32},
@@ -405,7 +397,7 @@ class MultiviewPanel(foo.Panel):
         return types.Property(panel, view=types.GridView(gap=3))
 
 
-class InheritancePanel(MultiviewPanel):
+class InheritanceExample(MultiviewExample):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -413,9 +405,8 @@ class InheritancePanel(MultiviewPanel):
             label="Examples: Inheritance",
         )
 
-    @staticmethod
-    def on_load(ctx):
-        # Change state of objects already named in MultiviewPanel
+    def on_load(self, ctx):
+        # Change state of objects already named in MultiviewExample
         ctx.panel.state.table = [
             {"name": "Billy", "age": 23},
             {"name": "Joel", "age": 64},
@@ -439,16 +430,15 @@ class InheritancePanel(MultiviewPanel):
         return super().render(ctx)
 
 
-class InputMutationsPanel(foo.Panel):
+class InputsExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
             name="example_inputs",
-            label="Examples: Input Mutations",
+            label="Examples: Inputs",
         )
 
-    @staticmethod
-    def on_load(ctx):
+    def on_load(self, ctx):
         max_images = 10
         ctx.panel.state.slider_value = 5
 
@@ -499,25 +489,12 @@ class InputMutationsPanel(foo.Panel):
         )
 
 
-def get_view_for_category(field, category, view):
-    is_label_field = field.endswith(".label")
-    is_tag_field = field.endswith("tags")
-    if is_label_field:
-        parent_field = field.split(".")[0]
-        return view.filter_labels(parent_field, F("label") == category)
-    elif is_tag_field:
-        return view.match_tags(category)
-    else:
-        return view.match(F(field) == category)
-    return None
-
-
-class InteractivePlot(foo.Panel):
+class InteractivePlotExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
             name="example_interactive_plot",
-            label="Examples: Interactive Plot",
+            label="Examples: Interactive plot",
         )
 
     def on_load(self, ctx):
@@ -590,12 +567,25 @@ class InteractivePlot(foo.Panel):
         )
 
 
-class DropdownMenuPanel(foo.Panel):
+def get_view_for_category(field, category, view):
+    is_label_field = field.endswith(".label")
+    is_tag_field = field.endswith("tags")
+    if is_label_field:
+        parent_field = field.split(".")[0]
+        return view.filter_labels(parent_field, F("label") == category)
+    elif is_tag_field:
+        return view.match_tags(category)
+    else:
+        return view.match(F(field) == category)
+    return None
+
+
+class DropdownMenuExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
             name="example_dropdown_menu",
-            label="Examples: Dropdown Menu",
+            label="Examples: Dropdown menu",
         )
 
     def on_load(self, ctx):
@@ -692,7 +682,7 @@ class DropdownMenuPanel(foo.Panel):
         )
 
 
-class WalkthroughPanel(foo.Panel):
+class WalkthroughExample(foo.Panel):
     @property
     def config(self):
         return foo.PanelConfig(
@@ -852,14 +842,15 @@ def add_panel_navigation(
 
 
 def register(p):
-    p.register(CounterPanel)
-    p.register(PlotPanel)
-    p.register(MarkdownPanel)
-    p.register(TablePanel)
-    p.register(MediaPlayerPanel)
-    p.register(ImagePanel)
-    p.register(MultiviewPanel)
-    p.register(InheritancePanel)
-    p.register(InteractivePlot)
-    p.register(DropdownMenuPanel)
-    p.register(WalkthroughPanel)
+    p.register(CounterExample)
+    p.register(PlotExample)
+    p.register(MarkdownExample)
+    p.register(TableExample)
+    p.register(MediaPlayerExample)
+    p.register(ImageExample)
+    p.register(MultiviewExample)
+    p.register(InheritanceExample)
+    p.register(InputsExample)
+    p.register(InteractivePlotExample)
+    p.register(DropdownMenuExample)
+    p.register(WalkthroughExample)
