@@ -53,6 +53,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain">@voxel51/brain</a></b></td>
         <td>🧠 Utilities for working with the FiftyOne Brain</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/dashboard">@voxel51/dashboard</a></b></td>
+        <td>📊 Create your own dashboards from within the FiftyOne App</td>
+    </tr>
     </tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/evaluation">@voxel51/evaluation</a></b></td>
         <td>✅ Utilities for evaluating models with FiftyOne</td>
