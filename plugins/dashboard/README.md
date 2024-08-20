@@ -3,7 +3,7 @@
 A plugin that enables users to construct custom dashboards that display
 statistics of interest about the current dataset (and beyond).
 
-https://github.com/user-attachments/assets/2ec5946e-ac43-48fa-b0a9-4d1d545ba0fc
+https://github.com/user-attachments/assets/373a7cfe-aab7-45a2-a9f5-76775dcdfa72
 
 ## Installation
 
