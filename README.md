@@ -55,7 +55,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/dashboard">@voxel51/dashboard</a></b></td>
-        <td>📊 Create your own custom dashboards from within the FiftyOne App</td>
+        <td>📊 Create your own custom dashboards from within the App</td>
     </tr>
     </tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/evaluation">@voxel51/evaluation</a></b></td>
@@ -334,7 +334,7 @@ to manage your downloaded plugins:
 # List all plugins you've downloaded
 fiftyone plugins list
 
-# List the available operators
+# List the available operators and panels
 fiftyone operators list
 
 # Disable a particular plugin

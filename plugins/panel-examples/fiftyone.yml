@@ -13,7 +13,6 @@ panels:
   - example_media_player
   - example_image
   - example_multiview
-  - example_inheritance
   - example_inputs
   - example_interactive_plot
   - example_dropdown_menu

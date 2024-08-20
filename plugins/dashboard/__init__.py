@@ -45,6 +45,7 @@ class DashboardPanel(foo.Panel):
         return foo.PanelConfig(
             name="dashboard",
             label="Dashboard",
+            icon="dashboard",
             allow_multiple=True,
         )
 
@@ -141,13 +142,14 @@ class DashboardPanel(foo.Panel):
 
     def on_click_plot(self, ctx):
         plot_id = ctx.params.get("relative_path")
-        dashboard = DashboardState(ctx)
-        item = dashboard.get_item(plot_id)
+        dashboard_state = DashboardState(ctx)
+        item = dashboard_state.get_item(plot_id)
         if item.use_code:
             return
 
         x_field = item.x_field
         y_field = item.y_field
+
         if (
             item.type == PlotType.CATEGORICAL_HISTOGRAM
             or item.type == PlotType.NUMERIC_HISTOGRAM
@@ -157,8 +159,8 @@ class DashboardPanel(foo.Panel):
                 x_field = item.field
                 x = ctx.params.get("x")
 
-                view = _get_view_for_value(dashboard.view, x_field, x)
-                if view:
+                view = _make_view_for_value(dashboard_state.view, x_field, x)
+                if view is not None:
                     ctx.ops.set_view(view=view)
 
                 return
@@ -166,8 +168,8 @@ class DashboardPanel(foo.Panel):
             range = ctx.params.get("range")
             if range:
                 min_val, max_val = range
-                view = _get_view_for_range(
-                    dashboard.view, x_field, min_val, max_val
+                view = _make_view_for_range(
+                    dashboard_state.view, x_field, min_val, max_val
                 )
                 ctx.ops.set_view(view=view)
 
@@ -190,16 +192,19 @@ class DashboardPanel(foo.Panel):
                         ]
                     ),
                 )
+
         if item.type == PlotType.PIE:
             category = ctx.params.get("label")
-            view = _get_view_for_value(dashboard.view, item.field, category)
-            if view:
+            view = _make_view_for_value(
+                dashboard_state.view, item.field, category
+            )
+            if view is not None:
                 ctx.ops.set_view(view=view)
 
     def on_plot_select(self, ctx):
         plot_id = ctx.params.get("relative_path")
-        dashboard = DashboardState(ctx)
-        item = dashboard.get_item(plot_id)
+        dashboard_state = DashboardState(ctx)
+        item = dashboard_state.get_item(plot_id)
         if item.use_code or item.type == PlotType.PIE:
             return
 
@@ -226,15 +231,16 @@ class DashboardPanel(foo.Panel):
                     dashboard_item, on_click_plot, on_plot_select
                 ),
             )
-        user_can_edit = _can_edit(ctx)
+
+        can_edit = _can_edit(ctx)
         dashboard_view = types.DashboardView(
             on_add_item=self.on_add,
             on_remove_item=self.on_remove,
             on_edit_item=self.on_edit,
             on_save_layout=self.on_save_layout,
-            allow_edit=user_can_edit,
-            allow_remove=user_can_edit,
-            allow_add=user_can_edit,
+            allow_edit=can_edit,
+            allow_remove=can_edit,
+            allow_add=can_edit,
             width=100,
             height=100 if dashboard_state.is_empty else None,
             cta_title="Add a plot",
@@ -524,10 +530,9 @@ class ConfigurePlot(foo.Operator):
                 }
             )
 
-            db = DashboardState(ctx)
-            if db.can_load_data(item):
-                preview_data = db.load_plot_data_for_item(item)
-
+            dashboard_state = DashboardState(ctx)
+            if dashboard_state.can_load_data(item):
+                preview_data = dashboard_state.load_plot_data_for_item(item)
                 preview_container = inputs.grid(
                     "grid", height="400px", width="100%"
                 )
@@ -725,7 +730,6 @@ class DashboardState(object):
         return f"plot_{random.randint(0, 1000)}"
 
     def add_plot(self, item):
-
         self._items[item.name] = item
 
         data = self.load_plot_data_for_item(item)
@@ -986,7 +990,7 @@ def _get_fields_with_type(dataset, field_types, root=None):
     return paths
 
 
-def _get_view_for_value(sample_collection, path, value):
+def _make_view_for_value(sample_collection, path, value):
     """Returns a view into the given `sample_collection` that matches the given
     `value` within the given `path`.
 
@@ -1012,7 +1016,7 @@ def _get_view_for_value(sample_collection, path, value):
     return sample_collection.match(expr)
 
 
-def _get_view_for_range(sample_collection, path, min_val, max_val):
+def _make_view_for_range(sample_collection, path, min_val, max_val):
     expr = (F(path) >= min_val) & (F(path) <= max_val)
     return sample_collection.match(expr)
 

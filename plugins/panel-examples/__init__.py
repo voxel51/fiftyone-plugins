@@ -251,7 +251,7 @@ class MediaPlayerExample(foo.Panel):
     def config(self):
         return foo.PanelConfig(
             name="example_media_player",
-            label="Examples: Media player",
+            label="Examples: Media Player",
         )
 
     def on_load(self, ctx):
@@ -293,8 +293,10 @@ class ImageExample(foo.Panel):
         )
 
     def on_load(self, ctx):
+        # Load image from static URL
         ctx.panel.state.single_image = "https://static6.depositphotos.com/1119834/620/i/450/depositphotos_6201075-stock-photo-african-elephant-smelling.jpg"
 
+        # Load 10 images from dataset
         samples = ctx.dataset.limit(10)
         for index, sample in enumerate(samples):
             image_path = (
@@ -397,39 +399,6 @@ class MultiviewExample(foo.Panel):
         return types.Property(panel, view=types.GridView(gap=3))
 
 
-class InheritanceExample(MultiviewExample):
-    @property
-    def config(self):
-        return foo.PanelConfig(
-            name="example_inheritance",
-            label="Examples: Inheritance",
-        )
-
-    def on_load(self, ctx):
-        # Change state of objects already named in MultiviewExample
-        ctx.panel.state.table = [
-            {"name": "Billy", "age": 23},
-            {"name": "Joel", "age": 64},
-        ]
-
-        ctx.panel.state.code = "def main():\n\tchanged_message = 'I am duplicate!'\n\tprint(changed_message)"
-        ctx.panel.data.plot = [
-            {
-                "values": [19, 26, 55],
-                "labels": ["Residential", "Non-Residential", "Utility"],
-                "type": "pie",
-            }
-        ]
-        ctx.panel.state.plot_layout = {
-            "width": 250,
-            "height": 250,
-            "title": "A Pie Chart",
-        }
-
-    def render(self, ctx):
-        return super().render(ctx)
-
-
 class InputsExample(foo.Panel):
     @property
     def config(self):
@@ -494,32 +463,39 @@ class InteractivePlotExample(foo.Panel):
     def config(self):
         return foo.PanelConfig(
             name="example_interactive_plot",
-            label="Examples: Interactive plot",
+            label="Examples: Interactive Plot",
         )
 
     def on_load(self, ctx):
+        # Get target field
         target_field = (
             ctx.panel.state.target_field or "ground_truth.detections.label"
         )
         ctx.panel.state.target_field = target_field
+
+        # Compute target histogram for current dataset
         counts = ctx.dataset.count_values(target_field)
-        raw_keys = list(counts.keys())
-        keys = [str(k) for k in raw_keys]
-        sorted_items = sorted(zip(keys, counts.values()), key=lambda x: x[0])
-        keys, values = zip(*sorted_items)
+        keys, values = zip(*sorted(counts.items(), key=lambda x: x[0]))
 
-        histogram_data = {"x": keys, "y": values, "type": "bar"}
+        # Store as panel data for efficiency
+        ctx.panel.data.histogram = {"x": keys, "y": values, "type": "bar"}
 
-        ctx.panel.data.histogram = histogram_data
+        # Launch panel in a horizontal split view
+        ctx.ops.split_panel("example_interactive_plot", layout="horizontal")
 
     def on_change_view(self, ctx):
+        # Update histogram when current view changes
         self.on_load(ctx)
 
-    def filter_data(self, ctx):
+    def on_histogram_click(self, ctx):
+        # The histogram bar that the user clicked
         x = ctx.params.get("x")
-        view = get_view_for_category(
-            ctx.panel.state.target_field, x, ctx.dataset
-        )
+
+        # Create a view that matches the selected histogram bar
+        field = ctx.panel.state.target_field
+        view = _make_matching_view(ctx.dataset, field, x)
+
+        # Load view in App
         if view:
             ctx.ops.set_view(view)
 
@@ -542,7 +518,7 @@ class InteractivePlotExample(foo.Panel):
                 "xaxis": {"title": "Labels"},
                 "yaxis": {"title": "Count"},
             },
-            on_click=self.filter_data,
+            on_click=self.on_histogram_click,
             width=100,
         )
 
@@ -567,17 +543,14 @@ class InteractivePlotExample(foo.Panel):
         )
 
 
-def get_view_for_category(field, category, view):
-    is_label_field = field.endswith(".label")
-    is_tag_field = field.endswith("tags")
-    if is_label_field:
-        parent_field = field.split(".")[0]
-        return view.filter_labels(parent_field, F("label") == category)
-    elif is_tag_field:
-        return view.match_tags(category)
+def _make_matching_view(dataset, field, value):
+    if field.endswith(".label"):
+        root_field = field.split(".")[0]
+        return dataset.filter_labels(root_field, F("label") == value)
+    elif field == "tags":
+        return dataset.match_tags(value)
     else:
-        return view.match(F(field) == category)
-    return None
+        return dataset.match(F(field) == value)
 
 
 class DropdownMenuExample(foo.Panel):
@@ -585,7 +558,7 @@ class DropdownMenuExample(foo.Panel):
     def config(self):
         return foo.PanelConfig(
             name="example_dropdown_menu",
-            label="Examples: Dropdown menu",
+            label="Examples: Dropdown Menu",
         )
 
     def on_load(self, ctx):
@@ -621,7 +594,7 @@ class DropdownMenuExample(foo.Panel):
 
         menu = panel.menu("menu", variant="square", color="secondary")
 
-        # define a dropdown menu and add choices
+        # Define a dropdown menu and add choices
         dropdown = types.DropdownView()
         dropdown.add_choice(
             "refresh",
@@ -639,7 +612,8 @@ class DropdownMenuExample(foo.Panel):
             description="Displays button that will say hi",
         )
 
-        # add dropdown menu to the panel as a view, and use the on_change callback method to trigger the alter_selection function
+        # Add dropdown menu to the panel as a view and use the `on_change`
+        # callback to trigger `alter_selection`
         menu.str(
             "dropdown",
             view=dropdown,
@@ -647,7 +621,7 @@ class DropdownMenuExample(foo.Panel):
             on_change=self.alter_selection,
         )
 
-        # change panel visual state dependent on dropdown menu selection
+        # Change panel visual state dependent on dropdown menu selection
         if ctx.panel.state.selection == "refresh":
             menu.btn(
                 "refresh",
@@ -718,7 +692,7 @@ class WalkthroughExample(foo.Panel):
     def render(self, ctx):
         panel = types.Object()
 
-        # define a vertical stack to live inside your panel
+        # Define a vertical stack to live inside your panel
         stack = panel.v_stack(
             "welcome", gap=2, width=75, align_x="center", align_y="center"
         )
@@ -727,13 +701,6 @@ class WalkthroughExample(foo.Panel):
         )
 
         page = ctx.panel.get_state("page", 1)
-        panel.arrow_nav(
-            "page_nav",
-            on_forward=self.go_to_next_page,
-            on_backward=self.go_to_previous_page,
-            forward=page < 3,
-            backward=page > 1,
-        )
 
         if page == 1:
             stack.md(
@@ -771,9 +738,7 @@ class WalkthroughExample(foo.Panel):
                 view=table,
                 label="Cool Info About Your Data",
             )
-
         elif page == 3:
-
             if ctx.panel.state.operator_status != "opened":
                 stack.md(
                     """
@@ -800,44 +765,20 @@ class WalkthroughExample(foo.Panel):
             btns = stack.obj("btns", view=button_container)
             btns.type.btn("reset", label="Go Home", on_click=self.reset_page)
 
+        # Arrow navigation to go to next or previous page
+        panel.arrow_nav(
+            "arrow_nav",
+            forward=page != 3,  # hidden for the last page
+            backward=page != 1,  # hidden for the first page
+            on_forward=self.go_to_next_page,
+            on_backward=self.go_to_previous_page,
+        )
+
         return types.Property(
             panel,
             view=types.GridView(
                 height=100, width=100, align_x="center", align_y="center"
             ),
-        )
-
-
-def add_panel_navigation(
-    panel, left=True, right=False, on_left=None, on_right=None
-):
-    base_btn_styles = {
-        "position": "absolute",
-        "top": "50%",
-        "minWidth": 0,
-        "padding": "8px",
-        "background": "#333333",
-        "&:hover": {"background": "#2b2a2a"},
-    }
-    if left:
-        panel.btn(
-            "previous",
-            label="Previous",
-            icon="arrow_back",
-            variant="contained",
-            componentsProps={"button": {"sx": {**base_btn_styles, "left": 8}}},
-            on_click=on_left,
-        )
-    if right:
-        panel.btn(
-            "next",
-            label="Next",
-            icon="arrow_forward",
-            variant="contained",
-            componentsProps={
-                "button": {"sx": {**base_btn_styles, "right": 8}}
-            },
-            on_click=on_right,
         )
 
 
@@ -849,7 +790,6 @@ def register(p):
     p.register(MediaPlayerExample)
     p.register(ImageExample)
     p.register(MultiviewExample)
-    p.register(InheritanceExample)
     p.register(InputsExample)
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)

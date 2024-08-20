@@ -74,7 +74,7 @@ class SimpleInputExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_simple_input",
-            label="Examples: Simple input",
+            label="Examples: Simple Input",
         )
 
     def resolve_input(self, ctx):
@@ -147,7 +147,7 @@ class InputListExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_input_list",
-            label="Examples: Input list",
+            label="Examples: Input List",
         )
 
     def resolve_input(self, ctx):
@@ -292,7 +292,7 @@ class OutputStylesExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_output_styles",
-            label="Examples: Output styles",
+            label="Examples: Output Styles",
             dynamic=True,
         )
 
@@ -356,7 +356,7 @@ class SetFieldExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_set_field",
-            label="Examples: Set field",
+            label="Examples: Set Field",
             dynamic=True,
         )
 
@@ -445,7 +445,7 @@ class CustomViewExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_custom_view",
-            label="Examples: Custom view",
+            label="Examples: Custom View",
         )
 
     def execute(self, ctx):
@@ -471,7 +471,7 @@ class OpenHistogramsPanelExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_open_histograms_panel",
-            label="Examples: Open histograms panel",
+            label="Examples: Open Histograms Panel",
         )
 
     def resolve_placement(self, ctx):
@@ -503,7 +503,7 @@ class FileDropzoneExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_file_dropzone",
-            label="Examples: File dropzone",
+            label="Examples: File Dropzone",
             dynamic=True,
         )
 
@@ -539,7 +539,7 @@ class SelectedSamplesExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_selected_samples",
-            label="Examples: Selected samples",
+            label="Examples: Selected Samples",
             dynamic=True,
         )
 
@@ -572,7 +572,7 @@ class SelectedLabelsExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_selected_labels",
-            label="Examples: Selected labels",
+            label="Examples: Selected Labels",
             dynamic=True,
         )
 
@@ -610,7 +610,7 @@ class CurrentSampleExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_current_sample",
-            label="Examples: Current sample",
+            label="Examples: Current Sample",
         )
 
     def execute(self, ctx):
@@ -650,7 +650,7 @@ class SetViewExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_set_view",
-            label="Examples: Set view",
+            label="Examples: Set View",
             dynamic=True,
         )
 
@@ -741,7 +741,7 @@ class LazyFieldExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_lazy_field",
-            label="Examples: Lazy field",
+            label="Examples: Lazy Field",
             dynamic=True,
         )
 
@@ -766,7 +766,7 @@ class TargetViewExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_target_view",
-            label="Examples: Target view",
+            label="Examples: Target View",
             dynamic=True,
         )
 
@@ -790,7 +790,7 @@ class PythonViewExample(foo.Operator):
     def config(self):
         return foo.OperatorConfig(
             name="example_python_view",
-            label="Examples: Python view",
+            label="Examples: Python View",
             dynamic=True,
         )
 

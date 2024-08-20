@@ -139,20 +139,6 @@ defined in `__init__.py`.
     -   usage of `GridView` as a return type with a defined `gap` to space out
         objects within a panel
 
-### example_inheritance
-
--   **Description:** A panel that uses Python class inheritance to render the
-    exact same components of another panel. Uses state variables to change data
-    that is rendered by inherited components.
--   Shows example of:
-    -   creates a panel class that inherits an existing panel class
-    -   using _state_ to change and define the data used from an inherited
-        panel
-    -   calls the `super()` method within the `render` function to reuse
-        already defined panel components of parent panel
-    -   usage of `GridView` as a return type with a defined `gap` to space out
-        objects within a panel
-
 ### example_inputs
 
 -   **Description:** A panel that changes state dependent on the inputs of a
