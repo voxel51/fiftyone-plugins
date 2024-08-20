@@ -1,0 +1,19 @@
+name: "@voxel51/panel-examples"
+description: A collection of example panels demonstrating common patterns for building Python panels
+version: 1.0.0
+fiftyone:
+  version: ">=0.25"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/panel-examples
+license: Apache 2.0
+panels:
+  - example_counter
+  - example_plot
+  - example_markdown
+  - example_table
+  - example_media_player
+  - example_image
+  - example_multiview
+  - example_inputs
+  - example_interactive_plot
+  - example_dropdown_menu
+  - example_walkthrough
