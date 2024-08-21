@@ -37,7 +37,16 @@ session = fo.launch_app(dataset)
 
 ### manage_indexes
 
-You can use this operator to view, create, and delete database indexes.
+You can use this operator to view, create, and delete database indexes, which
+are useful for speeding up queries on large datasets in
+[Lightning Mode](https://docs.voxel51.com/user_guide/app.html#lightning-mode).
+
+Note that, for large datasets, creating indexes can slow down write operations
+during the process and create overhead in MongoDB, so you should only create
+indexes for fields that you frequently query on.
+
+For more information on indexes, see the
+[MongoDB documentation](https://docs.mongodb.com/manual/indexes).
 
 This operator is a wrapper around the
 [list_indexes()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.list_indexes),
