@@ -5,11 +5,12 @@ Index operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import eta.core.utils as etau
+
 import fiftyone as fo
 import fiftyone.core.media as fom
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-import eta.core.utils as etau
 
 
 class ManageIndexes(foo.Operator):
@@ -66,6 +67,8 @@ class ManageIndexes(foo.Operator):
 def _manage_indexes(ctx, inputs):
     indexes = _get_existing_indexes(ctx)
     default_indexes = set(_get_default_indexes(ctx))
+    supports_size = "size" in next(iter(indexes.values()), {})
+    space = 2 if supports_size else 4
 
     inputs.str(
         "existing",
@@ -78,8 +81,6 @@ def _manage_indexes(ctx, inputs):
             divider=True,
         ),
     )
-    support_size = True if len(indexes) > 0 and "size" in indexes[next(iter(indexes))] else False
-    space_size = 2 if support_size else 4
 
     obj = types.Object()
     obj.str(
@@ -92,15 +93,15 @@ def _manage_indexes(ctx, inputs):
         "default",
         label="Default",
         description="Whether the index is a default index",
-        view=types.MarkdownView(read_only=True, space=space_size),
+        view=types.MarkdownView(read_only=True, space=space),
     )
     obj.str(
         "unique",
         label="Unique",
         description="Whether the index has a uniqueness constraint",
-        view=types.MarkdownView(read_only=True, space=space_size),
+        view=types.MarkdownView(read_only=True, space=space),
     )
-    if support_size:
+    if supports_size:
         obj.str(
             "size",
             label="Size",
@@ -117,9 +118,13 @@ def _manage_indexes(ctx, inputs):
             # The `id` index is unique, but backend doesn't report it
             # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/collections.py#L8552
             unique = True
+
         index_info = indexes[name]
-        size = "In Progress" if index_info.get("in_progress") \
+        size = (
+            "In progress"
+            if index_info.get("in_progress")
             else etau.to_human_bytes_str(index_info.get("size", 0))
+        )
 
         obj = types.Object()
         obj.str(
@@ -130,14 +135,14 @@ def _manage_indexes(ctx, inputs):
         obj.bool(
             "default",
             default=default,
-            view=types.CheckboxView(read_only=True, space=space_size),
+            view=types.CheckboxView(read_only=True, space=space),
         )
         obj.bool(
             "unique",
             default=unique,
-            view=types.CheckboxView(read_only=True, space=space_size),
+            view=types.CheckboxView(read_only=True, space=space),
         )
-        if support_size:
+        if supports_size:
             obj.str(
                 "size",
                 default=size,
