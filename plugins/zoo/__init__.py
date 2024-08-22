@@ -24,6 +24,8 @@ class LoadZooDataset(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -37,7 +39,7 @@ class LoadZooDataset(foo.Operator):
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -406,6 +408,8 @@ class ApplyZooModel(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
@@ -419,7 +423,7 @@ class ApplyZooModel(foo.Operator):
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+        return ctx.params.get("delegate", None)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -435,14 +439,14 @@ class ApplyZooModel(foo.Operator):
         skip_failures = ctx.params.get("skip_failures", True)
         output_dir = ctx.params.get("output_dir", None)
         rel_dir = ctx.params.get("rel_dir", None)
-        delegate = ctx.params.get("delegate", False)
+        delegate = ctx.params.get("delegate", None)
 
         target_view = _get_target_view(ctx, target)
 
         model = foz.load_zoo_model(model)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not delegate and not ctx.requesting_delegated_execution:
             num_workers = 0
 
         if embeddings and patches_field is not None:
@@ -741,7 +745,7 @@ def _get_target_view(ctx, target):
 
 
 def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
+    delegate = ctx.params.get("delegate", None)
 
     if delegate:
         description = "Uncheck this box to execute the operation immediately"
@@ -750,7 +754,7 @@ def _execution_mode(ctx, inputs):
 
     inputs.bool(
         "delegate",
-        default=False,
+        default=None,
         label="Delegate execution?",
         description=description,
         view=types.CheckboxView(),
