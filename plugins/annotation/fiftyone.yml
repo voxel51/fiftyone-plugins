@@ -13,6 +13,8 @@ operators:
   - rename_annotation_run
   - delete_annotation_run
 secrets:
+  - FIFTYONE_ANNOTATION_BACKENDS
+  - FIFTYONE_ANNOTATION_DEFAULT_BACKEND
   - FIFTYONE_CVAT_URL
   - FIFTYONE_CVAT_USERNAME
   - FIFTYONE_CVAT_PASSWORD
