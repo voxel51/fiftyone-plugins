@@ -871,9 +871,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@voxel51/examples@workspace:plugins/examples":
+"@voxel51/examples@workspace:plugins/operator-examples":
   version: 0.0.0-use.local
-  resolution: "@voxel51/examples@workspace:plugins/examples"
+  resolution: "@voxel51/examples@workspace:plugins/operator-examples"
   dependencies:
     "@fiftyone/plugin-build": "*"
     "@mui/material": ^5.13.5

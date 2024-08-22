@@ -36,4 +36,4 @@ class OpenEmbeddingsPanel extends Operator {
   }
 }
 
-registerOperator(OpenEmbeddingsPanel, "@voxel51/examples");
+registerOperator(OpenEmbeddingsPanel, "@voxel51/operator-examples");
