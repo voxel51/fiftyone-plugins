@@ -1,0 +1,8 @@
+name: "@voxel51/index-panel"
+description: A panel for managing indexes in FiftyOne
+version: 0.0.7
+fiftyone:
+  version: "*"
+license: Apache 2.0
+panels:
+  - index_panel
