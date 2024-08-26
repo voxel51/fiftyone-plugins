@@ -57,9 +57,9 @@ class IndexPanel(foo.Panel):
             )
             rows.append({
                 "Field Name": name,
-                "Default": str(default),
-                "Unique": str(unique),
                 "Size": str(size),
+                "Unique": str(unique),
+                "Default": str(default),
             })
 
         ctx.panel.state.table = rows
@@ -72,14 +72,14 @@ class IndexPanel(foo.Panel):
 
     def render(self, ctx):
         panel = types.Object()
-        panel.md("# Index panel")
+        panel.md("#### Index panel")
         table = types.TableView()
         table.add_column("Field Name", label="Field name")
-        table.add_column("Default", label="Default")
-        table.add_column("Unique", label="Unique")
         table.add_column("Size", label="Size")
+        table.add_column("Unique", label="Unique")
+        table.add_column("Default", label="Default")
 
-        panel.list("table", types.Object(), view=table, label=f"Available index for {ctx.dataset.name}")
+        panel.list("table", types.Object(), view=table, label=f"Available index for dataset: {ctx.dataset.name}")
         panel.btn("click_me", label="Refresh", on_click=self.on_button_click)
 
         return types.Property(panel, view=types.ObjectView())
