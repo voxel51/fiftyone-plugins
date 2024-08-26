@@ -9,6 +9,7 @@ from enum import Enum
 import random
 from textwrap import dedent
 
+import json
 import numpy as np
 
 import fiftyone as fo
@@ -651,6 +652,10 @@ class DashboardPlotItem(object):
     def to_configure_plot_params(self):
         return {**self.raw_params, "name": self.name}
 
+    def to_cache_key(self):
+        key = json.dumps(self.raw_params, sort_keys=True)
+        return f"plot_{self.name}.{key}"
+
     def to_dict(self):
         return {
             "name": self.name,
@@ -745,16 +750,34 @@ class DashboardState(object):
         self._data[item.name] = data
         self.apply_data()
 
-    def load_plot_data(self, plot_id):
-        item = self.get_item(plot_id)
-        if item is None:
-            return {}
+    def load_plot_data(self, item_name, refetch=False):
+        item = self.get_item(item_name)
+        if not refetch:
+            cached_data = self.load_cached_data(item.to_cache_key())
+            if cached_data:
+                return cached_data
 
         data = self.load_plot_data_for_item(item)
-        if isinstance(data, dict):
-            return data
+        self.cache_data(item.to_cache_key(), data)
 
-        return {}
+        return data
+
+    def load_cached_data(self, run_key):
+        try:
+            results = self.view.load_run_results(run_key)
+            if results:
+                return results.get("data", None)
+        except:
+            return None
+        return None
+
+    def cache_data(self, item_name, data):
+        try:
+            run_key = item_name
+            results = self.ctx.dataset.init_run_results(run_key, data=data)
+            self.ctx.dataset.save_run_results(run_key, results)
+        except:
+            pass
 
     def load_plot_data_for_item(self, item):
         fo_orange = "rgb(255, 109, 5)"
