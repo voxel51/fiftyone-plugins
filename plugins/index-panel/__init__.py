@@ -27,6 +27,12 @@ def _is_unique(name, index_info):
     return index_info.get("unique", False)
 
 
+def _get_droppable_indexes(ctx):
+    index_names = set(ctx.dataset.list_indexes())
+    index_names -= set(_get_default_indexes(ctx))
+    return sorted(index_names)
+
+
 class IndexPanel(foo.Panel):
     @property
     def config(self):
@@ -55,12 +61,14 @@ class IndexPanel(foo.Panel):
                 if index_info.get("in_progress")
                 else etau.to_human_bytes_str(index_info.get("size", 0))
             )
-            rows.append({
-                "Field Name": name,
-                "Size": str(size),
-                "Unique": str(unique),
-                "Default": str(default),
-            })
+            rows.append(
+                {
+                    "Field Name": name,
+                    "Size": str(size),
+                    "Unique": str(unique),
+                    "Default": str(default),
+                }
+            )
 
         ctx.panel.state.table = rows
 
@@ -68,7 +76,31 @@ class IndexPanel(foo.Panel):
         self._build_view(ctx)
 
     def on_load(self, ctx):
+        ctx.panel.state.selection = None
         self._build_view(ctx)
+
+    def build_drop_index_view(self, ctx, dropdown):
+        indexes = _get_droppable_indexes(ctx)
+        for index in indexes:
+            dropdown.add_choice(
+                index,
+                label=index,
+                description=f"Index {index}",
+            )
+
+    def alter_selection(self, ctx):
+        ctx.panel.state.selection = ctx.params["value"]
+
+    def drop_index(self, ctx):
+        # msg = str(ctx.params)
+        if ctx.panel.state.selection is None:
+            ctx.ops.notify("Please select an index to drop", variant="error")
+        else:
+            index_name = str(ctx.panel.state.selection)
+            ctx.dataset.drop_index(index_name)
+            msg = f"Index {index_name} has been dropped."
+            ctx.panel.state.selection = None
+            ctx.ops.notify(msg, variant="success")
 
     def render(self, ctx):
         panel = types.Object()
@@ -79,8 +111,28 @@ class IndexPanel(foo.Panel):
         table.add_column("Unique", label="Unique")
         table.add_column("Default", label="Default")
 
-        panel.list("table", types.Object(), view=table, label=f"Available index for dataset: {ctx.dataset.name}")
-        panel.btn("click_me", label="Refresh", on_click=self.on_button_click)
+        panel.list(
+            "table",
+            types.Object(),
+            view=table,
+            label=f"Available index for dataset: {ctx.dataset.name}",
+        )
+
+        menu = panel.menu("menu", variant="square", color="secondary")
+        dropdown = types.DropdownView()
+        self.build_drop_index_view(ctx, dropdown)
+
+        # Add dropdown menu to the panel as a view
+        menu.str(
+            "dropdown",
+            view=dropdown,
+            label="Dropdown Menu",
+            on_change=self.alter_selection,
+        )
+        panel.btn("drop_btn", label="Drop index", on_click=self.drop_index)
+        panel.btn(
+            "refresh_btn", label="Refresh", on_click=self.on_button_click
+        )
 
         return types.Property(panel, view=types.ObjectView())
 
