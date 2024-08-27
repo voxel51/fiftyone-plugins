@@ -212,3 +212,15 @@ defined in `__init__.py`.
     -   how to create a container within a panel to holder the formatting of
         sub-objects like buttons
     -   how to position components _relative_ and _absolute_ to one another
+
+### example_full_panel
+
+-   **Description** A panel that implements all the various aspects of panel
+    events, state, interface, data, plots, buttons, and more.
+-   Shows examples of:
+-   how to use all built in panel events
+-   how to define custom events
+-   how to conditionally show or hide content
+-   how to prompt users to execute an operator
+-   how to use plots and plot events
+-   how to use chechboxes and buttons

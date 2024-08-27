@@ -48,7 +48,7 @@ class ExampleOperator(foo.Operator):
 
 
 def register(p):
-    p.register(ExamplePanel)
+    p.register(ExampleOperator)
 ```
 
 [Refer to the docs](https://docs.voxel51.com/plugins/developing_plugins.html#developing-operators)

@@ -782,6 +782,275 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+class ExampleFullPanel(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            # The panel's URI: f"{plugin_name}/{name}"
+            name="example_full_panel",  # required
+            # The display name of the panel in the "+" menu
+            label="Example full panel",  # required
+            # Custom icons to use in the "+"" menu
+            # Can be a URL, a local path in the plugin directory, or the
+            # name of a MUI icon: https://marella.me/material-icons/demo
+            icon="/assets/icon.svg",
+            light_icon="developer_mode",  # light theme only
+            dark_icon="developer_mode",  # dark theme only
+            # Whether to allow multiple instances of the panel to be opened
+            allow_multiple=False,
+        )
+
+    def render(self, ctx):
+        """Implement this method to define your panel's layout and events.
+
+        This method is called after every panel event is executed (panel
+        load, button callback, context change event, etc).
+
+        Returns:
+            a `types.Property` defining the panel's components
+        """
+        panel = types.Object()
+
+        brain_keys = ctx.panel.get_state("brain_keys", [])
+
+        # Define a menu of actions for the panel
+        menu = panel.menu("menu", variant="square", color="51")
+        menu.enum(
+            "brain_key",
+            label="Choose a brain key",  # placeholder text
+            values=brain_keys,
+            on_change=self.on_change_brain_key,  # custom event callback
+        )
+        menu.btn(
+            "learn_more",
+            label="Learn more",  # tooltip text
+            icon="help",  # material UI icon
+            on_click=self.on_click_learn_more,  # custom event callback
+        )
+
+        # Define components that appear in the panel's main body
+        panel.str("event", label="The last event", view=types.LabelValueView())
+        panel.obj(
+            "event_data", label="The last event data", view=types.JSONView()
+        )
+
+        # Display a checkbox to toggle between plot and compute visualization button
+        show_compute_visualization_btn = ctx.panel.get_state(
+            "show_start_button", True
+        )
+        panel.bool(
+            "show_start_button",
+            label="Show compute visualization button",
+            on_change=self.on_change_show_start_button,
+        )
+
+        # You can use conditional logic to dynamically change the layout
+        # based on the current panel state
+        if show_compute_visualization_btn:
+            # Define a button with a custom on click event
+            panel.btn(
+                "start",
+                label="Compute visualization",  # button text
+                on_click=self.on_click_start,  # custom event callback
+                variant="contained",  # button style
+            )
+        else:
+            # Define an interactive plot with custom callbacks
+            panel.plot(
+                "embeddings",
+                config={},  # plotly config
+                layout={},  # plotly layout config
+                on_selected=self.on_selected_embeddings,  # custom event callback
+                height="400px",
+            )
+
+        return types.Property(
+            panel, view=types.GridView(orientation="vertical")
+        )
+
+    #######################################################################
+    # Builtin events
+    #######################################################################
+
+    def on_load(self, ctx):
+        """Implement this method to set panel state/data when the panel
+        initially loads.
+        """
+        event = {
+            "data": None,
+            "description": "the panel is loaded",
+        }
+        ctx.panel.set_state("event", "on_load")
+        ctx.panel.set_data("event_data", event)
+
+        # Get the list of brain keys to populate `brain_key` dropdown
+        visualization_keys = ctx.dataset.list_brain_runs()
+        ctx.panel.set_state("brain_keys", visualization_keys)
+
+        # Show compute visualization button by default
+        ctx.panel.set_state("show_start_button", True)
+
+    def on_unload(self, ctx):
+        """Implement this method to set panel state/data when the panel is
+        being closed.
+        """
+        event = {
+            "data": None,
+            "description": "the panel is unloaded",
+        }
+        ctx.panel.set_state("event", "on_unload")
+        ctx.panel.set_data("event_data", event)
+
+    def on_change_ctx(self, ctx):
+        """Implement this method to set panel state/data when any aspect
+        of the execution context (view, selected samples, filters, etc.) changes.
+
+        The current execution context will be available via ``ctx``.
+        """
+        event = {
+            "data": {
+                "view": ctx.view._serialize(),
+                "selected": ctx.selected,
+                "has_custom_view": ctx.has_custom_view,
+            },
+            "description": "the current ExecutionContext",
+        }
+        ctx.panel.set_state("event", "on_change_ctx")
+        ctx.panel.set_data("event_data", event)
+
+    def on_change_dataset(self, ctx):
+        """Implement this method to set panel state/data when the current
+        dataset is changed.
+
+        The new dataset will be available via ``ctx.dataset``.
+        """
+        event = {
+            "data": ctx.dataset.name,
+            "description": "the current dataset name",
+        }
+        ctx.panel.set_state("event", "on_change_dataset")
+        ctx.panel.set_data("event_data", event)
+
+    def on_change_view(self, ctx):
+        """Implement this method to set panel state/data when the current
+        view is changed.
+
+        The new view will be available via ``ctx.view``.
+        """
+        event = {
+            "data": ctx.view._serialize(),
+            "description": "the current view",
+        }
+        ctx.panel.set_state("event", "on_change_view")
+        ctx.panel.set_data("event_data", event)
+
+    def on_change_current_sample(self, ctx):
+        """Implement this method to set panel state/data when a new sample
+        is loaded in the Sample modal.
+
+        The ID of the new sample will be available via
+        ``ctx.current_sample``.
+        """
+        event = {
+            "data": ctx.current_sample,
+            "description": "the current sample",
+        }
+        ctx.panel.set_state("event", "on_change_current_sample")
+        ctx.panel.set_data("event_data", event)
+
+    def on_change_selected(self, ctx):
+        """Implement this method to set panel state/data when the current
+        selection changes (eg in the Samples panel).
+
+        The IDs of the current selected samples will be available via
+        ``ctx.selected``.
+        """
+        event = {
+            "data": ctx.selected,
+            "description": "the current selection",
+        }
+        ctx.panel.set_state("event", "on_change_selected")
+        ctx.panel.set_data("event_data", event)
+
+    def on_change_selected_labels(self, ctx):
+        """Implement this method to set panel state/data when the current
+        selected labels change (eg in the Sample modal).
+
+        Information about the current selected labels will be available
+        via ``ctx.selected_labels``.
+        """
+        event = {
+            "data": ctx.selected_labels,
+            "description": "the current selected labels",
+        }
+        ctx.panel.set_state("event", "on_change_selected_labels")
+        ctx.panel.set_data("event_data", event)
+
+    def on_change_extended_selection(self, ctx):
+        """Implement this method to set panel state/data when the current
+        extended selection changes.
+
+        The IDs of the current extended selection will be available via
+        ``ctx.extended_selection``.
+        """
+        event = {
+            "data": ctx.extended_selection,
+            "description": "the current extended selection",
+        }
+        ctx.panel.set_state("event", "on_change_extended_selection")
+        ctx.panel.set_data("event_data", event)
+
+    #######################################################################
+    # Custom events
+    # These events are defined by user code above and, just like builtin
+    # events, take `ctx` as input and are followed by a call to render()
+    #######################################################################
+
+    def on_change_brain_key(self, ctx):
+        # Load expensive content based on current `brain_key`
+        brain_key = ctx.panel.get_state("menu.brain_key")
+        results = ctx.dataset.load_brain_results(brain_key)
+
+        # Format results for plotly
+        x, y = zip(*results.points.tolist())
+        ids = results.sample_ids
+
+        plot_data = [
+            {"x": x, "y": y, "ids": ids, "type": "scatter", "mode": "markers"}
+        ]
+
+        # Store large content as panel data for efficiency
+        ctx.panel.set_data("embeddings", plot_data)
+
+        # Show plot with embeddings data instead of the compute visualization button
+        ctx.panel.set_state("show_start_button", False)
+
+    def on_click_start(self, ctx):
+        # Launch an interactive prompt for user to execute an operator
+        ctx.prompt("@voxel51/brain/compute_visualization")
+
+        # Lightweight state update
+        ctx.panel.set_state("show_start_button", False)
+
+    def on_click_learn_more(self, ctx):
+        # Trigger a builtin operation via `ctx.ops`
+        url = "https://docs.voxel51.com/plugins/developing_plugins.html"
+        ctx.ops.notify(f"Check out {url} for more information")
+
+    def on_selected_embeddings(self, ctx):
+        # Get selected points from event params
+        selected_points = ctx.params.get("data", [])
+        selected_sample_ids = [d.get("id", None) for d in selected_points]
+
+        # Conditionally trigger a builtin operation via `ctx.ops`
+        if len(selected_sample_ids) > 0:
+            ctx.ops.set_extended_selection(selected_sample_ids)
+
+    def on_change_show_start_button(self, ctx):
+        # Get current state of the checkbox on change
+        current_state = ctx.params.get("value", None)
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +1063,4 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(ExampleFullPanel)
