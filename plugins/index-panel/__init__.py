@@ -1,7 +1,20 @@
 import eta.core.utils as etau
 import fiftyone as fo
+import fiftyone.core.media as fom
 import fiftyone.operators as foo
 from fiftyone.operators import types
+
+
+_INDEXABLE_FIELDS = (
+    fo.IntField,
+    fo.ObjectIdField,
+    fo.BooleanField,
+    fo.DateField,
+    fo.DateTimeField,
+    fo.FloatField,
+    fo.StringField,
+    fo.ListField,
+)
 
 
 def _get_existing_indexes(ctx):
@@ -31,6 +44,43 @@ def _get_droppable_indexes(ctx):
     index_names = set(ctx.dataset.list_indexes())
     index_names -= set(_get_default_indexes(ctx))
     return sorted(index_names)
+
+
+def _get_indexable_paths(ctx):
+    schema = ctx.view.get_field_schema(flat=True)
+    if ctx.view._has_frame_fields():
+        schema.update(
+            {
+                "frames." + k: v
+                for k, v in ctx.view.get_frame_field_schema(flat=True).items()
+            }
+        )
+
+    paths = set()
+    for path, field in schema.items():
+        # Skip non-leaf paths
+        if any(p.startswith(path + ".") for p in schema.keys()):
+            continue
+
+        if isinstance(field, _INDEXABLE_FIELDS):
+            paths.add(path)
+
+    # Discard paths within dicts
+    for path, field in schema.items():
+        if isinstance(field, fo.DictField):
+            for p in list(paths):
+                if p.startswith(path + "."):
+                    paths.discard(p)
+
+    # Discard fields that are already indexed
+    for index_name in ctx.dataset.list_indexes():
+        paths.discard(index_name)
+
+    # Discard fields that are already being newly indexed
+    for obj in ctx.params.get("create", []):
+        paths.discard(obj.get("field_name", None))
+
+    return sorted(paths)
 
 
 class IndexPanel(foo.Panel):
@@ -72,14 +122,15 @@ class IndexPanel(foo.Panel):
 
         ctx.panel.state.table = rows
 
-    def on_button_click(self, ctx):
+    def on_refresh_button_click(self, ctx):
         self._build_view(ctx)
 
     def on_load(self, ctx):
-        ctx.panel.state.selection = None
+        ctx.panel.state.drop_selection = None
         self._build_view(ctx)
 
     def build_drop_index_view(self, ctx, dropdown):
+        dropdown._choices = []
         indexes = _get_droppable_indexes(ctx)
         for index in indexes:
             dropdown.add_choice(
@@ -88,19 +139,55 @@ class IndexPanel(foo.Panel):
                 description=f"Index {index}",
             )
 
-    def alter_selection(self, ctx):
-        ctx.panel.state.selection = ctx.params["value"]
+    def drop_selection(self, ctx):
+        ctx.panel.state.drop_selection = ctx.params["value"]
 
     def drop_index(self, ctx):
         # msg = str(ctx.params)
-        if ctx.panel.state.selection is None:
+        if ctx.panel.state.drop_selection is None:
             ctx.ops.notify("Please select an index to drop", variant="error")
         else:
-            index_name = str(ctx.panel.state.selection)
+            index_name = str(ctx.panel.state.drop_selection)
             ctx.dataset.drop_index(index_name)
             msg = f"Index {index_name} has been dropped."
-            ctx.panel.state.selection = None
+            ctx.panel.state.drop_selection = None
             ctx.ops.notify(msg, variant="success")
+
+    def build_create_index_view(self, ctx, dropdown):
+        dropdown._choices = []
+        indexes = _get_indexable_paths(ctx)
+        for index in indexes:
+            dropdown.add_choice(
+                index,
+                label=index,
+                description=f"Index {index}",
+            )
+
+    def refresh(self, ctx):
+        self._build_view(ctx)
+
+    def create_selection(self, ctx):
+        ctx.panel.state.create_selection = ctx.params["value"]
+
+    def create_index(self, ctx):
+        field_name = ctx.panel.state.create_selection
+        if field_name is None:
+            ctx.ops.notify(
+                "Please select a field to create index", variant="error"
+            )
+        else:
+            unique = False
+            ctx.dataset.create_index(field_name, unique=unique)
+
+            if ctx.dataset.media_type == fom.GROUP:
+                index_spec = [
+                    (ctx.dataset.group_field + ".name", 1),
+                    (field_name, 1),
+                ]
+                ctx.dataset.create_index(index_spec, unique=unique)
+
+            ctx.ops.notify(f"Successfully created index {field_name}")
+            self.refresh(ctx)
 
     def render(self, ctx):
         panel = types.Object()
@@ -118,20 +205,38 @@ class IndexPanel(foo.Panel):
             label=f"Available index for dataset: {ctx.dataset.name}",
         )
 
-        menu = panel.menu("menu", variant="square", color="secondary")
-        dropdown = types.DropdownView()
-        self.build_drop_index_view(ctx, dropdown)
-
-        # Add dropdown menu to the panel as a view
-        menu.str(
-            "dropdown",
-            view=dropdown,
-            label="Dropdown Menu",
-            on_change=self.alter_selection,
+        create_index_menu = panel.menu(
+            "create_menu", variant="square", color="secondary"
         )
+        create_index = types.DropdownView()
+        self.build_create_index_view(ctx, create_index)
+
+        panel.btn("add_btn", label="Create index", on_click=self.create_index)
+        create_index_menu.str(
+            "dropdown",
+            view=create_index,
+            label="Create Index Menu",
+            on_change=self.create_selection,
+        )
+
+        drop_index_menu = panel.menu(
+            "drop_menu", variant="square", color="secondary"
+        )
+        drop_index = types.DropdownView()
+        self.build_drop_index_view(ctx, drop_index)
+
+        drop_index_menu.str(
+            "dropdown",
+            view=drop_index,
+            label="Drop Index Menu",
+            on_change=self.drop_selection,
+        )
+
         panel.btn("drop_btn", label="Drop index", on_click=self.drop_index)
         panel.btn(
-            "refresh_btn", label="Refresh", on_click=self.on_button_click
+            "refresh_btn",
+            label="Refresh",
+            on_click=self.on_refresh_button_click,
         )
 
         return types.Property(panel, view=types.ObjectView())
