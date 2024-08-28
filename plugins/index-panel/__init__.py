@@ -120,6 +120,10 @@ class IndexPanel(foo.Panel):
                 }
             )
 
+        rows = sorted(
+            rows, key=lambda x: (x["Default"] == "False", x["Field Name"])
+        )
+
         ctx.panel.state.table = rows
 
     def on_refresh_button_click(self, ctx):
@@ -164,6 +168,8 @@ class IndexPanel(foo.Panel):
             )
 
     def refresh(self, ctx):
+        ctx.panel.state.create_selection = None
+        ctx.panel.state.drop_selection = None
         self._build_view(ctx)
 
     def create_selection(self, ctx):
@@ -187,6 +193,7 @@ class IndexPanel(foo.Panel):
                 ctx.dataset.create_index(index_spec, unique=unique)
 
             ctx.ops.notify(f"Successfully created index {field_name}")
+            ctx.panel.state.create_selection = None
             self.refresh(ctx)
 
     def render(self, ctx):
