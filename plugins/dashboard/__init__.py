@@ -50,6 +50,9 @@ class DashboardPanel(foo.Panel):
         )
 
     def on_load(self, ctx):
+        # There are several places where we are clearing state.items
+        # this is a workaround to a core issue that once fixed this can be removed
+        # See https://github.com/voxel51/fiftyone-plugins/pull/153 for more details
         ctx.panel.state.items = None
         dashboard_state = DashboardState(ctx)
         dashboard_state.load_all_plot_data()
