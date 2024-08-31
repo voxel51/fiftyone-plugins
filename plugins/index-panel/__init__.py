@@ -2,6 +2,7 @@ import eta.core.utils as etau
 import fiftyone as fo
 import fiftyone.core.media as fom
 import fiftyone.operators as foo
+import fiftyone.core.odm as fod
 from fiftyone.operators import types
 
 
@@ -175,30 +176,49 @@ class IndexPanel(foo.Panel):
     def create_selection(self, ctx):
         ctx.panel.state.create_selection = ctx.params["value"]
 
+    def _create_index(self, ctx, name_or_spec, unique=False):
+        try:
+            ctx.dataset.create_index(name_or_spec, unique=unique, wait=False)
+        except Exception as e:
+            msg = str(e)
+            if "wait" in msg:
+                ctx.dataset.create_index(name_or_spec, unique=unique)
+
     def create_index(self, ctx):
         field_name = ctx.panel.state.create_selection
         if field_name is None:
             ctx.ops.notify(
-                "Please select a field to create index", variant="error"
+                "Please select a field to create index.", variant="error"
             )
         else:
             unique = False
-            ctx.dataset.create_index(field_name, unique=unique)
+            self._create_index(ctx, field_name, unique=unique)
 
             if ctx.dataset.media_type == fom.GROUP:
                 index_spec = [
                     (ctx.dataset.group_field + ".name", 1),
                     (field_name, 1),
                 ]
-                ctx.dataset.create_index(index_spec, unique=unique)
+                self._create_index(ctx, index_spec, unique=unique)
 
-            ctx.ops.notify(f"Successfully created index {field_name}")
             ctx.panel.state.create_selection = None
+            ctx.ops.notify(f"Successfully created index {field_name}")
             self.refresh(ctx)
 
     def render(self, ctx):
+        conn = fod.get_db_conn()
+        db_info = conn.command("dbstats")
+
         panel = types.Object()
-        panel.md("#### Index panel")
+        panel.md(
+            "#### Index panel \n"
+            "\n"
+            "This panel allows you to manage indexes for the dataset.\n"
+            "\n"
+            f"Data size: {etau.to_human_bytes_str(db_info['dataSize'])} \n"
+            "\n"
+            f"Storage size: {etau.to_human_bytes_str(db_info['storageSize'])}"
+        )
         table = types.TableView()
         table.add_column("Field Name", label="Field name")
         table.add_column("Size", label="Size")
@@ -209,7 +229,7 @@ class IndexPanel(foo.Panel):
             "table",
             types.Object(),
             view=table,
-            label=f"Available index for dataset: {ctx.dataset.name}",
+            label=f"Available indexes for dataset: {ctx.dataset.name}",
         )
 
         create_index_menu = panel.menu(
