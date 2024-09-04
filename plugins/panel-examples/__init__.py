@@ -7,6 +7,8 @@ Example panels.
 """
 import os
 
+import json
+
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone import ViewField as F
@@ -22,9 +24,11 @@ class CounterExample(foo.Panel):
 
     def on_load(self, ctx):
         ctx.panel.state.my_count = 0
+        ctx.panel.data.info = {"foo": "bar"}
 
     def increment(self, ctx):
         ctx.panel.state.my_count += 1
+        ctx.panel.set_data("info.bat", "baz")
 
     def decrement(self, ctx):
         ctx.panel.state.my_count -= 1
@@ -64,6 +68,7 @@ class CounterExample(foo.Panel):
 
         # Add counter info to panel
         panel.message("my_count", f"Count: {ctx.panel.state.my_count}")
+        panel.obj("info", view=types.JSONView())
 
         return types.Property(
             panel,
@@ -490,6 +495,15 @@ class InteractivePlotExample(foo.Panel):
     def on_histogram_click(self, ctx):
         # The histogram bar that the user clicked
         x = ctx.params.get("x")
+        idx = ctx.params.get("idx")
+        has_shift = ctx.params.get("shift_pressed", False)
+        if idx:
+            if has_shift:
+                selected = ctx.panel.state.get("histogram.selectedpoints", [])
+                selected.append(idx)
+                ctx.panel.set_state("histogram.selectedpoints", selected)
+            else:
+                ctx.panel.set_state("histogram.selectedpoints", [idx])
 
         # Create a view that matches the selected histogram bar
         field = ctx.panel.state.target_field
@@ -502,6 +516,24 @@ class InteractivePlotExample(foo.Panel):
     def reset(self, ctx):
         ctx.ops.clear_view()
         self.on_load(ctx)
+
+    def on_selected(self, ctx):
+        selected = ctx.params.get("data")
+        print(selected)
+        if len(selected) == 0:
+            return
+        selected_idx = [point["idx"] for point in selected]
+        if len(selected_idx) > 0:
+            ctx.panel.set_state("histogram.selectedpoints", selected_idx)
+            values = [p.get("x") for p in selected]
+            view = _make_matching_view_for_values(
+                ctx.dataset, ctx.panel.state.target_field, values
+            )
+            ctx.ops.set_view(view)
+
+    def on_double_click(self, ctx):
+        ctx.panel.set_state("histogram.selectedpoints", None)
+        ctx.ops.clear_view()
 
     def render(self, ctx):
         panel = types.Object()
@@ -519,6 +551,8 @@ class InteractivePlotExample(foo.Panel):
                 "yaxis": {"title": "Count"},
             },
             on_click=self.on_histogram_click,
+            on_selected=self.on_selected,
+            on_double_click=self.on_double_click,
             width=100,
         )
 
@@ -551,6 +585,16 @@ def _make_matching_view(dataset, field, value):
         return dataset.match_tags(value)
     else:
         return dataset.match(F(field) == value)
+
+
+def _make_matching_view_for_values(dataset, field, values):
+    if field.endswith(".label"):
+        root_field = field.split(".")[0]
+        return dataset.filter_labels(root_field, F("label").is_in(values))
+    elif field == "tags":
+        return dataset.match_tags(values)
+    else:
+        return dataset.match(F(field).is_in(values))
 
 
 class DropdownMenuExample(foo.Panel):
@@ -782,6 +826,75 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+class PlotPlayground(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="plot_playground",
+            label="Plot Playground",
+        )
+
+    def on_load(self, ctx):
+        plot_data = {}
+        ctx.panel.state.plot_data = plot_data
+        ctx.panel.state.last_event = None
+        ctx.panel.set_state("grid.last_event_params", {})
+
+    def update_plot(self, ctx):
+        plot_data = json.loads(ctx.panel.get_state("grid.plot_data_src"))
+        ctx.panel.set_state("plot_data", plot_data)
+
+    def handle_event(self, ctx):
+        ctx.panel.state.last_event = ctx.params["event"]
+        event_data = {}
+        event = ctx.params["event"]
+        if event == "onClick":
+            event_data = {
+                "x": ctx.params.get("x", None),
+                "y": ctx.params.get("y", None),
+                "z": ctx.params.get("z", None),
+                "idx": ctx.params.get("idx", None),
+                "id": ctx.params.get("id", None),
+                "shift_pressed": ctx.params.get("shift_pressed", False),
+                "trace": ctx.params.get("trace", None),
+                "trace_idx": ctx.params.get("trace_idx", None),
+                "data": ctx.params.get("data", None),
+                "value": ctx.params.get("value", None),
+                "label": ctx.params.get("label", None),
+            }
+        else:
+            event_data = {"data": ctx.params.get("data", None)}
+        ctx.panel.set_state("grid.last_event_params", event_data)
+
+    def render(self, ctx):
+        panel = types.Object()
+
+        events = {
+            "on_click": self.handle_event,
+            "on_selected": self.handle_event,
+            "on_double_click": self.handle_event,
+        }
+
+        panel.plot("plot_data", label="Plotly Panel", **events)
+        panel.str("last_event", label="Last Event")
+        grid = panel.grid("grid", gap=2, orientation="horizontal")
+        grid.str(
+            "plot_data_src", view=types.CodeView(language="json", width=50)
+        )
+        grid.obj("last_event_params", view=types.JSONView(width=50))
+        panel.btn(
+            "update_plot", label="Update Plot", on_click=self.update_plot
+        )
+
+        return types.Property(
+            panel,
+            view=types.GridView(
+                align_x="center",
+                orientation="vertical",
+            ),
+        )
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +907,4 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(PlotPlayground)
