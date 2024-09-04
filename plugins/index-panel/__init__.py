@@ -1,3 +1,5 @@
+import psutil
+
 import eta.core.utils as etau
 import fiftyone as fo
 import fiftyone.core.media as fom
@@ -16,6 +18,33 @@ _INDEXABLE_FIELDS = (
     fo.StringField,
     fo.ListField,
 )
+
+
+def _get_mongodb_memory_usage():
+    # Function to get memory usage of MongoDB
+    memory_usage = 0
+
+    # Iterate over all processes
+    for proc in psutil.process_iter(["pid", "name", "memory_info"]):
+        try:
+            # Check if process name is MongoDB
+            if proc.info["name"] == "mongod":
+                memory_info = proc.memory_info()
+                memory_usage += memory_info.rss
+                # RSS (Resident Set Size) - physical memory usage
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+        ):
+            pass
+
+    if memory_usage > 0:
+        # Convert memory usage to MB
+        memory_usage = memory_usage / (1024**2)
+        return f"{memory_usage:.2F} MB"
+    else:
+        return "N/A"
 
 
 def _get_existing_indexes(ctx):
@@ -209,15 +238,27 @@ class IndexPanel(foo.Panel):
         conn = fod.get_db_conn()
         db_info = conn.command("dbstats")
 
+        data_size = etau.to_human_bytes_str(db_info["dataSize"])
+        storage_size = etau.to_human_bytes_str(db_info["storageSize"])
+        memory_usage = _get_mongodb_memory_usage()
+
         panel = types.Object()
         panel.md(
             "#### Index panel \n"
             "\n"
             "This panel allows you to manage indexes for the dataset.\n"
+            "___\n"
+            f"MongoDB Data Size: {data_size} \n"
             "\n"
-            f"Data size: {etau.to_human_bytes_str(db_info['dataSize'])} \n"
+            f"MongoDB Storage Size: {storage_size}\n"
             "\n"
-            f"Storage size: {etau.to_human_bytes_str(db_info['storageSize'])}"
+            f"MongoDB Memory Usage: {memory_usage} \n"
+            "___\n"
+            "Warning: index creation for large datasets might lead to an"
+            " impact on database response time; please use your best"
+            " judgement and/or contact your database admin or IT staffs if you"
+            " have any question or concern.\n"
+            "___\n"
         )
         table = types.TableView()
         table.add_column("Field Name", label="Field name")
