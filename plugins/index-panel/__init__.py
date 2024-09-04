@@ -63,11 +63,13 @@ def _get_default_indexes(ctx):
 
 
 def _is_unique(name, index_info):
-    if name in ("id", "frames.id"):
-        # The `id` index is unique, but backend doesn't report it
-        # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/collections.py#L8552
-        return True
-    return index_info.get("unique", False)
+    # The `id` index is unique, but backend doesn't report it
+    # https://github.com/voxel51/fiftyone/blob/cebfdbbc6dae4e327d2c3cfbab62a73f08f2d55c/fiftyone/core/collections.py#L8552
+    return (
+        True
+        if name in ("id", "frames.id")
+        else index_info.get("unique", False)
+    )
 
 
 def _get_droppable_indexes(ctx):
@@ -118,8 +120,9 @@ class IndexPanel(foo.Panel):
     def config(self):
         return foo.PanelConfig(
             name="index_panel",
-            label="Index Panel",
-            description="A simple panel manages index",
+            label="Index Management Panel",
+            description="A simple panel allows users to create and drop"
+            " indexes for the dataset.",
             help_markdown="My plugin",
             surfaces="grid",
             icon="/assets/icon-light.svg",
@@ -177,7 +180,6 @@ class IndexPanel(foo.Panel):
         ctx.panel.state.drop_selection = ctx.params["value"]
 
     def drop_index(self, ctx):
-        # msg = str(ctx.params)
         if ctx.panel.state.drop_selection is None:
             ctx.ops.notify("Please select an index to drop", variant="error")
         else:
@@ -244,7 +246,7 @@ class IndexPanel(foo.Panel):
 
         panel = types.Object()
         panel.md(
-            "#### Index panel \n"
+            "#### Index Management Panel \n"
             "\n"
             "This panel allows you to manage indexes for the dataset.\n"
             "___\n"
@@ -261,7 +263,7 @@ class IndexPanel(foo.Panel):
             "___\n"
         )
         table = types.TableView()
-        table.add_column("Field Name", label="Field name")
+        table.add_column("Field Name", label="Field Name")
         table.add_column("Size", label="Size")
         table.add_column("Unique", label="Unique")
         table.add_column("Default", label="Default")
