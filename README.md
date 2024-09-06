@@ -286,6 +286,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/clustering-plugin">@jacobmarks/clustering</a></b></td>
         <td>🍇 Cluster your images using embeddings with FiftyOne and scikit-learn!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/segments-ai/segments-voxel51-plugin">@segmentsai/segments-voxel51-plugin</a></b></td>
+        <td>✏️ Integrate FiftyOne with the Segments.ai annotation tool!</td>
+    </tr>
 </table>
 
 ## Using Plugins
