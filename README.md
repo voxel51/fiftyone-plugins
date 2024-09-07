@@ -151,6 +151,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/segments-ai/segments-voxel51-plugin">@segmentsai/segments-voxel51-plugin</a></b></td>
+        <td>✏️ Integrate FiftyOne with the Segments.ai annotation tool!</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/jacobmarks/image-quality-issues">@jacobmarks/image_issues</a></b></td>
         <td>🌩️ Find common image quality issues in your datasets</td>
     </tr>
@@ -285,10 +289,6 @@ Want to showcase your own plugin here? See the
     <tr>
         <td><b><a href="https://github.com/jacobmarks/clustering-plugin">@jacobmarks/clustering</a></b></td>
         <td>🍇 Cluster your images using embeddings with FiftyOne and scikit-learn!</td>
-    </tr>
-    <tr>
-        <td><b><a href="https://github.com/segments-ai/segments-voxel51-plugin">@segmentsai/segments-voxel51-plugin</a></b></td>
-        <td>✏️ Integrate FiftyOne with the Segments.ai annotation tool!</td>
     </tr>
 </table>
 
