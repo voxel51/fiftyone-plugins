@@ -1,6 +1,6 @@
 name: "@voxel51/zoo"
 description: A collection of FiftyOne Zoo utilities
-version: 1.0.0
+version: 1.1.0
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/zoo
