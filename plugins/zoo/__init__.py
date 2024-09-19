@@ -129,7 +129,7 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         )
         caption = None
     else:
-        # Older FiftyOne versions didn't support markdown descriptions
+        # Can remove this code path if we require fiftyone>=1.0.0
         description = (
             "The name of the dataset to load from the FiftyOne Dataset Zoo"
         )
@@ -207,6 +207,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         else:
             zoo_dataset = _get_builtin_zoo_dataset(ctx, inputs)
     else:
+        # Can remove this code path if we require fiftyone>=1.0.0
         zoo_dataset = _get_builtin_zoo_dataset(ctx, inputs)
 
     if zoo_dataset is None:
@@ -676,6 +677,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
             source = None
             manifest = fozm._list_zoo_models()
     else:
+        # Can remove this code path if we require fiftyone>=1.0.0
         source = None
         manifest = fozm._load_zoo_models_manifest()
 
@@ -722,7 +724,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
             )
         caption = None
     else:
-        # Older FiftyOne versions didn't support markdown descriptions
+        # Can remove this code path if we require fiftyone>=1.0.0
         description = (
             "The name of a model from the FiftyOne Model Zoo to apply"
         )
