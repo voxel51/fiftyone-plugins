@@ -10,6 +10,10 @@ import os
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone import ViewField as F
+import random
+import numpy as np
+
+from bson import ObjectId
 
 
 class CounterExample(foo.Panel):
@@ -57,7 +61,6 @@ class CounterExample(foo.Panel):
             "say_hi",
             icon="emoji_people",
             label="Say hi!",
-            on_click=self.say_hi,
             variant="contained",
             color="white",
         )
@@ -85,32 +88,44 @@ class PlotExample(foo.Panel):
         )
 
     def on_load(self, ctx):
-        # set plot data with object
-        plot_data = {
-            "z": [
-                [1, None, 30, 50, 1],
-                [20, 1, 60, 80, 30],
-                [30, 60, 1, -10, 20],
-            ],
-            "x": [
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-            ],
-            "y": ["Morning", "Afternoon", "Evening"],
-            "type": "heatmap",
-            "hoverongaps": False,
-        }
+        # create data for a plotly heatmap
+        ctx.panel.data.data = [
+            {
+                "z": [
+                    [1, 20, 30],
+                    [20, 1, 60],
+                    [30, 60, 1],
+                ],
+                "type": "heatmap",
+                "colorscale": "Viridis",
+                "selectedpoints": [[0, 0]],
+            }
+        ]
 
-        ctx.panel.data.data = plot_data
+    def on_click(self, ctx):
+        z = [
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0],
+        ]
+        x = ctx.params.get("x", 0)
+        y = ctx.params.get("y", 0)
+        z[y][x] = 1
+        ctx.panel.set_data("data[0].z", z)
+
+    def on_double_click(self, ctx):
+        self.on_load(ctx)
 
     def render(self, ctx):
         panel = types.Object()
 
         # grab data field from state and render it in a plotly view
-        panel.plot("data", label="Plotly Panel")  # shortcut for plot creation
+        panel.plot(
+            "data",
+            label="Plotly Panel",
+            on_click=self.on_click,
+            on_double_click=self.on_double_click,
+        )  # shortcut for plot creation
 
         return types.Property(
             panel,
@@ -782,6 +797,155 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+EXAMPLE_DATA = {
+    "x": [random.randint(1, 100) for _ in range(50)],
+    "y": [random.randint(1, 100) for _ in range(50)],
+}
+
+
+class MyAnimatedPanel(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_animated_plot",
+            label="Examples: Animated Plot",
+            surfaces="modal",
+        )
+
+    def on_load(self, ctx):
+        if not ctx.current_sample:
+            return
+        current_sample = ctx.dataset[ctx.current_sample]
+        frames = ctx.dataset.match(
+            F("_sample_id") == ObjectId(current_sample.sample_id)
+        )
+
+        counts = []
+        for frame in frames:
+            frame_detections = frame.detections
+            counts.append(len(frame_detections.detections))
+        #   counts = []
+        #   for frame_idx in current_sample.frames:
+        #     print(frame_idx)
+        #     frame_info = current_sample.frames[frame_idx]
+        #     frame_detections = frame_info.detections
+        #     counts.append(len(frame_detections.detections))
+
+        ctx.panel.state.plot = {
+            "type": "bar",
+            "y": counts,
+            "x": list(range(len(counts))),
+        }
+
+    def on_change_current_sample(self, ctx):
+        self.on_load(ctx)
+
+    def render(self, ctx):
+        panel = types.Object()
+        # define a hidden view that handles loading frames
+        panel.obj(
+            "frame_data",
+            timeline_id="something",
+            hidden=True,
+            view=types.FrameLoaderView(
+                on_load_range=self.on_load_range, target="plot.selectedpoints"
+            ),
+        )
+        # define a property that will be updated by the FrameLoader
+        panel.plot("plot", on_click=self.on_click_plot, height=100, width=100)
+        return types.Property(
+            panel,
+            view=types.GridView(
+                align_x="center", align_y="center", orientation="vertical"
+            ),
+        )
+
+    def on_load_range(self, ctx):
+        # # this would be called by the FrameLoader via the timeline hooks
+        # r = ctx.params.get("range", [0, 0])
+        # rendered_frames = []
+        # # build the animation
+        # for i in range(0, 50):
+        #   rendered_frames.append(self.render_frame(i))
+
+        # # this sends the rendered frames to the panel
+        # # which will be used by the FrameLoader to update the plot
+        # ctx.panel.data.frame_data = {
+        #   "frames": rendered_frames,
+        #   "range": r # should be the range
+        # }
+        current_sample = ctx.dataset[ctx.current_sample]
+        num_frames = 120  # TODO: fix me
+        frame_data = []
+        for i in range(0, num_frames):
+            rendered_frame = self.render_frame(i)
+            frame_data.append(rendered_frame)
+        ctx.panel.data.frame_data = {
+            "frames": frame_data,
+            "range": [0, num_frames],
+        }
+
+    def on_click_plot(self, ctx):
+        ctx.ops.notify(
+            f"You clicked on the plot! x = {ctx.params.get('x')}",
+            variant="info",
+        )
+
+    def render_frame(self, frame):
+        # x = np.linspace(0, 10, 50)
+        # y = np.sin(x + frame * 0.2)
+
+        # x = x.tolist()
+        # y = y.tolist()
+
+        # plot = {
+        #     "type": "bar",
+        #     "x": x,
+        #     "y": y,
+        #     "selectedpoints": [frame % 50]
+        # }
+
+        return [frame]
+
+
+class ImageOrderExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_image_order", label="Examples: Image Order"
+        )
+
+    def on_load(self, ctx):
+        image_state = {}
+        for index, sample in enumerate(ctx.dataset.limit(10)):
+            image_path = (
+                f"http://localhost:5151/media?filepath={sample.filepath}"
+            )
+            image_state[f"image{index}"] = image_path
+        ctx.panel.state.images = image_state
+
+    def render(self, ctx):
+        panel = types.Object()
+        dashboard_view = types.DashboardView(
+            allow_remove=False,
+            width=100,
+            height=100,
+        )
+        images = types.Object()
+        for key, value in ctx.panel.state.images.items():
+            images.view(key, view=types.ImageView(width=300))
+
+        panel.add_property(
+            "images", types.Property(images, view=dashboard_view)
+        )
+        return types.Property(
+            panel,
+            view=types.GridView(
+                align_x="center", align_y="center", orientation="vertical"
+            ),
+        )
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +958,5 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(MyAnimatedPanel)
+    p.register(ImageOrderExample)
