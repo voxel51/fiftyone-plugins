@@ -1077,6 +1077,135 @@ class RenameDataset(foo.Operator):
             dataset.name = new_name
 
 
+class CloneDataset(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="clone_dataset",
+            label="Clone dataset",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _get_clone_dataset_inputs(ctx, inputs)
+
+        return types.Property(inputs, view=types.View(label="Clone dataset"))
+
+    def execute(self, ctx):
+        name = ctx.params["name"]
+        new_name = ctx.params["new_name"]
+        persistent = ctx.params.get("persistent", True)
+        target = ctx.params.get("target", None)
+
+        if ctx.dataset.name == name:
+            sample_collection = _get_target_view(ctx, target)
+        else:
+            dataset = fo.load_dataset(name)
+            if target == "DATASET_VIEW":
+                sample_collection = dataset.view()
+            else:
+                sample_collection = dataset
+
+        sample_collection.clone(new_name, persistent=persistent)
+
+        ctx.trigger("open_dataset", dict(dataset=new_name))
+
+
+def _get_clone_dataset_inputs(ctx, inputs):
+    datasets = sorted(fo.list_datasets())
+
+    dataset_choices = types.AutocompleteView()
+    for name in datasets:
+        dataset_choices.add_choice(name, label=name)
+
+    name_prop = inputs.enum(
+        "name",
+        datasets,
+        default=ctx.dataset.name,
+        required=True,
+        label="Dataset",
+        description="The dataset to clone",
+        view=dataset_choices,
+    )
+
+    name = ctx.params.get("name", None)
+    if name is None:
+        return
+    elif name not in datasets:
+        name_prop.invalid = True
+        name_prop = f"Invalid dataset name '{name}'"
+        return
+
+    target_choices = types.RadioGroup()
+    target_choices.add_choice(
+        "DATASET",
+        label="Entire dataset",
+        description="Clone the entire dataset",
+    )
+
+    target_choices.add_choice(
+        "DATASET_VIEW",
+        label="Dataset",
+        description="Clone the dataset (excluding views, workspaces, and runs)",
+    )
+
+    default_target = "DATASET"
+
+    if name == ctx.dataset.name:
+        has_view = ctx.view != ctx.dataset.view()
+        has_selected = bool(ctx.selected)
+
+        if has_view:
+            target_choices.add_choice(
+                "CURRENT_VIEW",
+                label="Current view",
+                description="Clone the current view",
+            )
+            default_target = "CURRENT_VIEW"
+
+        if has_selected:
+            target_choices.add_choice(
+                "SELECTED_SAMPLES",
+                label="Selected samples",
+                description="Clone the selected samples",
+            )
+            default_target = "SELECTED_SAMPLES"
+
+    inputs.enum(
+        "target",
+        target_choices.values(),
+        default=default_target,
+        view=target_choices,
+    )
+
+    new_name_prop = inputs.str(
+        "new_name",
+        required=True,
+        label="New name",
+        description="Choose a name for the new dataset",
+    )
+
+    new_name = ctx.params.get("new_name", None)
+    if new_name is None:
+        return
+
+    if new_name in datasets:
+        new_name_prop.invalid = True
+        new_name_prop.error_message = f"Dataset {new_name} already exists"
+
+    inputs.bool(
+        "persistent",
+        default=True,
+        required=True,
+        label="Persistent",
+        description="Whether to make the dataset persistent",
+    )
+
+
 class DeleteDataset(foo.Operator):
     @property
     def config(self):
@@ -1886,6 +2015,9 @@ def _get_target_view(ctx, target):
     if target == "SELECTED_SAMPLES":
         return ctx.view.select(ctx.selected)
 
+    if target == "DATASET_VIEW":
+        return ctx.dataset.view()
+
     if target == "DATASET":
         return ctx.dataset
 
@@ -2055,6 +2187,7 @@ def register(p):
     p.register(LoadDataset)
     p.register(EditDatasetInfo)
     p.register(RenameDataset)
+    p.register(CloneDataset)
     p.register(DeleteDataset)
     p.register(DeleteSamples)
     p.register(ApplySavedView)

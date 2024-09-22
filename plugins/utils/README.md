@@ -116,6 +116,23 @@ dataset.name = new_name
 
 where the operator's form allows you to configure the new name for the dataset.
 
+### clone_dataset
+
+You can use this operator to clone a dataset or your current view in the App.
+
+This operator is essentially a wrapper around the
+[clone()](https://docs.voxel51.com/api/fiftyone.core.dataset.html#fiftyone.core.dataset.Dataset.clone)
+method:
+
+```py
+new_dataset = dataset.clone(new_name)
+
+view = dataset.filter_labels(...)
+new_dataset = view.clone(new_name)
+```
+
+where the operator's form allows you to configure the new name for the dataset.
+
 ### delete_dataset
 
 You can use this operator to delete a dataset in the App.
