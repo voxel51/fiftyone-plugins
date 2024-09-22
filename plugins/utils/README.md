@@ -131,7 +131,7 @@ view = dataset.filter_labels(...)
 new_dataset = view.clone(new_name)
 ```
 
-where the operator's form allows you to configure the new name for the dataset.
+where the operator's form allows you to configure what dataset/view to clone.
 
 ### delete_dataset
 
