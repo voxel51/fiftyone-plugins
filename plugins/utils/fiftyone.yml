@@ -1,6 +1,6 @@
 name: "@voxel51/utils"
 description: A collection of utility operators
-version: 1.0.0
+version: 1.1.0
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/utils
@@ -10,6 +10,7 @@ operators:
   - load_dataset
   - edit_dataset_info
   - rename_dataset
+  - clone_dataset
   - delete_dataset
   - delete_samples
   - apply_saved_view
