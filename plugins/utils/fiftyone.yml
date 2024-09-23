@@ -14,7 +14,7 @@ operators:
   - delete_dataset
   - delete_samples
   - apply_saved_view
+  - reload_saved_view
   - compute_metadata
   - generate_thumbnails
   - delegate
-  - reload_saved_view
