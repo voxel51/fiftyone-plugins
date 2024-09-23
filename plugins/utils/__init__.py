@@ -11,6 +11,7 @@ import json
 import multiprocessing.dummy
 
 from bson import json_util
+import humanize
 
 import eta.core.utils as etau
 
@@ -2240,33 +2241,7 @@ class ReloadSavedView(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        saved_views = _get_generated_saved_views(ctx.dataset)
-
-        if saved_views:
-            view_choices = types.AutocompleteView()
-            for name in saved_views:
-                view_choices.add_choice(name, label=name)
-
-            if ctx.view.name in saved_views:
-                default = ctx.view.name
-            else:
-                default = None
-
-            inputs.enum(
-                "name",
-                view_choices.values(),
-                default=default,
-                required=True,
-                label="Saved view",
-                description="The name of a saved view to reload",
-                view=view_choices,
-            )
-        else:
-            warning = types.Warning(
-                label="This dataset has no saved views that need reloading"
-            )
-            prop = inputs.view("warning", warning)
-            prop.invalid = True
+        _get_reload_saved_view_inputs(ctx, inputs)
 
         view = types.View(label="Reload saved view")
         return types.Property(inputs, view=view)
@@ -2287,6 +2262,73 @@ class ReloadSavedView(foo.Operator):
         if ctx.view.name == view.name:
             ctx.trigger("set_view", params={"name": name})
             ctx.trigger("reload_dataset")
+
+
+def _get_reload_saved_view_inputs(ctx, inputs):
+    saved_views = _get_generated_saved_views(ctx.dataset)
+
+    if not saved_views:
+        warning = types.Warning(
+            label="This dataset has no saved views that need reloading"
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+        return
+
+    view_choices = types.AutocompleteView()
+    for name in saved_views:
+        view_choices.add_choice(name, label=name)
+
+    if ctx.view.name in saved_views:
+        default = ctx.view.name
+    else:
+        default = None
+
+    inputs.enum(
+        "name",
+        view_choices.values(),
+        default=default,
+        required=True,
+        label="Saved view",
+        description="The name of a saved view to reload",
+        view=view_choices,
+    )
+
+    name = ctx.params.get("name", None)
+    if name not in saved_views:
+        return
+
+    # @todo can remove this if we require `fiftyone>=1.0`
+    if not ctx.dataset.has_field("last_modified_at"):
+        return
+
+    last_modified_at = max(
+        ctx.dataset.last_modified_at,
+        ctx.dataset._get_last_modified_at(),
+    )
+    if ctx.dataset._contains_videos(any_slice=True):
+        last_modified_at = max(
+            last_modified_at,
+            ctx.dataset._get_last_modified_at(frames=True),
+        )
+
+    view_doc = ctx.dataset._get_saved_view_doc(name)
+
+    if last_modified_at > view_doc.last_modified_at:
+        dt = last_modified_at - view_doc.last_modified_at
+        dt_str = humanize.naturaldelta(dt)
+        view = types.Notice(
+            label=(
+                f"The '{name}' view may need to be reloaded. The dataset was "
+                f"last modified {dt_str} after the view was last updated"
+            )
+        )
+        inputs.view("notice", view)
+    else:
+        view = types.Success(
+            label=f"Saved view '{name}' appears to be up-to-date"
+        )
+        inputs.view("notice", view)
 
 
 def _get_generated_saved_views(dataset):
