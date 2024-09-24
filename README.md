@@ -292,11 +292,11 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/mmoollllee/fiftyone-tile">@mmoollllee/fiftyone-tile</a></b></td>
-        <td>Tile your highres images to squares in FiftyOne directly to train for small object detection purpose (e.g. with SAHI)</td>
+        <td>⬜ Tile your high resolution images to squares for training small object detection models</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/mmoollllee/fiftyone-timestamps">@mmoollllee/fiftyone-timestamps</a></b></td>
-        <td>Compute datetime related fields (sunrise, dawn, evening, weekdays,...) from samples filename or created_at date.</td>
+        <td>🕒 Compute datetime-related fields (sunrise, dawn, evening, weekday, ...) from your samples' filenames or creation dates</td>
     </tr>
 </table>
 
