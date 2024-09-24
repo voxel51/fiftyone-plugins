@@ -1510,6 +1510,8 @@ class ReloadSavedView(foo.Operator):
         view_doc.view_stages = [
             json_util.dumps(s) for s in view._serialize(include_uuids=False)
         ]
+        # `view_stages` may not have changed so we force `last_modified_at` to
+        # update just in case
         view_doc.last_modified_at = datetime.utcnow()
         view_doc.save()
 
@@ -1556,10 +1558,7 @@ def _get_reload_saved_view_inputs(ctx, inputs):
     if not ctx.dataset.has_field("last_modified_at"):
         return
 
-    last_modified_at = max(
-        ctx.dataset.last_modified_at,
-        ctx.dataset._get_last_modified_at(),
-    )
+    last_modified_at = ctx.dataset._get_last_modified_at()
     if ctx.dataset._contains_videos(any_slice=True):
         last_modified_at = max(
             last_modified_at,
@@ -1573,14 +1572,21 @@ def _get_reload_saved_view_inputs(ctx, inputs):
         dt_str = humanize.naturaldelta(dt)
         view = types.Notice(
             label=(
-                f"The '{name}' view may need to be reloaded. The dataset was "
-                f"last modified {dt_str} after the view was last updated"
+                f"Saved view '{name}' may need to be reloaded.\n\n"
+                f"The dataset's samples were last modified {dt_str} after the "
+                "view was generated."
             )
         )
         inputs.view("notice", view)
     else:
-        view = types.Success(
-            label=f"Saved view '{name}' appears to be up-to-date"
+        dt = view_doc.last_modified_at - last_modified_at
+        dt_str = humanize.naturaldelta(dt)
+        view = types.Notice(
+            label=(
+                f"Saved view '{name}' may not need to be reloaded.\n\n"
+                f"It was generated {dt_str} after the last known modification "
+                "to the dataset's current samples."
+            )
         )
         inputs.view("notice", view)
 
