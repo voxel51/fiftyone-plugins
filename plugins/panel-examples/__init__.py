@@ -836,8 +836,10 @@ class MyAnimatedPanel(foo.Panel):
             "y": counts,
             "x": list(range(len(counts))),
         }
+        ctx.panel.data.frame_data = None
 
     def on_change_current_sample(self, ctx):
+        print("on_change_current_sample", ctx.current_sample)
         self.on_load(ctx)
 
     def render(self, ctx):
@@ -877,13 +879,18 @@ class MyAnimatedPanel(foo.Panel):
         current_sample = ctx.dataset[ctx.current_sample]
         num_frames = 120  # TODO: fix me
         frame_data = []
-        for i in range(0, num_frames):
+        r = ctx.params.get("range", [0, 0])
+
+        print("range", r)
+
+        chunk = {}
+        for i in range(r[0], r[1]):
             rendered_frame = self.render_frame(i)
             frame_data.append(rendered_frame)
-        ctx.panel.data.frame_data = {
-            "frames": frame_data,
-            "range": [0, num_frames],
-        }
+            chunk[f"frame_data.frames[{i}]"] = rendered_frame
+
+        ctx.panel.set_data(chunk)
+        ctx.panel.set_state("frame_data.signature", str(r))
 
     def on_click_plot(self, ctx):
         ctx.ops.notify(
@@ -892,23 +899,10 @@ class MyAnimatedPanel(foo.Panel):
         )
 
     def render_frame(self, frame):
-        # x = np.linspace(0, 10, 50)
-        # y = np.sin(x + frame * 0.2)
-
-        # x = x.tolist()
-        # y = y.tolist()
-
-        # plot = {
-        #     "type": "bar",
-        #     "x": x,
-        #     "y": y,
-        #     "selectedpoints": [frame % 50]
-        # }
-
         return [frame]
 
 
-class ImageOrderExample(foo.Panel):
+class ImageOrderExample(foo.Panel):  #
     @property
     def config(self):
         return foo.PanelConfig(
