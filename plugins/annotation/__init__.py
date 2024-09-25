@@ -52,7 +52,6 @@ class RequestAnnotations(foo.Operator):
         kwargs.pop("schema_type")
         label_schema = kwargs.pop("label_schema", None)
         label_schema_fields = kwargs.pop("label_schema_fields", None)
-
         if label_schema:
             label_schema = json.loads(label_schema)
         elif label_schema_fields:
