@@ -1489,6 +1489,7 @@ class ReloadSavedView(foo.Operator):
                 types.Button(
                     label="Reload saved view",
                     icon="/assets/autorenew.svg",
+                    prompt=True,
                 ),
             )
 
