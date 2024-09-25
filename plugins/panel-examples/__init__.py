@@ -810,6 +810,7 @@ class MyAnimatedPanel(foo.Panel):
             name="example_animated_plot",
             label="Examples: Animated Plot",
             surfaces="modal",
+            reload_on_navigation=True,
         )
 
     def on_load(self, ctx):
