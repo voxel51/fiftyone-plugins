@@ -1522,12 +1522,8 @@ def get_embeddings(ctx, inputs, view, patches_field):
 
 
 def _get_zoo_models():
-    available_models = set()
-    for model in fozm._load_zoo_models_manifest():
-        if model.has_tag("embeddings"):
-            available_models.add(model.name)
-
-    return available_models
+    manifest, _ = fozm._load_zoo_models_manifest()
+    return {model.name for model in manifest if model.has_tag("embeddings")}
 
 
 def get_new_brain_key(
