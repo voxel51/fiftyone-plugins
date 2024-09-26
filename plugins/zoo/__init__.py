@@ -10,6 +10,7 @@ from collections import defaultdict
 import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
+from fiftyone.utils.github import GitHubRepository
 import fiftyone.zoo as foz
 import fiftyone.zoo.datasets as fozd
 import fiftyone.zoo.models as fozm
@@ -63,7 +64,16 @@ class LoadZooDataset(foo.Operator):
         ctx.trigger("open_dataset", dict(dataset=dataset.name))
 
 
+def _supports_remote_datasets():
+    return hasattr(fozd, "_list_zoo_datasets")
+
+
 def _get_zoo_datasets():
+    if _supports_remote_datasets():
+        return fozd._list_zoo_datasets()
+
+    # Can remove this code path if we require fiftyone>=1.0.0
+    # pylint: disable=no-value-for-parameter
     datasets_by_source = fozd._get_zoo_datasets()
     all_sources, _ = fozd._get_zoo_dataset_sources()
 
@@ -76,7 +86,7 @@ def _get_zoo_datasets():
     return zoo_datasets
 
 
-def _load_zoo_dataset_inputs(ctx, inputs):
+def _get_builtin_zoo_dataset(ctx, inputs):
     zoo_datasets = _get_zoo_datasets()
 
     datasets_by_tag = defaultdict(set)
@@ -111,22 +121,97 @@ def _load_zoo_dataset_inputs(ctx, inputs):
     for name in sorted(dataset_names):
         dataset_choices.add_choice(name, label=name)
 
+    if _supports_remote_datasets():
+        description = (
+            "The name of the dataset to load from the "
+            "[FiftyOne Dataset Zoo](https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html). "
+            "Also includes any remote datasets you've already downloaded"
+        )
+        caption = None
+    else:
+        # Can remove this code path if we require fiftyone>=1.0.0
+        description = (
+            "The name of the dataset to load from the FiftyOne Dataset Zoo"
+        )
+        caption = "https://docs.voxel51.com/user_guide/model_zoo/models.html"
+
     inputs.enum(
         "name",
         dataset_choices.values(),
         label="Zoo dataset",
-        description=(
-            "The name of the dataset to load from the FiftyOne Dataset Zoo"
-        ),
-        caption="https://docs.voxel51.com/user_guide/model_zoo/models.html",
+        description=description,
+        caption=caption,
         view=dataset_choices,
     )
 
     name = ctx.params.get("name", None)
     if name is None or name not in zoo_datasets:
-        return False
+        return None
 
-    zoo_dataset = zoo_datasets[name]
+    return zoo_datasets[name]
+
+
+def _get_remote_zoo_dataset(ctx, inputs):
+    instructions = """
+Provide a location to download the dataset from, which can be:
+
+-   A GitHub repo URL like `https://github.com/<user>/<repo>`
+-   A GitHub ref like
+`https://github.com/<user>/<repo>/tree/<branch>` or
+`https://github.com/<user>/<repo>/commit/<commit>`
+-   A GitHub ref string like `<user>/<repo>[/<ref>]`
+"""
+
+    inputs.str(
+        "remote_instructions",
+        default=instructions.strip(),
+        view=types.MarkdownView(read_only=True),
+    )
+
+    prop = inputs.str("name", required=True)
+
+    name = ctx.params.get("name", None)
+    if not name:
+        return None
+
+    try:
+        GitHubRepository(name)
+    except:
+        prop.invalid = True
+        prop.error_message = f"{name} is not a valid GitHub repo or identifier"
+        return None
+
+    try:
+        return fozd.get_zoo_dataset(name)
+    except Exception as e:
+        prop.invalid = True
+        prop.error_message = str(e)
+        return None
+
+
+def _load_zoo_dataset_inputs(ctx, inputs):
+    if _supports_remote_datasets():
+        tab_choices = types.TabsView()
+        tab_choices.add_choice("BUILTIN", label="Builtin")
+        tab_choices.add_choice("REMOTE", label="Remote")
+        inputs.enum(
+            "tab",
+            tab_choices.values(),
+            default="BUILTIN",
+            view=tab_choices,
+        )
+        tab = ctx.params.get("tab", "REMOTE")
+
+        if tab == "REMOTE":
+            zoo_dataset = _get_remote_zoo_dataset(ctx, inputs)
+        else:
+            zoo_dataset = _get_builtin_zoo_dataset(ctx, inputs)
+    else:
+        # Can remove this code path if we require fiftyone>=1.0.0
+        zoo_dataset = _get_builtin_zoo_dataset(ctx, inputs)
+
+    if zoo_dataset is None:
+        return False
 
     _get_source_dir(ctx, inputs, zoo_dataset)
 
@@ -176,7 +261,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         ),
     )
 
-    dataset_name = _get_zoo_dataset_name(ctx)
+    dataset_name = _get_zoo_dataset_name(ctx, zoo_dataset)
 
     if fo.dataset_exists(dataset_name):
         inputs.view(
@@ -197,13 +282,17 @@ def _load_zoo_dataset_inputs(ctx, inputs):
     return True
 
 
-def _get_zoo_dataset_name(ctx):
-    name = ctx.params["name"]
-    splits = ctx.params.get("splits", None)
+def _get_zoo_dataset_name(ctx, zoo_dataset=None):
     dataset_name = ctx.params.get("dataset_name", None)
 
     if dataset_name:
         return dataset_name
+
+    if zoo_dataset is None:
+        return None
+
+    name = zoo_dataset.name
+    splits = ctx.params.get("splits", None)
 
     if not splits:
         return name
@@ -415,7 +504,7 @@ class ApplyZooModel(foo.Operator):
         if ready:
             _execution_mode(ctx, inputs)
 
-        view = types.View(label="Apply model")
+        view = types.View(label="Apply zoo model")
         return types.Property(inputs, view=view)
 
     def resolve_delegation(self, ctx):
@@ -424,6 +513,7 @@ class ApplyZooModel(foo.Operator):
     def execute(self, ctx):
         target = ctx.params.get("target", None)
         model = ctx.params["model"]
+        source = ctx.params.get("source", None)
         embeddings = ctx.params.get("embeddings", None) == "EMBEDDINGS"
         embeddings_field = ctx.params.get("embeddings_field", None)
         patches_field = ctx.params.get("patches_field", None)
@@ -439,7 +529,10 @@ class ApplyZooModel(foo.Operator):
 
         target_view = _get_target_view(ctx, target)
 
-        model = foz.load_zoo_model(model)
+        if source is not None:
+            model = foz.load_zoo_model(source, model_name=model)
+        else:
+            model = foz.load_zoo_model(model)
 
         # No multiprocessing allowed when running synchronously
         if not delegate:
@@ -474,6 +567,54 @@ class ApplyZooModel(foo.Operator):
                 output_dir=output_dir,
                 rel_dir=rel_dir,
             )
+
+        ctx.trigger("reload_dataset")
+
+
+def _supports_remote_models():
+    return hasattr(fozm, "_list_zoo_models")
+
+
+def _get_remote_zoo_model_source(ctx, inputs):
+    instructions = """
+Provide a location to load the model from, which can be:
+
+-   A GitHub repo URL like `https://github.com/<user>/<repo>`
+-   A GitHub ref like
+`https://github.com/<user>/<repo>/tree/<branch>` or
+`https://github.com/<user>/<repo>/commit/<commit>`
+-   A GitHub ref string like `<user>/<repo>[/<ref>]`
+"""
+
+    inputs.str(
+        "remote_instructions",
+        default=instructions.strip(),
+        view=types.MarkdownView(read_only=True),
+    )
+
+    prop = inputs.str("source", required=True)
+
+    source = ctx.params.get("source", None)
+    if not source:
+        return None
+
+    try:
+        GitHubRepository(source)
+    except:
+        prop.invalid = True
+        prop.error_message = (
+            f"{source} is not a valid GitHub repo or identifier"
+        )
+        return None
+
+    try:
+        fozm.register_zoo_model_source(source)
+    except Exception as e:
+        prop.invalid = True
+        prop.error_message = str(e)
+        return None
+
+    return source
 
 
 def _apply_zoo_model_inputs(ctx, inputs):
@@ -514,8 +655,33 @@ def _apply_zoo_model_inputs(ctx, inputs):
     target = ctx.params.get("target", default_target)
     target_view = _get_target_view(ctx, target)
 
-    manifest = fozm._load_zoo_models_manifest()
+    if _supports_remote_models():
+        tab_choices = types.TabsView()
+        tab_choices.add_choice("BUILTIN", label="Builtin")
+        tab_choices.add_choice("REMOTE", label="Remote")
+        inputs.enum(
+            "tab",
+            tab_choices.values(),
+            default="BUILTIN",
+            view=tab_choices,
+        )
+        tab = ctx.params.get("tab", "REMOTE")
 
+        if tab == "REMOTE":
+            source = _get_remote_zoo_model_source(ctx, inputs)
+            if source is None:
+                return False
+
+            manifest = fozm._list_zoo_models(source=source)
+        else:
+            source = None
+            manifest = fozm._list_zoo_models()
+    else:
+        # Can remove this code path if we require fiftyone>=1.0.0
+        source = None
+        manifest = fozm._load_zoo_models_manifest()
+
+    # pylint: disable=no-member
     models_by_tag = defaultdict(set)
     for model in manifest:
         for tag in model.tags or []:
@@ -546,16 +712,31 @@ def _apply_zoo_model_inputs(ctx, inputs):
     for name in sorted(model_names):
         model_choices.add_choice(name, label=name)
 
+    if _supports_remote_models():
+        if source is not None:
+            description = f"The name of a model from {source} to apply"
+        else:
+            description = (
+                "The name of a model from the "
+                "[FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/models.html) "
+                "to apply. Also includes models from any remote sources "
+                "you've already registered"
+            )
+        caption = None
+    else:
+        # Can remove this code path if we require fiftyone>=1.0.0
+        description = (
+            "The name of a model from the FiftyOne Model Zoo to apply"
+        )
+        caption = "https://docs.voxel51.com/user_guide/model_zoo/models.html"
+
     inputs.enum(
         "model",
         model_choices.values(),
         required=True,
         label="Model",
-        description=(
-            "The name of a model from the FiftyOne Model Zoo to use to "
-            "generate predictions or embeddings"
-        ),
-        caption="https://docs.voxel51.com/user_guide/model_zoo/models.html",
+        description=description,
+        caption=caption,
         view=model_choices,
     )
 

@@ -1522,8 +1522,15 @@ def get_embeddings(ctx, inputs, view, patches_field):
 
 
 def _get_zoo_models():
+    if hasattr(fozm, "_list_zoo_models"):
+        manifest = fozm._list_zoo_models()
+    else:
+        # Can remove this code path if we require fiftyone>=1.0.0
+        manifest = fozm._load_zoo_models_manifest()
+
+    # pylint: disable=no-member
     available_models = set()
-    for model in fozm._load_zoo_models_manifest():
+    for model in manifest:
         if model.has_tag("embeddings"):
             available_models.add(model.name)
 
