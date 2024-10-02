@@ -782,6 +782,76 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+class StoreExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_store",
+            label="Examples: Store",
+        )
+
+    def get_store(self, ctx):
+        store_name = "markdown_docs"
+        store = ctx.create_store(store_name)
+        return store
+
+    def load_keys_list(self, ctx):
+        print("loading keys")
+        store = self.get_store(ctx)
+        keys = store.list_keys()
+        print(keys)
+        ctx.panel.state.keys = keys
+
+    def load_stores_list(self, ctx):
+        store = self.get_store(ctx)
+        stores = store.list_all_stores()
+        ctx.panel.state.stores = stores
+
+    def on_load(self, ctx):
+        self.load_keys_list(ctx)
+        self.load_stores_list(ctx)
+
+    def on_click_save(self, ctx):
+        store = self.get_store(ctx)
+        doc_name = ctx.panel.state.doc_name
+        store.set(doc_name, ctx.panel.state.src, ttl=ctx.panel.state.ttl)
+        ctx.ops.notify(f"Saved {doc_name}")
+
+    def on_click_clear(self, ctx):
+        doc_name = ctx.panel.state.doc_name
+        ctx.panel.state.src = ""
+        ctx.panel.state.doc_name = ""
+        ctx.panel.state.ttl = None
+        # delete the key
+        store = self.get_store(ctx)
+        store.delete(doc_name)
+        self.load_keys_list(ctx)
+
+    def on_click_load(self, ctx):
+        self.on_load(ctx)
+        store = self.get_store(ctx)
+        doc_name = ctx.panel.state.doc_name
+        src = store.get(doc_name)
+        ctx.panel.state.src = src
+
+    def on_change(self, ctx):
+        print(ctx.panel.state.src)
+
+    def render(self, ctx):
+        panel = types.Object()
+        panel.str("doc_name", label="Document Name")
+        panel.int("ttl", label="Time to Live", default=None)
+        panel.btn("load_btn", label="Load", on_click=self.on_click_load)
+        panel.str(
+            "src", label="Markdown", view=types.CodeView(language="markdown")
+        )
+        panel.btn("btn", label="Save", on_click=self.on_click_save)
+        panel.btn("clear", label="Delete", on_click=self.on_click_clear)
+        panel.list("keys", types.String(), label="Keys")
+        panel.list("stores", types.String(), label="Stores")
+        return types.Property(panel)
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +864,4 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(StoreExample)
