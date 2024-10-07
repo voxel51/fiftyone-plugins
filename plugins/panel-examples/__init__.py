@@ -12,6 +12,7 @@ import random
 from bson import ObjectId
 
 from fiftyone import ViewField as F
+import fiftyone.core.media as fom
 import fiftyone.core.view as fov
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
