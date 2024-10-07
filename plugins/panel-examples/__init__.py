@@ -914,8 +914,8 @@ class MyAnimatedPanel(foo.Panel):
             ctx.view.media_type == fom.GROUP
             and ctx.view._parent_media_type == fom.IMAGE
         ):
-            for frame in ctx.view.match(
-                F("_sample_id") == ObjectId(ctx.current_sample.sample_id)
+            for frame in ctx.dataset.match(
+                F("_sample_id") == ObjectId(current_sample.sample_id)
             ):
                 yield frame
 
