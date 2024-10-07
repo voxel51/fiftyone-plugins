@@ -5,15 +5,16 @@ Example panels.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-import os
 
-import fiftyone.operators as foo
-import fiftyone.operators.types as types
-from fiftyone import ViewField as F
+import os
 import random
-import numpy as np
 
 from bson import ObjectId
+
+from fiftyone import ViewField as F
+import fiftyone.core.view as fov
+import fiftyone.operators as foo
+import fiftyone.operators.types as types
 
 
 class CounterExample(foo.Panel):
@@ -816,13 +817,9 @@ class MyAnimatedPanel(foo.Panel):
     def on_load(self, ctx):
         if not ctx.current_sample:
             return
-        current_sample = ctx.dataset[ctx.current_sample]
-        frames = ctx.dataset.match(
-            F("_sample_id") == ObjectId(current_sample.sample_id)
-        )
 
         counts = []
-        for frame in frames:
+        for frame in self._iter_frames(ctx):
             frame_detections = frame.detections
             counts.append(len(frame_detections.detections))
         #   counts = []
@@ -901,6 +898,29 @@ class MyAnimatedPanel(foo.Panel):
 
     def render_frame(self, frame):
         return [frame]
+
+    def _iter_frames(self, ctx):
+        current_sample = fov.make_optimized_select_view(
+            ctx.view, ctx.current_sample
+        ).first()
+        if ctx.view.media_type == fom.VIDEO:
+            for frame in current_sample.frames.values():
+                yield frame
+
+            return
+
+        if (
+            ctx.view.media_type == fom.GROUP
+            and ctx.view._parent_media_type == fom.IMAGE
+        ):
+            for frame in ctx.view.match(
+                F("_sample_id") == ObjectId(ctx.current_sample.sample_id)
+            ):
+                yield frame
+
+            return
+
+        raise ValueError("unexpected")
 
 
 class ImageOrderExample(foo.Panel):  #
