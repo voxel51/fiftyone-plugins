@@ -804,6 +804,16 @@ EXAMPLE_DATA = {
     "y": [random.randint(1, 100) for _ in range(50)],
 }
 
+import fiftyone as fo
+import fiftyone.operators as foo
+import fiftyone.operators.types as types
+from fiftyone import ViewField as F
+
+import fiftyone as fo
+import fiftyone.operators as foo
+import fiftyone.operators.types as types
+from fiftyone import ViewField as F
+
 
 class MyAnimatedPanel(foo.Panel):
     @property
@@ -816,112 +826,116 @@ class MyAnimatedPanel(foo.Panel):
         )
 
     def on_load(self, ctx):
+        # Check if a sample is selected
         if not ctx.current_sample:
+            # Display empty state when no valid field is selected
+            ctx.panel.state.empty_state = (
+                "Please select a valid numeric or list field."
+            )
             return
 
-        counts = []
-        for frame in self._iter_frames(ctx):
-            frame_detections = frame.detections
-            counts.append(len(frame_detections.detections))
-        #   counts = []
-        #   for frame_idx in current_sample.frames:
-        #     print(frame_idx)
-        #     frame_info = current_sample.frames[frame_idx]
-        #     frame_detections = frame_info.detections
-        #     counts.append(len(frame_detections.detections))
+        # Extract the selected field and its values
+        sample_id = ctx.current_sample
+        field = ctx.panel.state.selected_field
+        if not field:
+            ctx.panel.state.empty_state = (
+                "Please select a valid field from the dropdown."
+            )
+            return
 
+        # Get frame values for the selected field
+        frame_numbers, values = _get_frame_values(
+            ctx.dataset, sample_id, field
+        )
+
+        # Set the plot state for rendering the bar plot
         ctx.panel.state.plot = {
             "type": "bar",
-            "y": counts,
-            "x": list(range(len(counts))),
+            "x": frame_numbers,
+            "y": values,
+            "title": field,
+            "xaxis": "Frame Number",
+            "yaxis": field,
+            "hoverinfo": "x+y",
+            "marker": {"color": ctx.panel.state.plot_color or "#ff6d04"},
         }
         ctx.panel.data.frame_data = None
 
-    def on_change_current_sample(self, ctx):
-        print("on_change_current_sample", ctx.current_sample)
-        self.on_load(ctx)
-
     def render(self, ctx):
         panel = types.Object()
-        # define a hidden view that handles loading frames
+
+        # Dropdown for selecting fields (enum)
+        valid_fields = _get_frame_paths(ctx.dataset)
+
+        # Set default field or selected field
+        selected_field = ctx.panel.state.get("selected_field", valid_fields[0])
         panel.obj(
             "frame_data",
-            timeline_id="something",
             hidden=True,
             view=types.FrameLoaderView(
                 on_load_range=self.on_load_range, target="plot.selectedpoints"
             ),
         )
-        # define a property that will be updated by the FrameLoader
-        panel.plot("plot", on_click=self.on_click_plot, height=100, width=100)
-        return types.Property(
-            panel,
-            view=types.GridView(
-                align_x="center", align_y="center", orientation="vertical"
-            ),
+        # Using enum to create dropdown-like selection
+        panel.enum(
+            "field_selector",
+            valid_fields,
+            label="Select a Field",
+            value=selected_field,
+            on_change=self.on_field_select,
         )
 
-    def on_load_range(self, ctx):
-        # # this would be called by the FrameLoader via the timeline hooks
-        # r = ctx.params.get("range", [0, 0])
-        # rendered_frames = []
-        # # build the animation
-        # for i in range(0, 50):
-        #   rendered_frames.append(self.render_frame(i))
+        # Add components to the panel
+        panel.plot("plot", height="90%", width="100%")
 
-        # # this sends the rendered frames to the panel
-        # # which will be used by the FrameLoader to update the plot
-        # ctx.panel.data.frame_data = {
-        #   "frames": rendered_frames,
-        #   "range": r # should be the range
-        # }
+        return types.Property(panel)
+
+    def on_field_select(self, ctx):
+        # Update the selected field and reload the panel
+        ctx.panel.state.selected_field = ctx.params.get("value")
+        self.on_load(ctx)
+
+    def on_change_current_sample(self, ctx):
+        # Recompute the plot when the current sample changes
+        self.on_load(ctx)
+
+    def on_load_range(self, ctx):
+        # Handle frame range loading for animation sync
         current_sample = ctx.dataset[ctx.current_sample]
-        num_frames = 120  # TODO: fix me
-        frame_data = []
         r = ctx.params.get("range", [0, 0])
 
-        print("range", r)
-
+        # Render each frame in the range
         chunk = {}
         for i in range(r[0], r[1]):
             rendered_frame = self.render_frame(i)
-            frame_data.append(rendered_frame)
             chunk[f"frame_data.frames[{i}]"] = rendered_frame
 
         ctx.panel.set_data(chunk)
         ctx.panel.set_state("frame_data.signature", str(r))
 
-    def on_click_plot(self, ctx):
-        ctx.ops.notify(
-            f"You clicked on the plot! x = {ctx.params.get('x')}",
-            variant="info",
-        )
-
     def render_frame(self, frame):
         return [frame]
 
-    def _iter_frames(self, ctx):
-        current_sample = fov.make_optimized_select_view(
-            ctx.view, ctx.current_sample
-        ).first()
-        if ctx.view.media_type == fom.VIDEO:
-            for frame in current_sample.frames.values():
-                yield frame
 
-            return
+# Helper functions as provided
+def _get_frame_values(dataset, sample_id, path):
+    view = dataset.select(sample_id)
+    field = dataset.get_field("frames." + path)
+    expr = "frames[]." + path
+    if isinstance(field, fo.ListField):
+        expr = F(expr).length()
+    return view.values(["frames[].frame_number", expr])
 
-        if (
-            ctx.view.media_type == fom.GROUP
-            and ctx.view._parent_media_type == fom.IMAGE
-        ):
-            for frame in ctx.dataset.match(
-                F("_sample_id") == ObjectId(current_sample.sample_id)
-            ):
-                yield frame
 
-            return
-
-        raise ValueError("unexpected")
+def _get_frame_paths(dataset):
+    schema = dataset.get_frame_field_schema(
+        flat=True, ftype=(fo.FloatField, fo.IntField, fo.ListField)
+    )
+    return [
+        path
+        for path in schema
+        if not any(path.startswith(p + ".") for p in schema)
+    ]
 
 
 class ImageOrderExample(foo.Panel):  #
