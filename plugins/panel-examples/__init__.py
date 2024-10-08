@@ -5,11 +5,17 @@ Example panels.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-import os
 
+import os
+import random
+
+from bson import ObjectId
+
+from fiftyone import ViewField as F
+import fiftyone.core.media as fom
+import fiftyone.core.view as fov
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-from fiftyone import ViewField as F
 
 
 class CounterExample(foo.Panel):
@@ -57,7 +63,6 @@ class CounterExample(foo.Panel):
             "say_hi",
             icon="emoji_people",
             label="Say hi!",
-            on_click=self.say_hi,
             variant="contained",
             color="white",
         )
@@ -85,32 +90,44 @@ class PlotExample(foo.Panel):
         )
 
     def on_load(self, ctx):
-        # set plot data with object
-        plot_data = {
-            "z": [
-                [1, None, 30, 50, 1],
-                [20, 1, 60, 80, 30],
-                [30, 60, 1, -10, 20],
-            ],
-            "x": [
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-            ],
-            "y": ["Morning", "Afternoon", "Evening"],
-            "type": "heatmap",
-            "hoverongaps": False,
-        }
+        # create data for a plotly heatmap
+        ctx.panel.data.data = [
+            {
+                "z": [
+                    [1, 20, 30],
+                    [20, 1, 60],
+                    [30, 60, 1],
+                ],
+                "type": "heatmap",
+                "colorscale": "Viridis",
+                "selectedpoints": [[0, 0]],
+            }
+        ]
 
-        ctx.panel.data.data = plot_data
+    def on_click(self, ctx):
+        z = [
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0],
+        ]
+        x = ctx.params.get("x", 0)
+        y = ctx.params.get("y", 0)
+        z[y][x] = 1
+        ctx.panel.set_data("data[0].z", z)
+
+    def on_double_click(self, ctx):
+        self.on_load(ctx)
 
     def render(self, ctx):
         panel = types.Object()
 
         # grab data field from state and render it in a plotly view
-        panel.plot("data", label="Plotly Panel")  # shortcut for plot creation
+        panel.plot(
+            "data",
+            label="Plotly Panel",
+            on_click=self.on_click,
+            on_double_click=self.on_double_click,
+        )  # shortcut for plot creation
 
         return types.Property(
             panel,
@@ -782,6 +799,183 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+EXAMPLE_DATA = {
+    "x": [random.randint(1, 100) for _ in range(50)],
+    "y": [random.randint(1, 100) for _ in range(50)],
+}
+
+import fiftyone as fo
+import fiftyone.operators as foo
+import fiftyone.operators.types as types
+from fiftyone import ViewField as F
+
+import fiftyone as fo
+import fiftyone.operators as foo
+import fiftyone.operators.types as types
+from fiftyone import ViewField as F
+
+
+class MyAnimatedPanel(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_animated_plot",
+            label="Examples: Animated Plot",
+            surfaces="modal",
+            reload_on_navigation=True,
+        )
+
+    def on_load(self, ctx):
+        # Check if a sample is selected
+        if not ctx.current_sample:
+            # Display empty state when no valid field is selected
+            ctx.panel.state.empty_state = (
+                "Please select a valid numeric or list field."
+            )
+            return
+
+        # Extract the selected field and its values
+        sample_id = ctx.current_sample
+        field = ctx.panel.state.selected_field
+        if not field:
+            ctx.panel.state.empty_state = (
+                "Please select a valid field from the dropdown."
+            )
+            return
+
+        # Get frame values for the selected field
+        frame_numbers, values = _get_frame_values(
+            ctx.dataset, sample_id, field
+        )
+
+        # Set the plot state for rendering the bar plot
+        ctx.panel.state.plot = {
+            "type": "bar",
+            "x": frame_numbers,
+            "y": values,
+            "title": field,
+            "xaxis": "Frame Number",
+            "yaxis": field,
+            "hoverinfo": "x+y",
+            "marker": {"color": ctx.panel.state.plot_color or "#ff6d04"},
+        }
+        ctx.panel.data.frame_data = None
+
+    def render(self, ctx):
+        panel = types.Object()
+
+        # Dropdown for selecting fields (enum)
+        valid_fields = _get_frame_paths(ctx.dataset)
+
+        # Set default field or selected field
+        selected_field = ctx.panel.state.get("selected_field", valid_fields[0])
+        panel.obj(
+            "frame_data",
+            hidden=True,
+            view=types.FrameLoaderView(
+                on_load_range=self.on_load_range, target="plot.selectedpoints"
+            ),
+        )
+        # Using enum to create dropdown-like selection
+        panel.enum(
+            "field_selector",
+            valid_fields,
+            label="Select a Field",
+            value=selected_field,
+            on_change=self.on_field_select,
+        )
+
+        # Add components to the panel
+        panel.plot("plot", height="90%", width="100%")
+
+        return types.Property(panel)
+
+    def on_field_select(self, ctx):
+        # Update the selected field and reload the panel
+        ctx.panel.state.selected_field = ctx.params.get("value")
+        self.on_load(ctx)
+
+    def on_change_current_sample(self, ctx):
+        # Recompute the plot when the current sample changes
+        self.on_load(ctx)
+
+    def on_load_range(self, ctx):
+        # Handle frame range loading for animation sync
+        current_sample = ctx.dataset[ctx.current_sample]
+        r = ctx.params.get("range", [0, 0])
+
+        # Render each frame in the range
+        chunk = {}
+        for i in range(r[0], r[1]):
+            rendered_frame = self.render_frame(i)
+            chunk[f"frame_data.frames[{i}]"] = rendered_frame
+
+        ctx.panel.set_data(chunk)
+        ctx.panel.set_state("frame_data.signature", str(r))
+
+    def render_frame(self, frame):
+        return [frame]
+
+
+# Helper functions as provided
+def _get_frame_values(dataset, sample_id, path):
+    view = dataset.select(sample_id)
+    field = dataset.get_field("frames." + path)
+    expr = "frames[]." + path
+    if isinstance(field, fo.ListField):
+        expr = F(expr).length()
+    return view.values(["frames[].frame_number", expr])
+
+
+def _get_frame_paths(dataset):
+    schema = dataset.get_frame_field_schema(
+        flat=True, ftype=(fo.FloatField, fo.IntField, fo.ListField)
+    )
+    return [
+        path
+        for path in schema
+        if not any(path.startswith(p + ".") for p in schema)
+    ]
+
+
+class ImageOrderExample(foo.Panel):  #
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_image_order", label="Examples: Image Order"
+        )
+
+    def on_load(self, ctx):
+        image_state = {}
+        for index, sample in enumerate(ctx.dataset.limit(10)):
+            image_path = (
+                f"http://localhost:5151/media?filepath={sample.filepath}"
+            )
+            image_state[f"image{index}"] = image_path
+        ctx.panel.state.images = image_state
+
+    def render(self, ctx):
+        panel = types.Object()
+        dashboard_view = types.DashboardView(
+            allow_remove=False,
+            width=100,
+            height=100,
+        )
+        images = types.Object()
+        for key, value in ctx.panel.state.images.items():
+            images.view(key, view=types.ImageView(width=300))
+
+        panel.add_property(
+            "images", types.Property(images, view=dashboard_view)
+        )
+        return types.Property(
+            panel,
+            view=types.GridView(
+                align_x="center", align_y="center", orientation="vertical"
+            ),
+        )
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +988,5 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(MyAnimatedPanel)
+    p.register(ImageOrderExample)
