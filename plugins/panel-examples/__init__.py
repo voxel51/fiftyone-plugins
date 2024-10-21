@@ -5,13 +5,11 @@ Example panels.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-
 import os
-import random
 
-from fiftyone import ViewField as F
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
+from fiftyone import ViewField as F
 
 
 class CounterExample(foo.Panel):
@@ -59,6 +57,7 @@ class CounterExample(foo.Panel):
             "say_hi",
             icon="emoji_people",
             label="Say hi!",
+            on_click=self.say_hi,
             variant="contained",
             color="white",
         )
@@ -86,44 +85,32 @@ class PlotExample(foo.Panel):
         )
 
     def on_load(self, ctx):
-        # create data for a plotly heatmap
-        ctx.panel.data.data = [
-            {
-                "z": [
-                    [1, 20, 30],
-                    [20, 1, 60],
-                    [30, 60, 1],
-                ],
-                "type": "heatmap",
-                "colorscale": "Viridis",
-                "selectedpoints": [[0, 0]],
-            }
-        ]
+        # set plot data with object
+        plot_data = {
+            "z": [
+                [1, None, 30, 50, 1],
+                [20, 1, 60, 80, 30],
+                [30, 60, 1, -10, 20],
+            ],
+            "x": [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+            ],
+            "y": ["Morning", "Afternoon", "Evening"],
+            "type": "heatmap",
+            "hoverongaps": False,
+        }
 
-    def on_click(self, ctx):
-        z = [
-            [0, 0, 0],
-            [0, 0, 0],
-            [0, 0, 0],
-        ]
-        x = ctx.params.get("x", 0)
-        y = ctx.params.get("y", 0)
-        z[y][x] = 1
-        ctx.panel.set_data("data[0].z", z)
-
-    def on_double_click(self, ctx):
-        self.on_load(ctx)
+        ctx.panel.data.data = plot_data
 
     def render(self, ctx):
         panel = types.Object()
 
         # grab data field from state and render it in a plotly view
-        panel.plot(
-            "data",
-            label="Plotly Panel",
-            on_click=self.on_click,
-            on_double_click=self.on_double_click,
-        )  # shortcut for plot creation
+        panel.plot("data", label="Plotly Panel")  # shortcut for plot creation
 
         return types.Property(
             panel,
@@ -795,50 +782,6 @@ class WalkthroughExample(foo.Panel):
         )
 
 
-EXAMPLE_DATA = {
-    "x": [random.randint(1, 100) for _ in range(50)],
-    "y": [random.randint(1, 100) for _ in range(50)],
-}
-
-
-class ImageOrderExample(foo.Panel):  #
-    @property
-    def config(self):
-        return foo.PanelConfig(
-            name="example_image_order", label="Examples: Image Order"
-        )
-
-    def on_load(self, ctx):
-        image_state = {}
-        for index, sample in enumerate(ctx.dataset.limit(10)):
-            image_path = (
-                f"http://localhost:5151/media?filepath={sample.filepath}"
-            )
-            image_state[f"image{index}"] = image_path
-        ctx.panel.state.images = image_state
-
-    def render(self, ctx):
-        panel = types.Object()
-        dashboard_view = types.DashboardView(
-            allow_remove=False,
-            width=100,
-            height=100,
-        )
-        images = types.Object()
-        for key, value in ctx.panel.state.images.items():
-            images.view(key, view=types.ImageView(width=300))
-
-        panel.add_property(
-            "images", types.Property(images, view=dashboard_view)
-        )
-        return types.Property(
-            panel,
-            view=types.GridView(
-                align_x="center", align_y="center", orientation="vertical"
-            ),
-        )
-
-
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -851,4 +794,3 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
-    p.register(ImageOrderExample)
