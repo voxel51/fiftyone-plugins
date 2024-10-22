@@ -32,12 +32,7 @@ class LabelCountPanel(foo.Panel):
             )
             return
 
-        if ctx.view._is_dynamic_groups:
-            sample_id = ctx.view[ctx.current_sample].sample_id
-        else:
-            sample_id = ctx.current_sample
-
-        frame_numbers, values = _get_values(ctx.view, sample_id, field)
+        frame_numbers, values = _get_values(ctx, field)
 
         ctx.panel.state.plot = {
             "type": "bar",
@@ -57,7 +52,7 @@ class LabelCountPanel(foo.Panel):
         self.load_range(ctx, (0, len(frame_numbers)))
 
     def render(self, ctx):
-        valid_fields = _get_fields(ctx.view)
+        valid_fields = _get_fields(ctx)
         if not ctx.panel.state.selected_field:
             empty_state = types.Object()
             empty_state.enum(
@@ -145,11 +140,11 @@ class LabelCountPanel(foo.Panel):
         return [frame - 1]
 
 
-def _get_fields(view):
-    if view._is_dynamic_groups:
-        schema_fcn = view.get_field_schema
+def _get_fields(ctx):
+    if ctx.view._is_dynamic_groups:
+        schema_fcn = ctx.view.get_field_schema
     else:
-        schema_fcn = view.get_frame_field_schema
+        schema_fcn = ctx.view.get_frame_field_schema
 
     schema = schema_fcn(
         flat=True, ftype=(fo.FloatField, fo.IntField, fo.ListField)
@@ -164,20 +159,22 @@ def _get_fields(view):
     ]
 
 
-def _get_values(view, sample_id, path):
-    if view._is_dynamic_groups:
-        field = view.get_field(path)
+def _get_values(ctx, path):
+    if ctx.view._is_dynamic_groups:
+        sample_id = ctx.view._base_view[ctx.current_sample].sample_id
+        field = ctx.view.get_field(path)
         expr = path
         if isinstance(field, fo.ListField):
             expr = F(expr).length()
-        view = view.get_dynamic_group(sample_id)
+        view = ctx.view.get_dynamic_group(sample_id)
         return view.values(["frame_number", expr])
     else:
-        field = view.get_field("frames." + path)
+        sample_id = ctx.current_sample
+        field = ctx.view.get_field("frames." + path)
         expr = "frames[]." + path
         if isinstance(field, fo.ListField):
             expr = F(expr).length()
-        view = fov.make_optimized_select_view(view, [sample_id])
+        view = fov.make_optimized_select_view(ctx.view, [sample_id])
         return view.values(["frames[].frame_number", expr])
 
 
