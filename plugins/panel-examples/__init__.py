@@ -6,6 +6,7 @@ Example panels.
 |
 """
 import os
+import numpy as np
 
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -782,6 +783,106 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+import numpy as np
+
+NUM_FRAMES = 100
+MAX_POINTS = 500  # Max number of points to reveal
+NUM_CLUSTERS = 3  # Number of clusters in the embedding space
+
+# Generate fixed cluster centers
+cluster_centers = np.random.uniform(-5, 5, (NUM_CLUSTERS, 2))
+
+# Calculate domain based on cluster spread
+x_min, x_max = cluster_centers[:, 0].min() - 3, cluster_centers[:, 0].max() + 3
+y_min, y_max = cluster_centers[:, 1].min() - 3, cluster_centers[:, 1].max() + 3
+
+
+class AnimationExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_animation",
+            label="Examples: Embeddings Reveal",
+        )
+
+    def on_load(self, ctx):
+        ctx.panel.state.plot = self.render_frame(0)
+
+    def render(self, ctx):
+        panel = types.Object()
+        panel.plot("plot", height=100)
+        timeline_name = "my_timeline"
+        panel.view(
+            "timeline",
+            view=types.TimelineView(
+                timeline_name=timeline_name, total_frames=NUM_FRAMES
+            ),
+        )
+        panel.obj(
+            "loader",
+            view=types.FrameLoaderView(
+                timeline_name=timeline_name,
+                on_load_range=self.on_load_range,
+                target="plot",
+            ),
+        )
+        return types.Property(
+            panel, view=types.GridView(height=100, width=100)
+        )
+
+    def on_load_range(self, ctx):
+        print("Loading frames", ctx.params["range"])
+        frame_data = []
+        for i in range(ctx.params["range"][0], ctx.params["range"][1]):
+            frame_data.append(self.render_frame(i))
+        ctx.panel.data.loader = {"frames": frame_data}
+        ctx.panel.set_state("loader.signature", str(ctx.params["range"]))
+
+    def render_frame(self, i):
+        # Number of points to display in the current frame
+        num_points = int(MAX_POINTS * (i / NUM_FRAMES)) + 10
+
+        # Generate points from fixed clusters
+        x_data, y_data, colors = [], [], []
+        for cluster_idx, (center_x, center_y) in enumerate(cluster_centers):
+            # Generate points around the fixed cluster center
+            cluster_size = num_points // NUM_CLUSTERS
+            x_cluster = center_x + np.random.randn(cluster_size) * 0.5
+            y_cluster = center_y + np.random.randn(cluster_size) * 0.5
+
+            x_data.extend(x_cluster)
+            y_data.extend(y_cluster)
+
+            # Smooth gradient color for each cluster
+            cluster_color = (
+                f"hsl({cluster_idx * (360 // NUM_CLUSTERS)}, 70%, 50%)"
+            )
+            colors.extend([cluster_color] * cluster_size)
+
+        # Limit the points to the current frame
+        x_data, y_data, colors = (
+            x_data[:num_points],
+            y_data[:num_points],
+            colors[:num_points],
+        )
+
+        return {
+            "type": "scatter",
+            "mode": "markers",
+            "x": x_data,
+            "y": y_data,
+            "marker": {
+                "size": 6,
+                "color": colors,
+                "opacity": 0.8,
+            },
+            "layout": {
+                "xaxis": {"range": [x_min, x_max]},  # Fixed x-axis range
+                "yaxis": {"range": [y_min, y_max]},  # Fixed y-axis range
+            },
+        }
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +895,4 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(AnimationExample)
