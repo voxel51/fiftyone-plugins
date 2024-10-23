@@ -32,7 +32,7 @@ class PlotType(Enum):
     PIE = "pie"
 
 
-NUMERIC_TYPES = (fo.IntField, fo.FloatField)
+NUMERIC_TYPES = (fo.IntField, fo.FloatField, fo.DateTimeField, fo.DateField)
 CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
@@ -859,12 +859,30 @@ class DashboardState(object):
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
+        # Check if edges contain datetime objects
+        if isinstance(left_edges[0], datetime.datetime):
+            # Convert datetime objects to ISO format strings
+            left_edges = [edge.isoformat() for edge in left_edges]
+
+            # Set widths to None or convert to total seconds
+            widths = None
+            # Or widths = [width.total_seconds() for width in widths]
+            # Converting widths to total_seconds() results in thin lines, not bars
+            # Cannot interact with bar plot this way
+        else:
+            # If edges are numerical, convert to list as before
+            left_edges = left_edges.tolist()
+            widths = widths.tolist()
+
         histogram_data = {
-            "x": left_edges.tolist(),
+            "x": left_edges,
             "y": counts.tolist(),
             "type": "bar",
-            "width": widths.tolist(),
         }
+
+        # Include widths only if they are numerical
+        if widths is not None:
+            histogram_data["width"] = widths
 
         return histogram_data
 
