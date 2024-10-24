@@ -298,6 +298,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/mmoollllee/fiftyone-timestamps">@mmoollllee/fiftyone-timestamps</a></b></td>
         <td>🕒 Compute datetime-related fields (sunrise, dawn, evening, weekday, ...) from your samples' filenames or creation dates</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/jacobmarks/fiftyone_florence2_plugin">@jacobmarks/florence2</a></b></td>
+        <td>🧙 Connect Microsoft's Florence-2 Vision-Language Model to your data!</td>
+    </tr>
 </table>
 
 ## Using Plugins
