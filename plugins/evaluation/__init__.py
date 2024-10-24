@@ -101,10 +101,6 @@ def evaluate_model(ctx, inputs):
 
         return False
 
-    eval_key = get_new_eval_key(ctx, inputs)
-    if eval_key is None:
-        return False
-
     label_field_choices = types.DropdownView()
     for field_name in sorted(label_fields):
         label_field_choices.add_choice(field_name, label=field_name)
@@ -173,6 +169,10 @@ def evaluate_model(ctx, inputs):
     )
 
     method = ctx.params.get("method", None)
+
+    eval_key = get_new_eval_key(ctx, inputs)
+    if not eval_key:
+        return False
 
     _get_evaluation_method(eval_type, method).get_parameters(ctx, inputs)
 
