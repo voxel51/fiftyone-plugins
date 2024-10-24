@@ -1,0 +1,9 @@
+name: "@voxel51/label_count"
+description: A simple panel that displays the number of labels in the current view
+version: 1.0.0
+fiftyone:
+  version: ">=1.1.0"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/label_count
+license: Apache 2.0
+panels:
+  - label_count_panel
