@@ -1557,13 +1557,6 @@ def _compute_metadata_inputs(ctx, inputs):
     else:
         target_str = "dataset"
 
-    inputs.bool(
-        "overwrite",
-        default=False,
-        label="Recompute metadata for samples that already have it?",
-        view=types.CheckboxView(),
-    )
-
     overwrite = ctx.params.get("overwrite", False)
 
     if overwrite:
@@ -1587,7 +1580,16 @@ def _compute_metadata_inputs(ctx, inputs):
     else:
         status = inputs.view("status", types.Warning(label=label))
         status.invalid = True
-        return False
+
+    inputs.bool(
+        "overwrite",
+        default=False,
+        label="Recompute metadata for samples that already have it?",
+        view=types.CheckboxView(),
+    )
+
+    if n == 0:
+        return
 
     inputs.int(
         "num_workers",

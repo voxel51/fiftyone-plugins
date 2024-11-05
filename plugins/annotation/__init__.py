@@ -93,9 +93,11 @@ def request_annotations(ctx, inputs):
     if backend is None:
         return False
 
-    anno_key = get_new_anno_key(ctx, inputs)
-    if anno_key is None:
-        return False
+    anno_key = get_new_anno_key(
+        ctx,
+        inputs,
+        description="Provide an annotation key to use to refer to this run",
+    )
 
     media_fields = ctx.dataset.app_config.media_fields
     if len(media_fields) > 1:
@@ -118,11 +120,15 @@ def request_annotations(ctx, inputs):
     get_generic_parameters(ctx, inputs)
     backend.get_parameters(ctx, inputs)
 
-    return True
+    return bool(anno_key)
 
 
-def get_new_anno_key(ctx, inputs, name="anno_key", label="Annotation key"):
-    prop = inputs.str(name, label=label, required=True)
+def get_new_anno_key(
+    ctx, inputs, name="anno_key", label="Annotation key", description=None
+):
+    prop = inputs.str(
+        name, label=label, description=description, required=True
+    )
 
     anno_key = ctx.params.get(name, None)
     if anno_key is not None and anno_key in ctx.dataset.list_annotation_runs():
@@ -1165,10 +1171,12 @@ class RenameAnnotationRun(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        get_anno_key(ctx, inputs)
-        get_new_anno_key(
-            ctx, inputs, name="new_anno_key", label="New annotation key"
-        )
+        anno_key = get_anno_key(ctx, inputs)
+
+        if anno_key is not None:
+            get_new_anno_key(
+                ctx, inputs, name="new_anno_key", label="New annotation key"
+            )
 
         view = types.View(label="Rename annotation run")
         return types.Property(inputs, view=view)
