@@ -195,14 +195,18 @@ class RenameRun(foo.Operator):
         inputs = types.Object()
 
         run_type = get_run_type(ctx, inputs)
-        get_run_key(ctx, inputs, run_type=run_type, dynamic_param_name=True)
-        get_new_run_key(
-            ctx,
-            inputs,
-            name="new_run_key",
-            label="New run key",
-            description="Provide a new key for this run",
+        run_key = get_run_key(
+            ctx, inputs, run_type=run_type, dynamic_param_name=True
         )
+
+        if run_key is not None:
+            get_new_run_key(
+                ctx,
+                inputs,
+                name="new_run_key",
+                label="New run key",
+                description="Provide a new key for this run",
+            )
 
         view = types.View(label="Rename run")
         return types.Property(inputs, view=view)

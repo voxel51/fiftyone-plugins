@@ -154,6 +154,10 @@ def evaluate_model(ctx, inputs):
     if gt_field is None:
         return False
 
+    eval_key = get_new_eval_key(ctx, inputs)
+    if not eval_key:
+        return False
+
     method_choices = types.DropdownView()
     for method in methods:
         method_choices.add_choice(method, label=method)
@@ -169,10 +173,6 @@ def evaluate_model(ctx, inputs):
     )
 
     method = ctx.params.get("method", None)
-
-    eval_key = get_new_eval_key(ctx, inputs)
-    if not eval_key:
-        return False
 
     _get_evaluation_method(eval_type, method).get_parameters(ctx, inputs)
 
@@ -1097,14 +1097,16 @@ class RenameEvaluation(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        get_eval_key(ctx, inputs)
-        get_new_eval_key(
-            ctx,
-            inputs,
-            name="new_eval_key",
-            label="New evaluation key",
-            description="Provide a new evaluation key for this run",
-        )
+        eval_key = get_eval_key(ctx, inputs)
+
+        if eval_key is not None:
+            get_new_eval_key(
+                ctx,
+                inputs,
+                name="new_eval_key",
+                label="New evaluation key",
+                description="Provide a new evaluation key for this run",
+            )
 
         view = types.View(label="Rename evaluation")
         return types.Property(inputs, view=view)

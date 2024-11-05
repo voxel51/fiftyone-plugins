@@ -1103,8 +1103,6 @@ def compute_uniqueness(ctx, inputs):
             "sample. This value serves as the brain key for uniqueness runs"
         ),
     )
-    if uniqueness_field is None:
-        return False
 
     roi_fields = _get_label_fields(
         target_view,
@@ -1129,7 +1127,7 @@ def compute_uniqueness(ctx, inputs):
 
     get_embeddings(ctx, inputs, target_view, roi_field)
 
-    return True
+    return uniqueness_field is not None
 
 
 class ComputeMistakenness(foo.Operator):
@@ -1210,8 +1208,6 @@ def compute_mistakenness(ctx, inputs):
             "sample. This value serves as the brain key for mistakenness runs"
         ),
     )
-    if mistakenness_field is None:
-        return False
 
     label_field_choices = types.DropdownView()
     for field_name in sorted(label_fields):
@@ -1309,7 +1305,7 @@ def compute_mistakenness(ctx, inputs):
         ),
     )
 
-    return True
+    return mistakenness_field is not None
 
 
 def _get_label_fields(sample_collection, label_types):
@@ -1372,18 +1368,16 @@ def compute_hardness(ctx, inputs):
 
         return False
 
-    hardnesss_field = get_new_brain_key(
+    hardness_field = get_new_brain_key(
         ctx,
         inputs,
-        name="hardnesss_field",
+        name="hardness_field",
         label="Hardness field",
         description=(
             "The field name to use to store the hardness value for each "
             "sample. This value serves as the brain key for hardness runs"
         ),
     )
-    if hardnesss_field is None:
-        return False
 
     label_field_choices = types.DropdownView()
     for field_name in sorted(label_fields):
@@ -1402,15 +1396,17 @@ def compute_hardness(ctx, inputs):
     if label_field is None:
         return False
 
-    return True
+    return hardness_field is not None
 
 
 def brain_init(ctx, inputs):
     target_view = get_target_view(ctx, inputs)
 
-    brain_key = get_new_brain_key(ctx, inputs)
-    if brain_key is None:
-        return False
+    brain_key = get_new_brain_key(
+        ctx,
+        inputs,
+        description="Provide a brain key to use to refer to this run",
+    )
 
     patches_fields = _get_label_fields(
         target_view,
@@ -1438,7 +1434,7 @@ def brain_init(ctx, inputs):
 
     get_embeddings(ctx, inputs, target_view, patches_field)
 
-    return True
+    return bool(brain_key)
 
 
 def get_embeddings(ctx, inputs, view, patches_field):
@@ -1481,8 +1477,9 @@ def get_embeddings(ctx, inputs, view, patches_field):
             required=False,
             label="Model",
             description=(
-                "An optional name of a model from the FiftyOne Model Zoo to "
-                "use to generate embeddings"
+                "An optional name of a model from the "
+                "[FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/models.html) "
+                "to use to generate embeddings"
             ),
             view=model_choices,
         )
@@ -1542,7 +1539,7 @@ def get_new_brain_key(
     inputs,
     name="brain_key",
     label="Brain key",
-    description="Provide a brain key for this run",
+    description=None,
 ):
     prop = inputs.str(
         name,
@@ -1822,14 +1819,18 @@ class RenameBrainRun(foo.Operator):
         inputs = types.Object()
 
         run_type = get_brain_run_type(ctx, inputs)
-        get_brain_key(ctx, inputs, run_type=run_type, dynamic_param_name=True)
-        get_new_brain_key(
-            ctx,
-            inputs,
-            name="new_brain_key",
-            label="New brain key",
-            description="Provide a new brain key for this run",
+        brain_key = get_brain_key(
+            ctx, inputs, run_type=run_type, dynamic_param_name=True
         )
+
+        if brain_key is not None:
+            get_new_brain_key(
+                ctx,
+                inputs,
+                name="new_brain_key",
+                label="New brain key",
+                description="Provide a new brain key for this run",
+            )
 
         view = types.View(label="Rename brain run")
         return types.Property(inputs, view=view)
