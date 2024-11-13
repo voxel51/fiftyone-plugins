@@ -302,6 +302,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/jacobmarks/fiftyone_florence2_plugin">@jacobmarks/florence2</a></b></td>
         <td>🧙 Connect Microsoft's Florence-2 Vision-Language Model to your data!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/allenleetc/plotly-map-panel">@allenleetc/plotly-map-panel</a></b></td>
+        <td>🌎 Plotly-based Map Panel with adjustable marker cosmetics!</td>
+    </tr>
 </table>
 
 ## Using Plugins
