@@ -5,6 +5,8 @@ Dashboard plugin.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+
+from datetime import datetime
 from enum import Enum
 import random
 from textwrap import dedent
@@ -860,7 +862,7 @@ class DashboardState(object):
         widths = edges[1:] - edges[:-1]
 
         # Check if edges contain datetime objects
-        if isinstance(left_edges[0], datetime.datetime):
+        if isinstance(left_edges[0], datetime):
             # Convert datetime objects to ISO format strings
             left_edges = [edge.isoformat() for edge in left_edges]
 
