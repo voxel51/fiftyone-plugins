@@ -135,7 +135,7 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         )
         caption = "https://docs.voxel51.com/user_guide/model_zoo/models.html"
 
-    inputs.enum(
+    prop = inputs.enum(
         "name",
         dataset_choices.values(),
         label="Zoo dataset",
@@ -143,6 +143,12 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         caption=caption,
         view=dataset_choices,
     )
+
+    if tags and not dataset_names:
+        prop.error_message = (
+            "There are no datasets with all the tags you've requested"
+        )
+        prop.invalid = True
 
     name = ctx.params.get("name", None)
     if name is None or name not in zoo_datasets:
@@ -730,7 +736,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         )
         caption = "https://docs.voxel51.com/user_guide/model_zoo/models.html"
 
-    inputs.enum(
+    prop = inputs.enum(
         "model",
         model_choices.values(),
         required=True,
@@ -739,6 +745,12 @@ def _apply_zoo_model_inputs(ctx, inputs):
         caption=caption,
         view=model_choices,
     )
+
+    if tags and not model_names:
+        prop.error_message = (
+            "There are no models with all the tags you've requested"
+        )
+        prop.invalid = True
 
     model = ctx.params.get("model", None)
     if model is None or model not in model_names:
