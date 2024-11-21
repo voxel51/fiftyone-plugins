@@ -343,7 +343,7 @@ def _plugin_enablement_inputs(ctx, inputs):
 
     num_edited = 0
     for i, plugin in enumerate(fop.list_plugins(enabled="all"), 1):
-        prop_name = f"enablement{i}"
+        prop_name = f"enablement|{plugin.name}"
         actual_enabled = plugin.name in enabled_plugins
         enabled = ctx.params.get(prop_name, {}).get("enabled", actual_enabled)
         edited = enabled != actual_enabled
@@ -353,17 +353,12 @@ def _plugin_enablement_inputs(ctx, inputs):
         obj.str(
             "markdown_name",
             default=f"[{plugin.name}]({plugin.url})",
-            view=types.MarkdownView(read_only=True, space=3),
+            view=types.MarkdownView(read_only=True, space=4),
         )
         obj.str(
             "description",
             default=plugin.description,
-            view=types.MarkdownView(read_only=True, space=6.5),
-        )
-        obj.str(
-            "name",
-            default=plugin.name,
-            view=types.HiddenView(read_only=True, space=0.5),
+            view=types.MarkdownView(read_only=True, space=6),
         )
         obj.bool(
             "enabled",
@@ -392,16 +387,12 @@ def _plugin_enablement_inputs(ctx, inputs):
 def _plugin_enablement(ctx):
     enabled_plugins = set(fop.list_enabled_plugins())
 
-    i = 0
-    while True:
-        i += 1
-        prop_name = f"enablement{i}"
-        obj = ctx.params.get(prop_name, None)
-        if obj is None:
-            break
+    for key, value in ctx.params.items():
+        if not key.startswith("enablement|") or not value:
+            continue
 
-        name = obj["name"]
-        enabled = obj["enabled"]
+        name = key.split("|", 1)[1]
+        enabled = value["enabled"]
 
         actual_enabled = name in enabled_plugins
         if enabled != actual_enabled:
