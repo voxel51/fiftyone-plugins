@@ -48,15 +48,17 @@ class ComputeVisualization(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = compute_visualization(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        compute_visualization(ctx, inputs)
 
         view = types.View(label="Compute visualization")
         return types.Property(inputs, view=view)
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -68,10 +70,9 @@ class ComputeVisualization(foo.Operator):
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
-        delegate = ctx.params.get("delegate", False)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not ctx.delegated:
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
