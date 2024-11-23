@@ -1,7 +1,7 @@
 """
 I/O operators.
 
-| Copyright 2017-2023, Voxel51, Inc.
+| Copyright 2017-2024, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -119,15 +119,11 @@ class ImportSamples(foo.Operator):
                 the specified ``dataset_type``
         """
         ctx = dict(dataset=dataset)
-        if delegation_target is not None:
-            ctx["delegation_target"] = delegation_target
-
         params = dict(
             label_field=label_field,
             label_types=_to_list(label_types),
             tags=_to_list(tags),
             dynamic=dynamic,
-            delegate=delegate,
             kwargs=kwargs,
         )
 
@@ -159,19 +155,27 @@ class ImportSamples(foo.Operator):
         if labels_path is not None:
             params["labels_path"] = _to_path(labels_path)
 
-        return foo.execute_operator(self.uri, ctx, params=params)
+        return foo.execute_operator(
+            self.uri,
+            ctx,
+            params=params,
+            request_delegation=delegate,
+            delegation_target=delegation_target,
+        )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _import_samples_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _import_samples_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Import samples"))
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         import_type = ctx.params.get("import_type", None)
@@ -186,7 +190,8 @@ class ImportSamples(foo.Operator):
             for update in _import_labels_only(ctx):
                 yield update
 
-        yield ctx.trigger("reload_dataset")
+        if not ctx.delegated:
+            yield ctx.trigger("reload_dataset")
 
 
 def _import_samples_inputs(ctx, inputs):
@@ -815,9 +820,8 @@ def _import_media_only(ctx):
             yield progress
 
     make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
-    delegate = ctx.params.get("delegate", False)
 
-    if delegate:
+    if ctx.delegated:
         samples = map(make_sample, filepaths)
         ctx.dataset.add_samples(samples, num_samples=len(filepaths))
         return
@@ -950,9 +954,7 @@ def _upload_media_tasks(ctx, filepaths):
 
 
 def _upload_media(ctx, tasks):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
+    if ctx.delegated:
         inpaths, outpaths = zip(*tasks)
         fos.copy_files(inpaths, outpaths)
         return
@@ -1008,14 +1010,16 @@ class MergeSamples(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _merge_samples_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _merge_samples_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Merge samples"))
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         src_type = ctx.params.get("src_type", None)
@@ -1054,7 +1058,7 @@ class MergeSamples(foo.Operator):
             overwrite_info=overwrite_info,
         )
 
-        if dst_dataset is ctx.dataset:
+        if not ctx.delegated and dst_dataset is ctx.dataset:
             ctx.trigger("reload_dataset")
 
 
@@ -1392,14 +1396,16 @@ class MergeLabels(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _merge_labels_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _merge_labels_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Merge labels"))
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1410,7 +1416,8 @@ class MergeLabels(foo.Operator):
 
         view.merge_labels(in_field, out_field)
 
-        ctx.trigger("reload_dataset")
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def _merge_labels_inputs(ctx, inputs):
@@ -1680,9 +1687,6 @@ class ExportSamples(foo.Operator):
         else:
             ctx = dict(dataset=sample_collection)
 
-        if delegation_target is not None:
-            ctx["delegation_target"] = delegation_target
-
         dataset_type = _get_dataset_type_label(dataset_type)
 
         params = dict(
@@ -1691,7 +1695,6 @@ class ExportSamples(foo.Operator):
             csv_fields=["filepath"],  # unused
             export_media=export_media,
             overwrite=overwrite,
-            delegate=delegate,
             manual=True,
             kwargs=kwargs,
         )
@@ -1710,19 +1713,27 @@ class ExportSamples(foo.Operator):
         if labels_path is not None:
             params["labels_path"] = _to_path(labels_path)
 
-        return foo.execute_operator(self.uri, ctx, params=params)
+        return foo.execute_operator(
+            self.uri,
+            ctx,
+            params=params,
+            request_delegation=delegate,
+            delegation_target=delegation_target,
+        )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _export_samples_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _export_samples_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Export samples"))
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         _export_samples(ctx)
@@ -2522,14 +2533,16 @@ class DrawLabels(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _draw_labels_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _draw_labels_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Draw labels"))
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -2666,37 +2679,6 @@ def _get_target_view(ctx, target):
         return ctx.dataset
 
     return ctx.view
-
-
-def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
-        description = "Uncheck this box to execute the operation immediately"
-    else:
-        description = "Check this box to delegate execution of this task"
-
-    inputs.bool(
-        "delegate",
-        default=False,
-        label="Delegate execution?",
-        description=description,
-        view=types.CheckboxView(),
-    )
-
-    if delegate:
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "You've chosen delegated execution. Note that you must "
-                    "have a delegated operation service running in order for "
-                    "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
-                    "for more information"
-                )
-            ),
-        )
 
 
 def register(p):

@@ -1,7 +1,7 @@
 """
 Utility operators.
 
-| Copyright 2017-2023, Voxel51, Inc.
+| Copyright 2017-2024, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -1095,6 +1095,13 @@ class CloneDataset(foo.Operator):
 
         return types.Property(inputs, view=types.View(label="Clone dataset"))
 
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=False,
+        )
+
     def execute(self, ctx):
         name = ctx.params["name"]
         new_name = ctx.params["new_name"]
@@ -1112,7 +1119,8 @@ class CloneDataset(foo.Operator):
 
         sample_collection.clone(new_name, persistent=persistent)
 
-        ctx.trigger("open_dataset", dict(dataset=new_name))
+        if not ctx.delegated:
+            ctx.trigger("open_dataset", dict(dataset=new_name))
 
 
 def _get_clone_dataset_inputs(ctx, inputs):
@@ -1469,39 +1477,43 @@ class ComputeMetadata(foo.Operator):
         else:
             ctx = dict(dataset=sample_collection)
 
-        if delegation_target is not None:
-            ctx["delegation_target"] = delegation_target
-
         params = dict(
             overwrite=overwrite,
             num_workers=num_workers,
-            delegate=delegate,
         )
-        return foo.execute_operator(self.uri, ctx, params=params)
+
+        return foo.execute_operator(
+            self.uri,
+            ctx,
+            params=params,
+            request_delegation=delegate,
+            delegation_target=delegation_target,
+        )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _compute_metadata_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _compute_metadata_inputs(ctx, inputs)
 
         return types.Property(
             inputs, view=types.View(label="Compute metadata")
         )
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
-        delegate = ctx.params.get("delegate", False)
 
         view = _get_target_view(ctx, target)
 
-        if delegate:
+        if ctx.delegated:
             view.compute_metadata(overwrite=overwrite, num_workers=num_workers)
         else:
             for update in _compute_metadata_generator(
@@ -1509,7 +1521,8 @@ class ComputeMetadata(foo.Operator):
             ):
                 yield update
 
-        yield ctx.trigger("reload_dataset")
+        if not ctx.delegated:
+            yield ctx.trigger("reload_dataset")
 
 
 def _compute_metadata_inputs(ctx, inputs):
@@ -1758,9 +1771,6 @@ class GenerateThumbnails(foo.Operator):
         else:
             ctx = dict(dataset=sample_collection)
 
-        if delegation_target is not None:
-            ctx["delegation_target"] = delegation_target
-
         params = dict(
             thumbnail_path=thumbnail_path,
             output_dir={"absolute_path": output_dir},
@@ -1768,23 +1778,31 @@ class GenerateThumbnails(foo.Operator):
             height=height,
             overwrite=overwrite,
             num_workers=num_workers,
-            delegate=delegate,
         )
-        return foo.execute_operator(self.uri, ctx, params=params)
+
+        return foo.execute_operator(
+            self.uri,
+            ctx,
+            params=params,
+            request_delegation=delegate,
+            delegation_target=delegation_target,
+        )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _generate_thumbnails_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _generate_thumbnails_inputs(ctx, inputs)
 
         return types.Property(
             inputs, view=types.View(label="Generate thumbnails")
         )
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1794,7 +1812,6 @@ class GenerateThumbnails(foo.Operator):
         output_dir = ctx.params["output_dir"]["absolute_path"]
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
-        delegate = ctx.params.get("delegate", False)
 
         view = _get_target_view(ctx, target)
 
@@ -1804,7 +1821,7 @@ class GenerateThumbnails(foo.Operator):
         size = (width or -1, height or -1)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not ctx.delegated:
             num_workers = 0
 
         foui.transform_images(
@@ -1824,7 +1841,8 @@ class GenerateThumbnails(foo.Operator):
 
         ctx.dataset.save()
 
-        ctx.trigger("reload_dataset")
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def _generate_thumbnails_inputs(ctx, inputs):
@@ -2026,37 +2044,6 @@ def _get_target_view(ctx, target):
     return ctx.view
 
 
-def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
-        description = "Uncheck this box to execute the operation immediately"
-    else:
-        description = "Check this box to delegate execution of this task"
-
-    inputs.bool(
-        "delegate",
-        default=False,
-        label="Delegate execution?",
-        description=description,
-        view=types.CheckboxView(),
-    )
-
-    if delegate:
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "You've chosen delegated execution. Note that you must "
-                    "have a delegated operation service running in order for "
-                    "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
-                    "for more information"
-                )
-            ),
-        )
-
-
 class Delegate(foo.Operator):
     @property
     def config(self):
@@ -2141,8 +2128,6 @@ class Delegate(foo.Operator):
             **kwargs: JSON-serializable keyword arguments for the function
         """
         ctx = dict(dataset=dataset, view=view)
-        if delegation_target is not None:
-            ctx["delegation_target"] = delegation_target
 
         has_dataset = dataset is not None
         has_view = view is not None
@@ -2154,7 +2139,13 @@ class Delegate(foo.Operator):
             args=args,
             kwargs=kwargs,
         )
-        return foo.execute_operator(self.uri, ctx, params=params)
+
+        return foo.execute_operator(
+            self.uri,
+            ctx,
+            params=params,
+            delegation_target=delegation_target,
+        )
 
     def resolve_delegation(self, ctx):
         return True

@@ -1,7 +1,7 @@
 """
 FiftyOne Brain operators.
 
-| Copyright 2017-2023, Voxel51, Inc.
+| Copyright 2017-2024, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -88,11 +88,6 @@ class ComputeVisualization(foo.Operator):
             skip_failures=skip_failures,
         )
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
-
 
 def compute_visualization(ctx, inputs):
     complete = brain_init(ctx, inputs)
@@ -157,15 +152,17 @@ class ComputeSimilarity(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = compute_similarity(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        compute_similarity(ctx, inputs)
 
         view = types.View(label="Compute similarity")
         return types.Property(inputs, view=view)
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -178,13 +175,12 @@ class ComputeSimilarity(foo.Operator):
         num_workers = kwargs.pop("num_workers", None)
         skip_failures = kwargs.pop("skip_failures", True)
         backend = kwargs.pop("backend", None)
-        delegate = kwargs.pop("delegate", False)
 
         _inject_brain_secrets(ctx)
         _get_similarity_backend(backend).parse_parameters(ctx, kwargs)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not ctx.delegated:
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
@@ -200,11 +196,6 @@ class ComputeSimilarity(foo.Operator):
             backend=backend,
             **kwargs,
         )
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
 
 
 def compute_similarity(ctx, inputs):
@@ -1051,15 +1042,17 @@ class ComputeUniqueness(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = compute_uniqueness(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        compute_uniqueness(ctx, inputs)
 
         view = types.View(label="Compute uniqueness")
         return types.Property(inputs, view=view)
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1070,10 +1063,9 @@ class ComputeUniqueness(foo.Operator):
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
-        delegate = ctx.params.get("delegate", False)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not ctx.delegated:
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
@@ -1088,7 +1080,8 @@ class ComputeUniqueness(foo.Operator):
             skip_failures=skip_failures,
         )
 
-        ctx.trigger("reload_dataset")
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def compute_uniqueness(ctx, inputs):
@@ -1145,15 +1138,17 @@ class ComputeMistakenness(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = compute_mistakenness(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        compute_mistakenness(ctx, inputs)
 
         view = types.View(label="Compute mistakenness")
         return types.Property(inputs, view=view)
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -1161,7 +1156,6 @@ class ComputeMistakenness(foo.Operator):
         pred_field = kwargs.pop("pred_field")
         label_field = kwargs.pop("label_field")
         mistakenness_field = kwargs.pop("mistakenness_field")
-        kwargs.pop("delegate")
 
         target_view = _get_target_view(ctx, target)
         fob.compute_mistakenness(
@@ -1171,7 +1165,9 @@ class ComputeMistakenness(foo.Operator):
             mistakenness_field=mistakenness_field,
             **kwargs,
         )
-        ctx.trigger("reload_dataset")
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def compute_mistakenness(ctx, inputs):
@@ -1328,15 +1324,17 @@ class ComputeHardness(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = compute_hardness(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        compute_hardness(ctx, inputs)
 
         view = types.View(label="Compute hardness")
         return types.Property(inputs, view=view)
 
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
+    def resolve_execution_options(self, ctx):
+        return foo.ExecutionOptions(
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1349,7 +1347,9 @@ class ComputeHardness(foo.Operator):
             label_field,
             hardness_field=hardness_field,
         )
-        ctx.trigger("reload_dataset")
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def compute_hardness(ctx, inputs):
@@ -1846,11 +1846,6 @@ class RenameBrainRun(foo.Operator):
         if run_type in ("uniqueness", "mistakenness", "hardness"):
             ctx.trigger("reload_dataset")
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Rename successful")
-        return types.Property(outputs, view=view)
-
 
 class DeleteBrainRun(foo.Operator):
     @property
@@ -1912,11 +1907,6 @@ class DeleteBrainRun(foo.Operator):
 
         if run_type in ("uniqueness", "mistakenness", "hardness"):
             ctx.trigger("reload_dataset")
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Deletion successful")
-        return types.Property(outputs, view=view)
 
 
 def get_brain_run_type(ctx, inputs):
@@ -2050,37 +2040,6 @@ def _inject_brain_secrets(ctx):
             _key = key[len("FIFTYONE_BRAIN_SIMILARITY_") :].lower()
             _backend, _key = _key.split("_", 1)
             fob.brain_config.similarity_backends[_backend][_key] = value
-
-
-def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
-        description = "Uncheck this box to execute the operation immediately"
-    else:
-        description = "Check this box to delegate execution of this task"
-
-    inputs.bool(
-        "delegate",
-        default=False,
-        label="Delegate execution?",
-        description=description,
-        view=types.CheckboxView(),
-    )
-
-    if delegate:
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "You've chosen delegated execution. Note that you must "
-                    "have a delegated operation service running in order for "
-                    "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
-                    "for more information"
-                )
-            ),
-        )
 
 
 def register(p):

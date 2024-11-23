@@ -1,6 +1,6 @@
 name: "@voxel51/evaluation"
 description: Utilities for evaluating models with FiftyOne
-version: 1.0.0
+version: 1.0.1
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/evaluation

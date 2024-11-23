@@ -1,6 +1,6 @@
 name: "@voxel51/indexes"
 description: Utilities working with FiftyOne database indexes
-version: 1.0.1
+version: 1.0.2
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/indexes

@@ -1,6 +1,6 @@
 name: "@voxel51/runs"
 description: Utilities for working with custom runs
-version: 1.0.0
+version: 1.0.1
 fiftyone:
   version: ">=0.23"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/runs
