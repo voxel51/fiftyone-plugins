@@ -877,7 +877,7 @@ class ExampleComplexExecution(foo.Operator):
     def execute(self, ctx):
         ### Is this running on the orchestrator or the local machine?
         print(f"Message: {ctx.params['message']}")
-        if ctx.requesting_delegated_execution:
+        if ctx.delegated:
             print("Running on orchestrator")
         else:
             print("Running in-process")
