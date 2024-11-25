@@ -815,6 +815,68 @@ class PythonViewExample(foo.Operator):
         ctx.ops.set_view(view=view)
 
 
+class ExampleComplexExecution(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_complex_execution",
+            label="Example Complex Execution",
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
+        )
+
+    def __call__(
+        self,
+        sample_collection,
+        delegate=False,
+        delegation_target=None,
+    ):
+        """Illustrates a complex operation that can be run immediately or delegated.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            complex_exec = foo.get_operator("@org/plugin/example_complex_execution")
+
+            # Run immediately
+            complex_exec(dataset)
+
+            # Schedule to run on an orchestrator
+            complex_exec(dataset, overwrite=True, delegate=True)
+
+        Args:
+            delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
+        """
+        if isinstance(sample_collection, fo.DatasetView):
+            ctx = dict(view=sample_collection)
+        else:
+            ctx = dict(dataset=sample_collection)
+
+        if delegation_target is not None:
+            ctx["delegation_target"] = delegation_target
+
+        return foo.execute_operator(self.uri, ctx, request_delegation=delegate)
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.str("message", label="Message")
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        ### Is this running on the orchestrator or the local machine?
+        print(f"Message: {ctx.params['message']}")
+        if ctx.requesting_delegated_execution:
+            print("Running on orchestrator")
+        else:
+            print("Running in-process")
+
+
 def register(p):
     p.register(MessagesExample)
     p.register(SimpleInputExample)
@@ -840,3 +902,4 @@ def register(p):
     p.register(LazyFieldExample)
     p.register(TargetViewExample)
     p.register(PythonViewExample)
+    p.register(ExampleComplexExecution)
