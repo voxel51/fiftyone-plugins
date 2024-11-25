@@ -823,6 +823,8 @@ class ExampleComplexExecution(foo.Operator):
             label="Example Complex Execution",
             allow_immediate_execution=True,
             allow_delegated_execution=True,
+            default_choice_to_delegated=True,
+            resolve_execution_options_on_change=False,
         )
 
     def __call__(
