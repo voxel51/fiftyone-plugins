@@ -828,6 +828,7 @@ class ExampleComplexExecution(foo.Operator):
     def __call__(
         self,
         sample_collection,
+        message=None,
         delegate=False,
         delegation_target=None,
     ):
@@ -840,13 +841,13 @@ class ExampleComplexExecution(foo.Operator):
             import fiftyone.zoo as foz
 
             dataset = foz.load_zoo_dataset("quickstart")
-            complex_exec = foo.get_operator("@org/plugin/example_complex_execution")
+            complex_exec = foo.get_operator("@voxel51/operator-examples/example_complex_execution")
 
             # Run immediately
-            complex_exec(dataset)
+            complex_exec(dataset, message="Running immediately")
 
             # Schedule to run on an orchestrator
-            complex_exec(dataset, overwrite=True, delegate=True)
+            complex_exec(dataset, delegate=True, message="Running on orchestrator")
 
         Args:
             delegate (False): whether to delegate execution
@@ -861,7 +862,12 @@ class ExampleComplexExecution(foo.Operator):
         if delegation_target is not None:
             ctx["delegation_target"] = delegation_target
 
-        return foo.execute_operator(self.uri, ctx, request_delegation=delegate)
+        return foo.execute_operator(
+            self.uri,
+            ctx,
+            request_delegation=delegate,
+            params=dict(message=message),
+        )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
