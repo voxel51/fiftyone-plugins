@@ -875,12 +875,11 @@ class ExampleComplexExecution(foo.Operator):
         return types.Property(inputs)
 
     def execute(self, ctx):
-        ### Is this running on the orchestrator or the local machine?
-        print(f"Message: {ctx.params['message']}")
         if ctx.delegated:
             print("Running on orchestrator")
         else:
             print("Running in-process")
+        print(f"Message: {ctx.params['message']}")
 
 
 def register(p):
