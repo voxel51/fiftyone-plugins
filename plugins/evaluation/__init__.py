@@ -22,6 +22,9 @@ class EvaluateModel(foo.Operator):
             label="Evaluate model",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -32,13 +35,6 @@ class EvaluateModel(foo.Operator):
 
         view = types.View(label="Evaluate model")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()

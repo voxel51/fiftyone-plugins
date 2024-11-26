@@ -1085,6 +1085,9 @@ class CloneDataset(foo.Operator):
             label="Clone dataset",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
+            default_choice_to_delegated=False,
             dynamic=True,
         )
 
@@ -1094,13 +1097,6 @@ class CloneDataset(foo.Operator):
         _get_clone_dataset_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Clone dataset"))
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=False,
-        )
 
     def execute(self, ctx):
         name = ctx.params["name"]
@@ -1434,6 +1430,9 @@ class ComputeMetadata(foo.Operator):
             label="Compute metadata",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
             execute_as_generator=True,
         )
@@ -1497,13 +1496,6 @@ class ComputeMetadata(foo.Operator):
 
         return types.Property(
             inputs, view=types.View(label="Compute metadata")
-        )
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
         )
 
     def execute(self, ctx):
@@ -1705,6 +1697,9 @@ class GenerateThumbnails(foo.Operator):
             label="Generate thumbnails",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -1795,13 +1790,6 @@ class GenerateThumbnails(foo.Operator):
 
         return types.Property(
             inputs, view=types.View(label="Generate thumbnails")
-        )
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
         )
 
     def execute(self, ctx):

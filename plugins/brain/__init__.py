@@ -42,6 +42,9 @@ class ComputeVisualization(foo.Operator):
             label="Compute visualization",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -52,13 +55,6 @@ class ComputeVisualization(foo.Operator):
 
         view = types.View(label="Compute visualization")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -146,6 +142,9 @@ class ComputeSimilarity(foo.Operator):
             label="Compute similarity",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -156,13 +155,6 @@ class ComputeSimilarity(foo.Operator):
 
         view = types.View(label="Compute similarity")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -1036,6 +1028,9 @@ class ComputeUniqueness(foo.Operator):
             label="Compute uniqueness",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -1046,13 +1041,6 @@ class ComputeUniqueness(foo.Operator):
 
         view = types.View(label="Compute uniqueness")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1132,6 +1120,9 @@ class ComputeMistakenness(foo.Operator):
             label="Compute mistakenness",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -1142,13 +1133,6 @@ class ComputeMistakenness(foo.Operator):
 
         view = types.View(label="Compute mistakenness")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -1318,6 +1302,9 @@ class ComputeHardness(foo.Operator):
             label="Compute hardness",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -1328,13 +1315,6 @@ class ComputeHardness(foo.Operator):
 
         view = types.View(label="Compute hardness")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)

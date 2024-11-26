@@ -26,6 +26,9 @@ class RequestAnnotations(foo.Operator):
             label="Request annotations",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -38,13 +41,6 @@ class RequestAnnotations(foo.Operator):
 
         view = types.View(label="Request annotations")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -896,6 +892,9 @@ class LoadAnnotations(foo.Operator):
             label="Load annotations",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -906,13 +905,6 @@ class LoadAnnotations(foo.Operator):
 
         view = types.View(label="Load annotations")
         return types.Property(inputs, view=view)
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         anno_key = ctx.params["anno_key"]

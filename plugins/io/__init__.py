@@ -30,6 +30,9 @@ class ImportSamples(foo.Operator):
             label="Import samples",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
             execute_as_generator=True,
         )
@@ -169,13 +172,6 @@ class ImportSamples(foo.Operator):
         _import_samples_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Import samples"))
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         import_type = ctx.params.get("import_type", None)
@@ -1004,6 +1000,9 @@ class MergeSamples(foo.Operator):
             label="Merge samples",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -1013,13 +1012,6 @@ class MergeSamples(foo.Operator):
         _merge_samples_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Merge samples"))
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         src_type = ctx.params.get("src_type", None)
@@ -1390,6 +1382,9 @@ class MergeLabels(foo.Operator):
             label="Merge labels",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -1399,13 +1394,6 @@ class MergeLabels(foo.Operator):
         _merge_labels_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Merge labels"))
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -1529,6 +1517,9 @@ class ExportSamples(foo.Operator):
             label="Export samples",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -1727,13 +1718,6 @@ class ExportSamples(foo.Operator):
         _export_samples_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Export samples"))
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         _export_samples(ctx)
@@ -2527,6 +2511,9 @@ class DrawLabels(foo.Operator):
             label="Draw labels",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -2536,13 +2523,6 @@ class DrawLabels(foo.Operator):
         _draw_labels_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Draw labels"))
-
-    def resolve_execution_options(self, ctx):
-        return foo.ExecutionOptions(
-            allow_delegated_execution=True,
-            allow_immediate_execution=True,
-            default_choice_to_delegated=True,
-        )
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
