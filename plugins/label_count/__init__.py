@@ -21,7 +21,6 @@ class LabelCountPanel(foo.Panel):
             label="Label count",
             surfaces="modal",
             allow_multiple=True,
-            reload_on_navigation=True,
         )
 
     def on_load(self, ctx):
