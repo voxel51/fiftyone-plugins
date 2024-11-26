@@ -834,7 +834,8 @@ class ExampleComplexExecution(foo.Operator):
         delegate=False,
         delegation_target=None,
     ):
-        """Illustrates a complex operation that can be run immediately or delegated.
+        """Illustrates a complex operation that can be run immediately or
+        delegated.
 
         Example usage::
 
@@ -861,14 +862,12 @@ class ExampleComplexExecution(foo.Operator):
         else:
             ctx = dict(dataset=sample_collection)
 
-        if delegation_target is not None:
-            ctx["delegation_target"] = delegation_target
-
         return foo.execute_operator(
             self.uri,
             ctx,
-            request_delegation=delegate,
             params=dict(message=message),
+            request_delegation=delegate,
+            delegation_target=delegation_target,
         )
 
     def resolve_input(self, ctx):
