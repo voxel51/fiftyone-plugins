@@ -30,5 +30,6 @@ operators:
   - example_target_view
   - example_lazy_field
   - example_python_view
+  - example_complex_execution
 secrets:
   - FIFTYONE_EXAMPLE_SECRET

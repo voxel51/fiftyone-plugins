@@ -815,6 +815,74 @@ class PythonViewExample(foo.Operator):
         ctx.ops.set_view(view=view)
 
 
+class ExampleComplexExecution(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_complex_execution",
+            label="Example Complex Execution",
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
+            default_choice_to_delegated=True,
+            resolve_execution_options_on_change=False,
+        )
+
+    def __call__(
+        self,
+        sample_collection,
+        message=None,
+        delegate=False,
+        delegation_target=None,
+    ):
+        """Illustrates a complex operation that can be run immediately or
+        delegated.
+
+        Example usage::
+
+            import fiftyone as fo
+            import fiftyone.operators as foo
+            import fiftyone.zoo as foz
+
+            dataset = foz.load_zoo_dataset("quickstart")
+            complex_exec = foo.get_operator("@voxel51/operator-examples/example_complex_execution")
+
+            # Run immediately
+            complex_exec(dataset, message="Running immediately")
+
+            # Schedule to run on an orchestrator
+            complex_exec(dataset, delegate=True, message="Running on orchestrator")
+
+        Args:
+            delegate (False): whether to delegate execution
+            delegation_target (None): an optional orchestrator on which to
+                schedule the operation, if it is delegated
+        """
+        if isinstance(sample_collection, fo.DatasetView):
+            ctx = dict(view=sample_collection)
+        else:
+            ctx = dict(dataset=sample_collection)
+
+        return foo.execute_operator(
+            self.uri,
+            ctx,
+            params=dict(message=message),
+            request_delegation=delegate,
+            delegation_target=delegation_target,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.str("message", label="Message")
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        if ctx.delegated:
+            print("Running on orchestrator")
+        else:
+            print("Running in-process")
+        print(f"Message: {ctx.params['message']}")
+
+
 def register(p):
     p.register(MessagesExample)
     p.register(SimpleInputExample)
@@ -840,3 +908,4 @@ def register(p):
     p.register(LazyFieldExample)
     p.register(TargetViewExample)
     p.register(PythonViewExample)
+    p.register(ExampleComplexExecution)

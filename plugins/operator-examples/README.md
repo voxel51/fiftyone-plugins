@@ -162,3 +162,7 @@ is defined in `__init__.py`.
 
 -   Example of programmatically loading a view in the App by typing the
     corresponding Python as a string
+
+### example_complex_execution
+
+-   Example of a complex operation that can be run immediately or delegated
