@@ -1,7 +1,7 @@
 """
 Annotation operators.
 
-| Copyright 2017-2023, Voxel51, Inc.
+| Copyright 2017-2024, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -26,6 +26,9 @@ class RequestAnnotations(foo.Operator):
             label="Request annotations",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
@@ -34,22 +37,16 @@ class RequestAnnotations(foo.Operator):
 
         _inject_annotation_secrets(ctx)
 
-        ready = request_annotations(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        request_annotations(ctx, inputs)
 
         view = types.View(label="Request annotations")
         return types.Property(inputs, view=view)
-
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
         target = kwargs.pop("target", None)
         anno_key = kwargs.pop("anno_key")
         backend = kwargs.pop("backend")
-        kwargs.pop("delegate")
 
         kwargs.pop("schema_type")
         label_schema = kwargs.pop("label_schema", None)
@@ -81,11 +78,6 @@ class RequestAnnotations(foo.Operator):
                 backend=backend,
                 **kwargs,
             )
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
 
 
 def request_annotations(ctx, inputs):
@@ -900,21 +892,19 @@ class LoadAnnotations(foo.Operator):
             label="Load annotations",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = load_annotations(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        load_annotations(ctx, inputs)
 
         view = types.View(label="Load annotations")
         return types.Property(inputs, view=view)
-
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         anno_key = ctx.params["anno_key"]
@@ -926,7 +916,9 @@ class LoadAnnotations(foo.Operator):
         ctx.dataset.load_annotations(
             anno_key, unexpected=unexpected, cleanup=cleanup
         )
-        ctx.trigger("reload_dataset")
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def load_annotations(ctx, inputs):
@@ -1188,11 +1180,6 @@ class RenameAnnotationRun(foo.Operator):
         new_anno_key = ctx.params["new_anno_key"]
         ctx.dataset.rename_annotation_run(anno_key, new_anno_key)
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Rename successful")
-        return types.Property(outputs, view=view)
-
 
 class DeleteAnnotationRun(foo.Operator):
     @property
@@ -1242,6 +1229,7 @@ class DeleteAnnotationRun(foo.Operator):
                 results.cleanup()
 
         ctx.dataset.delete_annotation_run(anno_key)
+
         ctx.trigger("reload_dataset")
 
 
@@ -1291,37 +1279,6 @@ def _inject_annotation_secrets(ctx):
 
                 _key = key[len(prefix) :].lower()
                 fo.annotation_config.backends[backend][_key] = value
-
-
-def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
-        description = "Uncheck this box to execute the operation immediately"
-    else:
-        description = "Check this box to delegate execution of this task"
-
-    inputs.bool(
-        "delegate",
-        default=False,
-        label="Delegate execution?",
-        description=description,
-        view=types.CheckboxView(),
-    )
-
-    if delegate:
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "You've chosen delegated execution. Note that you must "
-                    "have a delegated operation service running in order for "
-                    "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
-                    "for more information"
-                )
-            ),
-        )
 
 
 def register(p):

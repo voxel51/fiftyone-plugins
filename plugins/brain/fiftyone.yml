@@ -1,6 +1,6 @@
 name: "@voxel51/brain"
 description: Utilities for working with the FiftyOne Brain
-version: 1.1.0
+version: 1.1.1
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain

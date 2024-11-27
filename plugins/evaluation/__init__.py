@@ -1,7 +1,7 @@
 """
 Evaluation operators.
 
-| Copyright 2017-2023, Voxel51, Inc.
+| Copyright 2017-2024, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -22,21 +22,19 @@ class EvaluateModel(foo.Operator):
             label="Evaluate model",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = evaluate_model(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        evaluate_model(ctx, inputs)
 
         view = types.View(label="Evaluate model")
         return types.Property(inputs, view=view)
-
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -45,7 +43,6 @@ class EvaluateModel(foo.Operator):
         gt_field = kwargs.pop("gt_field")
         eval_key = kwargs.pop("eval_key")
         method = kwargs.pop("method")
-        kwargs.pop("delegate")
 
         target_view = _get_target_view(ctx, target)
         _, eval_type, _ = _get_evaluation_type(target_view, pred_field)
@@ -72,7 +69,8 @@ class EvaluateModel(foo.Operator):
             **kwargs,
         )
 
-        ctx.trigger("reload_dataset")
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def evaluate_model(ctx, inputs):
@@ -1204,37 +1202,6 @@ def get_new_eval_key(
         eval_key = None
 
     return eval_key
-
-
-def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
-        description = "Uncheck this box to execute the operation immediately"
-    else:
-        description = "Check this box to delegate execution of this task"
-
-    inputs.bool(
-        "delegate",
-        default=False,
-        label="Delegate execution?",
-        description=description,
-        view=types.CheckboxView(),
-    )
-
-    if delegate:
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "You've chosen delegated execution. Note that you must "
-                    "have a delegated operation service running in order for "
-                    "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
-                    "for more information"
-                )
-            ),
-        )
 
 
 def register(p):

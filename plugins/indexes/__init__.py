@@ -1,7 +1,7 @@
 """
 Index operators.
 
-| Copyright 2017-2023, Voxel51, Inc.
+| Copyright 2017-2024, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -27,15 +27,10 @@ class ManageIndexes(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _manage_indexes(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _manage_indexes(ctx, inputs)
 
         view = types.View(label="Manage indexes")
         return types.Property(inputs, view=view)
-
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         create = ctx.params.get("create", [])
@@ -45,23 +40,18 @@ class ManageIndexes(foo.Operator):
             field_name = obj["field_name"]
             unique = obj["unique"]
 
-            ctx.dataset.create_index(field_name, unique=unique)
+            ctx.dataset.create_index(field_name, unique=unique, wait=False)
 
             if ctx.dataset.media_type == fom.GROUP:
                 index_spec = [
                     (ctx.dataset.group_field + ".name", 1),
                     (field_name, 1),
                 ]
-                ctx.dataset.create_index(index_spec, unique=unique)
+                ctx.dataset.create_index(index_spec, unique=unique, wait=False)
 
         for obj in drop:
             index_name = obj["index_name"]
             ctx.dataset.drop_index(index_name)
-
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        view = types.View(label="Request complete")
-        return types.Property(outputs, view=view)
 
 
 def _manage_indexes(ctx, inputs):
@@ -351,37 +341,6 @@ def _get_default_indexes(ctx):
         )
 
     return index_names
-
-
-def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
-        description = "Uncheck this box to execute the operation immediately"
-    else:
-        description = "Check this box to delegate execution of this task"
-
-    inputs.bool(
-        "delegate",
-        default=False,
-        label="Delegate execution?",
-        description=description,
-        view=types.CheckboxView(),
-    )
-
-    if delegate:
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "You've chosen delegated execution. Note that you must "
-                    "have a delegated operation service running in order for "
-                    "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
-                    "for more information"
-                )
-            ),
-        )
 
 
 def register(p):
