@@ -2184,6 +2184,58 @@ class Delegate(foo.Operator):
             fcn(*args, **kwargs)
 
 
+class ManageMediaCache(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="manage_media_cache",
+            label="Manage media cache",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
+            default_choice_to_delegated=False,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        stats = ctx.dataset.cache_stats()
+        inputs.str(
+            "stats",
+            default=json.dumps(stats, indent=4),
+            read_only=True,
+            label="Cache stats",
+            view=types.CodeView(),
+        )
+
+        inputs.bool(
+            "download",
+            default=False,
+            label="Download all of the dataset's media?",
+        )
+
+        inputs.bool(
+            "clear",
+            default=False,
+            label="Clear the dataset's media cache?",
+        )
+
+        view = types.View(label="Manage media cache")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        download = ctx.params.get("download", False)
+        clear = ctx.params.get("clear", False)
+
+        if download:
+            ctx.dataset.download_media()
+
+        if clear:
+            ctx.dataset.clear_media()
+
+
 def register(p):
     p.register(CreateDataset)
     p.register(LoadDataset)
@@ -2196,3 +2248,4 @@ def register(p):
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
     p.register(Delegate)
+    p.register(ManageMediaCache)
