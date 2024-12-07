@@ -46,6 +46,15 @@ class LoadZooDataset(foo.Operator):
         label_field = kwargs.pop("label_field", None)
         kwargs.pop("dataset_name", None)
 
+        if splits is not None:
+            splits = _to_string_list(splits)
+
+        if "classes" in kwargs:
+            kwargs["classes"] = _to_string_list(kwargs["classes"])
+
+        if "label_types" in kwargs:
+            kwargs["label_types"] = _to_string_list(kwargs["label_types"])
+
         dataset_name = _get_zoo_dataset_name(ctx)
 
         dataset = foz.load_zoo_dataset(
@@ -92,21 +101,21 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         for tag in zoo_dataset.tags or []:
             datasets_by_tag[tag].add(name)
 
-    tag_choices = types.DropdownView(multiple=True)
+    tags = _to_string_list(ctx.params.get("tags", []))
+
+    tag_choices = types.AutocompleteView(multiple=True)
     for tag in sorted(datasets_by_tag.keys()):
-        tag_choices.add_choice(tag, label=tag)
+        if tag not in tags:
+            tag_choices.add_choice(tag, label=tag)
 
     inputs.list(
         "tags",
-        types.String(),
-        default=None,
+        types.OneOf([types.Object(), types.String()]),
         required=False,
         label="Tags",
         description="Provide optional tag(s) to filter the available datasets",
         view=tag_choices,
     )
-
-    tags = ctx.params.get("tags", None)
 
     if tags:
         dataset_names = set.intersection(
@@ -223,14 +232,17 @@ def _load_zoo_dataset_inputs(ctx, inputs):
     _get_source_dir(ctx, inputs, zoo_dataset)
 
     if zoo_dataset.has_splits:
-        split_choices = types.DropdownView(multiple=True)
-        for split in zoo_dataset.supported_splits:
-            split_choices.add_choice(split, label=split)
+        supported_splits = zoo_dataset.supported_splits
+        splits = _to_string_list(ctx.params.get("splits", []))
 
-        inputs.list(
+        split_choices = types.AutocompleteView(multiple=True)
+        for split in supported_splits:
+            if split not in splits:
+                split_choices.add_choice(split, label=split)
+
+        field_prop = inputs.list(
             "splits",
-            types.String(),
-            default=None,
+            types.OneOf([types.Object(), types.String()]),
             required=False,
             label="Splits",
             description=(
@@ -239,6 +251,11 @@ def _load_zoo_dataset_inputs(ctx, inputs):
             ),
             view=split_choices,
         )
+
+        for split in splits:
+            if split not in supported_splits:
+                field_prop.invalid = True
+                field_prop.error_message = f"Invalid split '{split}'"
 
     _partial_download_inputs(ctx, inputs, zoo_dataset)
 
@@ -302,6 +319,7 @@ def _get_zoo_dataset_name(ctx, zoo_dataset=None):
 
     splits = ctx.params.get("splits", None)
     if splits:
+        splits = _to_string_list(splits)
         name += "-" + "-".join(splits)
 
     max_samples = ctx.params.get("max_samples", None)
@@ -381,12 +399,12 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
     name = zoo_dataset.name
 
     if "coco" in name:
-        label_types = ("detections", "segmentations")
+        supported_label_types = ("detections", "segmentations")
         default = "only detections"
         id_type = "COCO"
         only_matching = True
     elif "open-images" in name:
-        label_types = (
+        supported_label_types = (
             "detections",
             "classifications",
             "relationships",
@@ -396,20 +414,23 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
         id_type = "Open Images"
         only_matching = True
     elif "activitynet" in name:
-        label_types = None
+        supported_label_types = None
         id_type = None
         only_matching = False
     else:
         return
 
-    if label_types is not None:
-        label_type_choices = types.Choices()
-        for field in label_types:
-            label_type_choices.add_choice(field, label=field)
+    if supported_label_types is not None:
+        label_types = _to_string_list(ctx.params.get("label_types", []))
 
-        inputs.list(
+        label_type_choices = types.AutocompleteView(multiple=True)
+        for field in supported_label_types:
+            if field not in label_types:
+                label_type_choices.add_choice(field, label=field)
+
+        field_prop = inputs.list(
             "label_types",
-            types.String(),
+            types.OneOf([types.Object(), types.String()]),
             default=None,
             required=False,
             label="Label types",
@@ -419,9 +440,14 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
             view=label_type_choices,
         )
 
+        for label_type in label_types:
+            if label_type not in supported_label_types:
+                field_prop.invalid = True
+                field_prop.error_message = f"Invalid label type '{label_type}'"
+
     inputs.list(
         "classes",
-        types.String(),
+        types.OneOf([types.Object(), types.String()]),
         default=None,
         required=False,
         label="Classes",
@@ -698,21 +724,22 @@ def _apply_zoo_model_inputs(ctx, inputs):
         for tag in model.tags or []:
             models_by_tag[tag].add(model.name)
 
-    tag_choices = types.DropdownView(multiple=True)
+    tags = _to_string_list(ctx.params.get("tags", []))
+
+    tag_choices = types.AutocompleteView(multiple=True)
     for tag in sorted(models_by_tag.keys()):
-        tag_choices.add_choice(tag, label=tag)
+        if tag not in tags:
+            tag_choices.add_choice(tag, label=tag)
 
     inputs.list(
         "tags",
-        types.String(),
+        types.OneOf([types.Object(), types.String()]),
         default=None,
         required=False,
         label="Tags",
         description="Provide optional tag(s) to filter the available models",
         view=tag_choices,
     )
-
-    tags = ctx.params.get("tags", None)
 
     if tags:
         model_names = set.intersection(*[models_by_tag[tag] for tag in tags])
@@ -730,7 +757,8 @@ def _apply_zoo_model_inputs(ctx, inputs):
             description = (
                 "The name of a model from the "
                 "[FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/models.html) "
-                "to apply. Also includes models from any remote sources "
+                "to apply. Also includes models from any "
+                "[remote sources](https://docs.voxel51.com/model_zoo/remote.html) "
                 "you've already registered"
             )
         caption = None
@@ -911,6 +939,13 @@ def _apply_zoo_model_inputs(ctx, inputs):
         )
 
     return True
+
+
+def _to_string_list(values):
+    if not values:
+        return []
+
+    return [d["value"] if isinstance(d, dict) else d for d in values]
 
 
 def _get_fields_with_type(view, type):
