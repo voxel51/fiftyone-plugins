@@ -554,32 +554,6 @@ def _dataset_info_inputs(ctx, inputs):
                 ),
             )
 
-    ## app_config.sidebar_mode
-
-    sidebar_mode = ctx.params.get("app_config_sidebar_mode", None)
-    edited_sidebar_mode = (
-        "app_config_sidebar_mode" in ctx.params  # can be None
-        and sidebar_mode != ctx.dataset.app_config.sidebar_mode
-    )
-    if edited_sidebar_mode:
-        num_changed += 1
-
-    if tab_choice == "APP_CONFIG":
-        sidebar_mode_choices = types.AutocompleteView()
-        sidebar_mode_choices.add_choice("fast", label="fast")
-        sidebar_mode_choices.add_choice("all", label="all")
-        sidebar_mode_choices.add_choice("best", label="best")
-
-        inputs.str(
-            "app_config_sidebar_mode",
-            default=ctx.dataset.app_config.sidebar_mode,
-            required=False,
-            label="Sidebar mode"
-            + (" (edited)" if edited_sidebar_mode else ""),
-            description="An optional default mode for the App sidebar",
-            view=sidebar_mode_choices,
-        )
-
     ## app_config.sidebar_groups
 
     sidebar_groups, valid = _parse_field(
@@ -985,9 +959,6 @@ def _parse_app_config(ctx):
         app_config.disable_frame_filtering = ctx.params[
             "app_config_disable_frame_filtering"
         ]
-
-    if "app_config_sidebar_mode" in ctx.params:
-        app_config.sidebar_mode = ctx.params["app_config_sidebar_mode"]
 
     if "app_config_sidebar_groups" in ctx.params:
         sidebar_groups = ctx.params["app_config_sidebar_groups"]
