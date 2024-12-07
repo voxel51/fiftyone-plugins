@@ -449,7 +449,7 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
 
     inputs.list(
         "classes",
-        types.OneOf([types.Object(), types.String()]),
+        types.String(),
         default=None,
         required=False,
         label="Classes",
