@@ -670,18 +670,6 @@ class CVATBackend(AnnotationBackend):
                 "videos as each video is uploaded to a separate task"
             ),
         )
-        inputs.list(
-            "job_reviewers",
-            types.String(),
-            default=None,
-            label="Reviewers",
-            description=(
-                "The usernames to assign as reviewers to the generated tasks. "
-                "This argument can contain comma-separated lists of usernames "
-                "when annotating videos as each video is uploaded to a "
-                "separate task",
-            ),
-        )
         inputs.str(
             "task_name",
             default=None,
@@ -765,14 +753,6 @@ class CVATBackend(AnnotationBackend):
     def parse_parameters(self, ctx, params):
         if "," in (params.get("job_assignee", None) or ""):
             params["job_assignee"] = params["job_assignee"].split(",")
-
-        if any(
-            "," in usernames
-            for usernames in (params.get("job_reviewers", None) or [])
-        ):
-            params["job_reviewers"] = [
-                usernames.split(",") for usernames in params["job_reviewers"]
-            ]
 
         if "," in (params.get("task_name", None) or ""):
             params["task_name"] = params["task_name"].split(",")
