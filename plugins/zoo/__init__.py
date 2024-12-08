@@ -243,6 +243,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         field_prop = inputs.list(
             "splits",
             types.OneOf([types.Object(), types.String()]),
+            default=None,
             required=False,
             label="Splits",
             description=(
@@ -734,7 +735,6 @@ def _apply_zoo_model_inputs(ctx, inputs):
     inputs.list(
         "tags",
         types.OneOf([types.Object(), types.String()]),
-        default=None,
         required=False,
         label="Tags",
         description="Provide optional tag(s) to filter the available models",
