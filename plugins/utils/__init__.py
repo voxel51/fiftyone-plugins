@@ -65,7 +65,8 @@ class CreateDataset(foo.Operator):
             types.String(),
             required=False,
             label="Tags",
-            description="An optional list of tags for the dataset",
+            description="Optional tag(s) for the dataset",
+            view=types.AutocompleteView(multiple=True),
         )
 
         inputs.bool(
@@ -364,7 +365,8 @@ def _dataset_info_inputs(ctx, inputs):
             default=ctx.dataset.tags,
             required=False,
             label="Tags" + (" (edited)" if edited_tags else ""),
-            description="A list of tags for the dataset",
+            description="Optional tag(s) for the dataset",
+            view=types.AutocompleteView(multiple=True),
         )
 
     ## info
@@ -434,7 +436,7 @@ def _dataset_info_inputs(ctx, inputs):
             label="Media fields"
             + (" (edited)" if edited_media_fields else ""),
             description=(
-                "The list of sample fields that contain media and should be "
+                "The sample field(s) that contain media and should be "
                 "available to choose from the App's settings menus"
             ),
             view=str_field_choices,

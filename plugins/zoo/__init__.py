@@ -428,10 +428,11 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
         required=False,
         label="Classes",
         description=(
-            "An optional list of strings specifying required classes to load. "
-            "If provided, only samples containing at least one instance of a "
-            "specified class will be loaded"
+            "Optional required class(es) to load. If provided, only samples "
+            "containing at least one instance of a specified class will be "
+            "loaded"
         ),
+        view=types.AutocompleteView(multiple=True),
     )
 
     classes = ctx.params.get("classes", None)

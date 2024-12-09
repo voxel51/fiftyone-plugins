@@ -313,6 +313,7 @@ def _import_media_only_inputs(ctx, inputs):
         default=None,
         label="Tags",
         description="Optional tag(s) to give each new sample",
+        view=types.AutocompleteView(multiple=True),
     )
 
     ready = _upload_media_inputs(ctx, inputs)
@@ -550,6 +551,7 @@ def _import_media_and_labels_inputs(ctx, inputs):
         default=None,
         label="Tags",
         description="Optional tag(s) to give each new sample",
+        view=types.AutocompleteView(multiple=True),
     )
 
     return _upload_media_inputs(ctx, inputs)
@@ -1251,11 +1253,11 @@ def _get_merge_parameters(ctx, inputs):
         default=None,
         label="Fields",
         description=(
-            "An optional list of fields to which to restrict the merge. If "
+            "Optional field(s) to which to restrict the merge. If "
             "provided, fields other than these are omitted from the source "
-            "collection when merging or adding samples. One exception is that "
-            "`filepath` is always included when adding new samples, since the "
-            "field is required"
+            "collection when merging or adding samples. One exception is "
+            "that `filepath` is always included when adding *new samples*, "
+            "since the field is required"
         ),
         view=field_choices,
     )
@@ -1270,7 +1272,7 @@ def _get_merge_parameters(ctx, inputs):
         default=None,
         label="Omit fields",
         description=(
-            "An optional list of fields to exclude from the merge. If "
+            "Optional field(s) to exclude from the merge. If "
             "provided, these fields are omitted from the source collection, "
             "if present, when merging or adding samples. One exception is "
             "that `filepath` is always included when adding *new samples*, "
