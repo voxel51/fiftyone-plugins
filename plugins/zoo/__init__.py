@@ -125,7 +125,9 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         description = (
             "The name of the dataset to load from the "
             "[FiftyOne Dataset Zoo](https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html). "
-            "Also includes any remote datasets you've already downloaded"
+            "Also includes any "
+            "[remote datasets](https://docs.voxel51.com/dataset_zoo/remote.html) "
+            "you've already downloaded"
         )
         caption = None
     else:
@@ -159,7 +161,8 @@ def _get_builtin_zoo_dataset(ctx, inputs):
 
 def _get_remote_zoo_dataset(ctx, inputs):
     instructions = """
-Provide a location to download the dataset from, which can be:
+Provide a [location](https://docs.voxel51.com/dataset_zoo/remote.html) to
+download the dataset from, which can be:
 
 -   A GitHub repo URL like `https://github.com/<user>/<repo>`
 -   A GitHub ref like
@@ -249,7 +252,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         description=(
             "The label field (or prefix, if the dataset contains multiple "
             "label fields) in which to store the dataset's labels. By "
-            "default, this is 'ground_truth' if the dataset contains a single "
+            "default, this is `ground_truth` if the dataset contains a single "
             "label field. If the dataset contains multiple label fields and "
             "this value is not provided, the labels will be stored under "
             "dataset-specific field names"
@@ -298,12 +301,16 @@ def _get_zoo_dataset_name(ctx, zoo_dataset=None):
         return None
 
     name = zoo_dataset.name
+
     splits = ctx.params.get("splits", None)
+    if splits:
+        name += "-" + "-".join(splits)
 
-    if not splits:
-        return name
+    max_samples = ctx.params.get("max_samples", None)
+    if max_samples:
+        name += "-" + str(max_samples)
 
-    return name + "-" + "-".join(splits)
+    return name
 
 
 def _get_source_dir(ctx, inputs, zoo_dataset):
@@ -583,7 +590,8 @@ def _supports_remote_models():
 
 def _get_remote_zoo_model_source(ctx, inputs):
     instructions = """
-Provide a location to load the model from, which can be:
+Provide a [location](https://docs.voxel51.com/model_zoo/remote.html) to load
+the model from, which can be:
 
 -   A GitHub repo URL like `https://github.com/<user>/<repo>`
 -   A GitHub ref like

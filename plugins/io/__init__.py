@@ -312,7 +312,7 @@ def _import_media_only_inputs(ctx, inputs):
         types.String(),
         default=None,
         label="Tags",
-        description="An optional list of tags to give each new sample",
+        description="Optional tag(s) to give each new sample",
     )
 
     ready = _upload_media_inputs(ctx, inputs)
@@ -549,7 +549,7 @@ def _import_media_and_labels_inputs(ctx, inputs):
         types.String(),
         default=None,
         label="Tags",
-        description="An optional list of tags to attach to each new sample",
+        description="Optional tag(s) to give each new sample",
     )
 
     return _upload_media_inputs(ctx, inputs)
@@ -1254,7 +1254,7 @@ def _get_merge_parameters(ctx, inputs):
             "An optional list of fields to which to restrict the merge. If "
             "provided, fields other than these are omitted from the source "
             "collection when merging or adding samples. One exception is that "
-            "'filepath' is always included when adding new samples, since the "
+            "`filepath` is always included when adding new samples, since the "
             "field is required"
         ),
         view=field_choices,
@@ -1273,7 +1273,7 @@ def _get_merge_parameters(ctx, inputs):
             "An optional list of fields to exclude from the merge. If "
             "provided, these fields are omitted from the source collection, "
             "if present, when merging or adding samples. One exception is "
-            "that 'filepath' is always included when adding new samples, "
+            "that `filepath` is always included when adding *new samples*, "
             "since the field is required"
         ),
         view=omit_field_choices,
@@ -1285,12 +1285,12 @@ def _get_merge_parameters(ctx, inputs):
         default=True,
         label="Merge lists",
         description=(
-            "Whether to merge the elements of list fields (e.g., 'tags') and "
-            "label list fields (e.g., Detections fields) rather than merging "
+            "Whether to merge the elements of list fields (e.g., `tags`) and "
+            "label list fields (e.g., `Detections` fields) rather than merging "
             "the entire top-level field like other field types. For label "
-            "lists fields, existing Label elements are either replaced (when "
-            "'overwrite' is True) or kept (when 'overwrite' is False) when "
-            "their 'id' matches a label from the provided samples"
+            "lists fields, existing `Label` elements are either replaced (when "
+            "`overwrite` is True) or kept (when `overwrite` is False) when "
+            "their `id` matches a label from the provided samples"
         ),
         view=types.CheckboxView(),
     )
@@ -1338,8 +1338,8 @@ def _get_merge_parameters(ctx, inputs):
         default=True,
         label="Include info",
         description=(
-            "Whether to merge dataset-level information such as 'info' and "
-            "'classes'"
+            "Whether to merge dataset-level information such as `info` and "
+            "`classes`"
         ),
         view=types.CheckboxView(),
     )
@@ -1907,7 +1907,7 @@ def _export_samples_inputs(ctx, inputs):
             "labels_path",
             required=True,
             label="Labels path",
-            description=f"Choose a {ext} path to write the labels",
+            description=f"Choose a `{ext}` path to write the labels",
             view=file_explorer,
         )
 
