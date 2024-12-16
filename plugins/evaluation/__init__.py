@@ -6,6 +6,7 @@ Evaluation operators.
 |
 """
 import json
+from packaging.version import Version
 
 from bson import json_util
 
@@ -45,6 +46,7 @@ class EvaluateModel(foo.Operator):
         gt_field = kwargs.pop("gt_field")
         eval_key = kwargs.pop("eval_key")
         method = kwargs.pop("method")
+        metrics = kwargs.pop("metrics", None)
         kwargs.pop("delegate")
 
         target_view = _get_target_view(ctx, target)
@@ -54,6 +56,18 @@ class EvaluateModel(foo.Operator):
 
         # Remove None values
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+        # Parse custom metrics
+        if metrics:
+            custom_metrics = {}
+            for metric in metrics:
+                operator = foo.get_operator(metric)
+                kwargs.pop(f"header|{metric}", None)
+                params = kwargs.pop(f"parameters|{metric}", None)
+                operator.parse_parameters(ctx, params)
+                custom_metrics[metric] = params
+
+            kwargs["custom_metrics"] = custom_metrics
 
         if eval_type == "regression":
             eval_fcn = target_view.evaluate_regressions
@@ -176,6 +190,10 @@ def evaluate_model(ctx, inputs):
 
     _get_evaluation_method(eval_type, method).get_parameters(ctx, inputs)
 
+    # @todo can remove this if we require `fiftyone>=1.2.0`
+    if Version(fo.__version__) >= Version("1.2.0"):
+        _add_custom_metrics(ctx, inputs, eval_type, method)
+
     return True
 
 
@@ -210,6 +228,56 @@ def _get_evaluation_type(view, pred_field):
         methods = ["simple"]
 
     return label_type, eval_type, methods
+
+
+def _add_custom_metrics(ctx, inputs, eval_type, method):
+    supported_metrics = []
+    for operator in foo.list_operators(type="operator"):
+        if (
+            "metric" in operator.config.kwargs.get("tags", [])
+            and operator.config.kwargs.get("type", None) in (eval_type, None)
+            and operator.config.kwargs.get("method", None) in (method, None)
+        ):
+            supported_metrics.append(operator)
+
+    if not supported_metrics:
+        return
+
+    metric_choices = types.Dropdown(multiple=True)
+    for operator in supported_metrics:
+        metric_choices.add_choice(
+            operator.uri,
+            label=operator.config.label,
+            description=operator.config.description,
+        )
+
+    inputs.list(
+        "metrics",
+        types.String(),
+        required=False,
+        default=None,
+        label="Custom metrics",
+        description="Optional custom metric(s) to compute",
+        view=metric_choices,
+    )
+
+    metrics = ctx.params.get("metrics", None)
+    if not metrics:
+        return
+
+    for metric in metrics:
+        operator = foo.get_operator(metric)
+        obj = types.Object()
+        obj.view(
+            f"header|{metric}",
+            types.Header(
+                label=f"{operator.config.label} parameters",
+                divider=True,
+            ),
+        )
+        operator.get_parameters(ctx, obj)
+        if len(obj.properties) > 1:
+            inputs.define_property(f"parameters|{metric}", obj)
 
 
 def _get_evaluation_method(eval_type, method):
