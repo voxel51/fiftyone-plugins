@@ -1,7 +1,7 @@
 """
 FiftyOne Zoo operators.
 
-| Copyright 2017-2023, Voxel51, Inc.
+| Copyright 2017-2024, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -24,21 +24,19 @@ class LoadZooDataset(foo.Operator):
             label="Load zoo dataset",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _load_zoo_dataset_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _load_zoo_dataset_inputs(ctx, inputs)
 
         view = types.View(label="Load zoo dataset")
         return types.Property(inputs, view=view)
-
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         kwargs = ctx.params.copy()
@@ -47,7 +45,6 @@ class LoadZooDataset(foo.Operator):
         splits = kwargs.pop("splits", None)
         label_field = kwargs.pop("label_field", None)
         kwargs.pop("dataset_name", None)
-        kwargs.pop("delegate", None)
 
         dataset_name = _get_zoo_dataset_name(ctx)
 
@@ -61,7 +58,8 @@ class LoadZooDataset(foo.Operator):
             **kwargs,
         )
 
-        ctx.trigger("open_dataset", dict(dataset=dataset.name))
+        if not ctx.delegated:
+            ctx.trigger("open_dataset", dict(dataset=dataset.name))
 
 
 def _supports_remote_datasets():
@@ -508,21 +506,19 @@ class ApplyZooModel(foo.Operator):
             label="Apply zoo model",
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
             dynamic=True,
         )
 
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        ready = _apply_zoo_model_inputs(ctx, inputs)
-        if ready:
-            _execution_mode(ctx, inputs)
+        _apply_zoo_model_inputs(ctx, inputs)
 
         view = types.View(label="Apply zoo model")
         return types.Property(inputs, view=view)
-
-    def resolve_delegation(self, ctx):
-        return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
         target = ctx.params.get("target", None)
@@ -539,7 +535,6 @@ class ApplyZooModel(foo.Operator):
         skip_failures = ctx.params.get("skip_failures", True)
         output_dir = ctx.params.get("output_dir", None)
         rel_dir = ctx.params.get("rel_dir", None)
-        delegate = ctx.params.get("delegate", False)
 
         target_view = _get_target_view(ctx, target)
 
@@ -549,7 +544,7 @@ class ApplyZooModel(foo.Operator):
             model = foz.load_zoo_model(model)
 
         # No multiprocessing allowed when running synchronously
-        if not delegate:
+        if not ctx.delegated:
             num_workers = 0
 
         if embeddings and patches_field is not None:
@@ -582,7 +577,8 @@ class ApplyZooModel(foo.Operator):
                 rel_dir=rel_dir,
             )
 
-        ctx.trigger("reload_dataset")
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
 
 
 def _supports_remote_models():
@@ -940,37 +936,6 @@ def _get_target_view(ctx, target):
         return ctx.dataset
 
     return ctx.view
-
-
-def _execution_mode(ctx, inputs):
-    delegate = ctx.params.get("delegate", False)
-
-    if delegate:
-        description = "Uncheck this box to execute the operation immediately"
-    else:
-        description = "Check this box to delegate execution of this task"
-
-    inputs.bool(
-        "delegate",
-        default=False,
-        label="Delegate execution?",
-        description=description,
-        view=types.CheckboxView(),
-    )
-
-    if delegate:
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "You've chosen delegated execution. Note that you must "
-                    "have a delegated operation service running in order for "
-                    "this task to be processed. See "
-                    "https://docs.voxel51.com/plugins/using_plugins.html#delegated-operations "
-                    "for more information"
-                )
-            ),
-        )
 
 
 def register(p):
