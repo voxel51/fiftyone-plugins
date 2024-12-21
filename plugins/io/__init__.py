@@ -820,8 +820,13 @@ def _import_media_only(ctx):
     make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
 
     if ctx.delegated:
+        kwargs = {}
+
+        progress = lambda pb: ctx.set_progress(progress=pb.progress)
+        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         samples = map(make_sample, filepaths)
-        ctx.dataset.add_samples(samples, num_samples=len(filepaths))
+        ctx.dataset.add_samples(samples, num_samples=len(filepaths), **kwargs)
         return
 
     batcher = fou.DynamicBatcher(
@@ -858,6 +863,10 @@ def _import_media_and_labels(ctx):
 
     if label_types is not None:
         kwargs["label_types"] = label_types
+
+    if ctx.delegated:
+        progress = lambda pb: ctx.set_progress(progress=pb.progress)
+        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
     ctx.dataset.add_dir(
         dataset_dir=dataset_dir,
@@ -898,6 +907,10 @@ def _import_labels_only(ctx):
     label_types = ctx.params.get("label_types", None)
     if label_types is not None:
         kwargs["label_types"] = label_types
+
+    if ctx.delegated:
+        progress = lambda pb: ctx.set_progress(progress=pb.progress)
+        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
 
     with contextlib.ExitStack() as exit_context:
         if labels_file is not None:
@@ -2062,6 +2075,10 @@ def _export_samples(ctx):
         if "abs_paths" not in kwargs:
             kwargs["abs_paths"] = abs_paths
 
+    if ctx.delegated:
+        progress = lambda pb: ctx.set_progress(progress=pb.progress)
+        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
     target_view.export(
         export_dir=export_dir,
         dataset_type=dataset_type,
@@ -2534,10 +2551,17 @@ class DrawLabels(foo.Operator):
 
         target_view = _get_target_view(ctx, target)
 
+        kwargs = {}
+
+        if ctx.delegated:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         target_view.draw_labels(
             output_dir,
             label_fields=label_fields,
             overwrite=overwrite,
+            **kwargs,
         )
 
 

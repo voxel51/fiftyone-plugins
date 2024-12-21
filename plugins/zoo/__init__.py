@@ -48,6 +48,10 @@ class LoadZooDataset(foo.Operator):
 
         dataset_name = _get_zoo_dataset_name(ctx)
 
+        if ctx.delegated:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         dataset = foz.load_zoo_dataset(
             name,
             splits=splits,
@@ -547,6 +551,12 @@ class ApplyZooModel(foo.Operator):
         if not ctx.delegated:
             num_workers = 0
 
+        kwargs = {}
+
+        if ctx.delegated:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+
         if embeddings and patches_field is not None:
             target_view.compute_patch_embeddings(
                 model,
@@ -555,6 +565,7 @@ class ApplyZooModel(foo.Operator):
                 batch_size=batch_size,
                 num_workers=num_workers,
                 skip_failures=skip_failures,
+                **kwargs,
             )
         elif embeddings:
             target_view.compute_embeddings(
@@ -563,6 +574,7 @@ class ApplyZooModel(foo.Operator):
                 batch_size=batch_size,
                 num_workers=num_workers,
                 skip_failures=skip_failures,
+                **kwargs,
             )
         else:
             target_view.apply_model(
@@ -575,6 +587,7 @@ class ApplyZooModel(foo.Operator):
                 skip_failures=skip_failures,
                 output_dir=output_dir,
                 rel_dir=rel_dir,
+                **kwargs,
             )
 
         if not ctx.delegated:
