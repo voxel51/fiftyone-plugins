@@ -7,7 +7,6 @@ I/O operators.
 """
 import base64
 import contextlib
-import inspect
 import multiprocessing.dummy
 import os
 from packaging.version import Version

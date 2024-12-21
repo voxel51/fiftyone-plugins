@@ -7,7 +7,6 @@ Utility operators.
 """
 import contextlib
 from datetime import datetime
-import inspect
 import json
 import multiprocessing.dummy
 from packaging.version import Version

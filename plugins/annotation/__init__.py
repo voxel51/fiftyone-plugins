@@ -6,7 +6,6 @@ Annotation operators.
 |
 """
 import contextlib
-import inspect
 import json
 import threading
 

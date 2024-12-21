@@ -8,7 +8,6 @@ FiftyOne Brain operators.
 import base64
 from collections import defaultdict
 from datetime import datetime
-import inspect
 import json
 from packaging.version import Version
 
@@ -1495,7 +1494,6 @@ class ComputeHardness(foo.Operator):
         target = ctx.params.get("target", None)
         label_field = ctx.params.get("label_field")
         hardness_field = ctx.params.get("hardness_field")
-        delegate = ctx.params.get("delegate", False)
 
         target_view = _get_target_view(ctx, target)
 

@@ -7,7 +7,6 @@ FiftyOne Zoo operators.
 """
 from collections import defaultdict
 from packaging.version import Version
-import inspect
 
 import fiftyone as fo
 import fiftyone.brain as fob
