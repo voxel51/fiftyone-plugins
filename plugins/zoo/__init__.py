@@ -6,7 +6,6 @@ FiftyOne Zoo operators.
 |
 """
 from collections import defaultdict
-import inspect
 
 import fiftyone as fo
 import fiftyone.operators as foo

@@ -6,7 +6,6 @@ Utility operators.
 |
 """
 import contextlib
-import inspect
 import json
 import multiprocessing.dummy
 
