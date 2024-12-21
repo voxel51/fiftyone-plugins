@@ -5,8 +5,6 @@ Evaluation operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-
-import inspect
 import json
 from packaging.version import Version
 
