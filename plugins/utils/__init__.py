@@ -2397,6 +2397,14 @@ class Delegate(foo.Operator):
             view (None): a :class:`fiftyone.core.view.DatasetView`
             delegation_target (None): an optional orchestrator on which to
                 schedule the operation, if it is delegated
+            progress (None): if ``fcn`` supports a ``progress`` parameter, then
+                you can use this parameter to report the progress of the
+                delegated operation as follows:
+
+                -   pass a float value to report progress every ``progress``
+                    seconds
+                -   pass an int value to report progress in ``progress``
+                    equally-spaced increments
             *args: JSON-serializable positional arguments for the function
             **kwargs: JSON-serializable keyword arguments for the function
         """
