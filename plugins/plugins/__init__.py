@@ -278,6 +278,47 @@ def _get_zoo_plugin_location(plugin_name):
             return plugin["url"]
 
 
+class DeletePlugin(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delete_plugin",
+            label="Delete plugin",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        _delete_plugin_inputs(ctx, inputs)
+        return types.Property(inputs, view=types.View(label="Delete plugin"))
+
+    def execute(self, ctx):
+        name = ctx.params["name"]
+        fop.delete_plugin(name)
+
+
+def _delete_plugin_inputs(ctx, inputs):
+    plugin_choices = types.Dropdown()
+    for plugin in fop.list_plugins(enabled="all"):
+        plugin_choices.add_choice(
+            plugin.name,
+            label=plugin.name,
+            description=plugin.description,
+        )
+
+    inputs.enum(
+        "name",
+        plugin_choices.values(),
+        default=None,
+        required=True,
+        label="Plugin",
+        description="Choose a plugin to delete",
+        view=plugin_choices,
+    )
+
+
 class ManagePlugins(foo.Operator):
     @property
     def config(self):
@@ -325,12 +366,12 @@ def _plugin_enablement_inputs(ctx, inputs):
     obj.str(
         "name",
         default="**Name**",
-        view=types.MarkdownView(read_only=True, space=3),
+        view=types.MarkdownView(read_only=True, space=4),
     )
     obj.str(
         "description",
         default="**Description**",
-        view=types.MarkdownView(read_only=True, space=7),
+        view=types.MarkdownView(read_only=True, space=6),
     )
     obj.str(
         "enabled",
@@ -403,10 +444,13 @@ def _plugin_enablement(ctx):
 
 
 def _plugin_requirements_inputs(ctx, inputs):
-    plugin_names = [p.name for p in fop.list_plugins(enabled="all")]
     plugin_choices = types.Dropdown()
-    for name in sorted(plugin_names):
-        plugin_choices.add_choice(name, label=name)
+    for plugin in fop.list_plugins(enabled="all"):
+        plugin_choices.add_choice(
+            plugin.name,
+            label=plugin.name,
+            description=plugin.description,
+        )
 
     inputs.enum(
         "requirements_name",
@@ -1872,6 +1916,7 @@ def _create_fiftyone_yml_code(ctx):
 
 def register(p):
     p.register(InstallPlugin)
+    p.register(DeletePlugin)
     p.register(ManagePlugins)
     p.register(BuildPluginComponent)
     p.register(BuildOperatorSkeleton)
