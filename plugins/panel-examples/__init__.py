@@ -846,7 +846,7 @@ class ExampleMessage(foo.Operator):
         return types.Property(input)
 
     def execute(self, ctx):
-        return {"message": ctx.params["message"]}
+        return {"message": ctx.params.get("message", "no message!")}
 
 
 def register(p):
