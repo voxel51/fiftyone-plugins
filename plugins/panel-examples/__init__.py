@@ -804,6 +804,13 @@ class PromptExample(foo.Panel):
         """
         )
         panel.btn("prompt", label="Prompt", on_click=self.on_click_prompt)
+        exec_btn = types.OperatorExecutionButtonView(
+            operator="@voxel51/panel-examples/example_message",
+            on_success=self.on_success,
+            on_cancel=self.on_cancel,
+            prompt=True,
+        )
+        panel.view("adv", label="Advanced Prompt", view=exec_btn)
         return types.Property(
             panel,
             view=types.GridView(margin=5),
@@ -813,10 +820,14 @@ class PromptExample(foo.Panel):
         ctx.panel.state.message = ctx.params.get("result", {}).get("message")
         ctx.ops.notify("Prompt was successful!")
 
+    def on_cancel(self, ctx):
+        ctx.ops.notify("Prompt was canceled", variant="warning")
+
     def on_click_prompt(self, ctx):
         ctx.prompt(
             "@voxel51/panel-examples/example_message",
             on_success=self.on_success,
+            on_cancel=self.on_cancel,
         )
 
 
@@ -826,6 +837,7 @@ class ExampleMessage(foo.Operator):
         return foo.OperatorConfig(
             name="example_message",
             label="Example Message",
+            allow_delegated_execution=True,
         )
 
     def resolve_input(self, ctx):
