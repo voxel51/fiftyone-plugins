@@ -12,24 +12,7 @@ import fiftyone.operators.types as types
 import numpy as np
 
 
-class EvaluationMetricConfig(foo.OperatorConfig):
-    def __init__(
-        self,
-        name,
-        label,
-        description,
-        tags,
-        is_aggregate=False,
-    ):
-        super().__init__(name, label, description, tags)
-        self.is_aggregate = is_aggregate
-
-
 class EvaluationMetric(foo.Operator):
-    @property
-    def is_aggregate(self):
-        return self.config.is_aggregate
-
     def get_parameters(self, ctx, inputs):
         pass
 
@@ -58,7 +41,7 @@ class EvaluationMetric(foo.Operator):
 class ExampleMetric(EvaluationMetric):
     @property
     def config(self):
-        return EvaluationMetricConfig(
+        return foo.OperatorConfig(
             name="example_metric",
             label="Example metric",
             description="This is an example metric",
@@ -85,11 +68,10 @@ class ExampleMetric(EvaluationMetric):
 class AbsoluteErrorMetric(EvaluationMetric):
     @property
     def config(self):
-        return EvaluationMetricConfig(
+        return foo.OperatorConfig(
             name="absolute_error",
             label="Absolute Error Metric",
             description="A metric for absolute error.",
-            is_aggregate=False,
             tags=["metric"],
         )
 
@@ -137,11 +119,10 @@ class AbsoluteErrorMetric(EvaluationMetric):
 class MeanAbsoluteErrorMetric(EvaluationMetric):
     @property
     def config(self):
-        return EvaluationMetricConfig(
+        return foo.OperatorConfig(
             name="mean_absolute_error",
             label="Mean Absolute Error Metric",
             description="A metric for mean absolute error.",
-            is_aggregate=True,
             tags=["metric"],
         )
 
