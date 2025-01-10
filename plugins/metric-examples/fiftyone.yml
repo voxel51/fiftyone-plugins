@@ -7,3 +7,5 @@ url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/metric-exampl
 license: Apache 2.0
 panels:
   - example_metric
+  - absolute_error
+  - mean_absolute_error
