@@ -23,8 +23,7 @@ class EvaluationMetric(foo.Operator):
         raise NotImplementedError("Subclass must implement compute()")
 
     def get_fields(self, samples, eval_key):
-        expected_fields = [f"{eval_key}_{self.config.name}"]
-        return list(filter(samples.has_field, expected_fields))
+        return []
 
     def rename(self, samples, eval_key, new_eval_key):
         dataset = samples._dataset
@@ -62,7 +61,12 @@ class ExampleMetric(EvaluationMetric):
         metric_field = f"{eval_key}_{self.config.name}"
         dataset.add_sample_field(metric_field, fo.StringField)
         samples.set_field(metric_field, value).save()
+
         return value
+
+    def get_fields(self, samples, eval_key):
+        expected_fields = [f"{eval_key}_{self.config.name}"]
+        return list(filter(samples.has_field, expected_fields))
 
 
 class AbsoluteErrorMetric(EvaluationMetric):
