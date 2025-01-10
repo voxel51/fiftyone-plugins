@@ -23,19 +23,19 @@ class EvaluationMetric(foo.Operator):
         raise NotImplementedError("Subclass must implement compute()")
 
     def get_fields(self, samples, eval_key):
-        metric_field = f"{eval_key}_{self.config.name}"
-        return [metric_field]
+        expected_fields = [f"{eval_key}_{self.config.name}"]
+        return list(filter(samples.has_field, expected_fields))
 
     def rename(self, samples, eval_key, new_eval_key):
         dataset = samples._dataset
-        metric_field = f"{eval_key}_{self.config.name}"
-        new_metric_field = f"{new_eval_key}_{self.config.name}"
-        dataset.rename_sample_field(metric_field, new_metric_field)
+        for metric_field in self.get_fields(samples, eval_key):
+            new_metric_field = metric_field.replace(eval_key, new_eval_key, 1)
+            dataset.rename_sample_field(metric_field, new_metric_field)
 
     def cleanup(self, samples, eval_key):
         dataset = samples._dataset
-        metric_field = f"{eval_key}_{self.config.name}"
-        dataset.delete_sample_field(metric_field, error_level=1)
+        for metric_field in self.get_fields(samples, eval_key):
+            dataset.delete_sample_field(metric_field, error_level=1)
 
 
 class ExampleMetric(EvaluationMetric):
@@ -95,25 +95,23 @@ class AbsoluteErrorMetric(EvaluationMetric):
         else:
             sample_errors = list(map(_abs_error, results.ypred, results.ytrue))
 
-        if eval_key:
-            metric_field = (
-                f"{eval_key}_{self.config.name}"
-                if eval_key
-                else self.config.name
+        metric_field = f"{eval_key}_{self.config.name}"
+        if is_video:
+            # Sample-level errors
+            dataset.set_values(metric_field, sample_errors)
+
+            # Per-frame errors
+            dataset.set_values(
+                dataset._FRAMES_PREFIX + metric_field, frame_errors
             )
-            if is_video:
-                eval_frame = dataset._FRAMES_PREFIX + eval_key
+        else:
+            # Per-sample errors
+            dataset.set_values(metric_field, sample_errors)
 
-                # Sample-level errors
-                dataset.set_values(sample_errors)
-
-                # Per-frame errors
-                dataset.set_values(eval_frame, frame_errors)
-            else:
-                # Per-sample errors
-                dataset.set_values(metric_field, sample_errors)
-
-        return sample_errors
+    def get_fields(self, samples, eval_key):
+        metric_field = f"{eval_key}_{self.config.name}"
+        expected_fields = [metric_field, samples._FRAMES_PREFIX + metric_field]
+        return list(filter(samples.has_field, expected_fields))
 
 
 class MeanAbsoluteErrorMetric(EvaluationMetric):
@@ -127,11 +125,12 @@ class MeanAbsoluteErrorMetric(EvaluationMetric):
         )
 
     def get_parameters(self, ctx, inputs):
+        eval_key = ctx.params.get("eval_key", None)
         inputs.str(
             "sample_eval_key",
             label="Sample eval key parameter",
-            description="Sample eval key",
-            default=None,
+            description="Sample eval key for Mean Absolute Error",
+            default=f"{eval_key}_absolute_error",
             required=True,
         )
 
@@ -139,7 +138,6 @@ class MeanAbsoluteErrorMetric(EvaluationMetric):
         dataset = samples._dataset
         if not (sample_eval_key or dataset.has_field(sample_eval_key)):
             return None
-
         values = dataset.values(sample_eval_key)
         return np.average(values).tolist()
 
