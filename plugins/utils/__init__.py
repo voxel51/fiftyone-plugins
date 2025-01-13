@@ -422,9 +422,11 @@ def _dataset_info_inputs(ctx, inputs):
     )
     if edited_media_fields:
         num_changed += 1
+    if media_fields is None:
+        media_fields = ctx.dataset.app_config.media_fields
 
     if tab_choice == "APP_CONFIG":
-        str_field_choices = types.Dropdown(multiple=True)
+        str_field_choices = types.DropdownView(multiple=True)
         for field in _get_string_fields(ctx.dataset):
             str_field_choices.add_choice(field, label=field)
 
@@ -454,7 +456,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     if tab_choice == "APP_CONFIG":
         field_choices = types.Dropdown()
-        for field in ctx.params.get("app_config_media_fields", []):
+        for field in media_fields:
             field_choices.add_choice(field, label=field)
 
         inputs.enum(
@@ -483,7 +485,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     if tab_choice == "APP_CONFIG":
         field_choices = types.Dropdown()
-        for field in ctx.params.get("app_config_media_fields", []):
+        for field in media_fields:
             field_choices.add_choice(field, label=field)
 
         inputs.enum(
@@ -991,9 +993,13 @@ def _parse_app_config(ctx):
 
 
 def _get_string_fields(dataset):
+    str_fields = []
+
     for path, field in dataset.get_field_schema().items():
         if isinstance(field, fo.StringField):
-            yield path
+            str_fields.append(path)
+
+    return str_fields
 
 
 class RenameDataset(foo.Operator):

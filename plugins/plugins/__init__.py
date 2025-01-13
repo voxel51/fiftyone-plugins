@@ -108,7 +108,7 @@ Provide a location to download the plugin(s) from, which can be:
             return
 
         if len(plugins) > 1:
-            plugin_choices = types.Dropdown(multiple=True)
+            plugin_choices = types.DropdownView(multiple=True)
             for plugin in plugins:
                 plugin_choices.add_choice(
                     plugin["name"],
