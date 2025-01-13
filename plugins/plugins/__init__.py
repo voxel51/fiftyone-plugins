@@ -107,23 +107,18 @@ Provide a location to download the plugin(s) from, which can be:
             prop.invalid = True
             return
 
-        plugin_names = ctx.params.get("plugin_names", None)
-        if plugin_names is not None:
-            plugin_names = _to_string_list(plugin_names)
-
         if len(plugins) > 1:
-            plugin_choices = types.AutocompleteView(multiple=True)
+            plugin_choices = types.DropdownView(multiple=True)
             for plugin in plugins:
-                if plugin["name"] not in plugin_names:
-                    plugin_choices.add_choice(
-                        plugin["name"],
-                        label=plugin["name"],
-                        description=plugin["description"],
-                    )
+                plugin_choices.add_choice(
+                    plugin["name"],
+                    label=plugin["name"],
+                    description=plugin["description"],
+                )
 
-            field_prop = inputs.list(
+            inputs.list(
                 "plugin_names",
-                types.OneOf([types.Object(), types.String()]),
+                types.String(),
                 default=None,
                 label="Plugins",
                 description=(
@@ -133,14 +128,7 @@ Provide a location to download the plugin(s) from, which can be:
                 view=plugin_choices,
             )
 
-            available_plugins = [p["name"] for p in plugins]
-            for plugin_name in plugin_names:
-                if plugin_name not in available_plugins:
-                    field_prop.invalid = True
-                    field_prop.error_message = (
-                        f"Invalid plugin name '{plugin_name}'"
-                    )
-
+        plugin_names = ctx.params.get("plugin_names", None)
         if not plugin_names:
             plugin_names = [plugin["name"] for plugin in plugins]
     else:
@@ -218,13 +206,6 @@ Provide a location to download the plugin(s) from, which can be:
         inputs.view("update_notice", types.Notice(label=update_notice))
 
 
-def _to_string_list(values):
-    if not values:
-        return []
-
-    return [d["value"] if isinstance(d, dict) else d for d in values]
-
-
 def _get_updates(plugin_names, plugins):
     curr_plugins_map = {p.name: p for p in fop.list_plugins(enabled="all")}
     update_names = sorted(set(plugin_names) & set(curr_plugins_map.keys()))
@@ -278,9 +259,7 @@ def _install_plugin(ctx):
 
     if tab == "GITHUB":
         gh_repo = ctx.params["gh_repo"]
-        plugin_names = ctx.params.get("plugin_names", None) or None
-        if plugin_names is not None:
-            plugin_names = _to_string_list(plugin_names)
+        plugin_names = ctx.params.get("plugin_names", None)
     elif tab == "VOXEL51":
         plugin_name = ctx.params["voxel51_plugin"]
         gh_repo = _get_zoo_plugin_location(plugin_name)

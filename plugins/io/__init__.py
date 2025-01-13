@@ -700,16 +700,13 @@ def _add_label_types(ctx, inputs, dataset_type):
     if supported_types is None or len(supported_types) <= 1:
         return
 
-    label_types = _to_string_list(ctx.params.get("label_types", []))
-
-    label_type_choices = types.AutocompleteView(multiple=True)
+    label_type_choices = types.DropdownView(multiple=True)
     for label_type in supported_types:
-        if label_type not in label_types:
-            label_type_choices.add_choice(label_type, label=label_type)
+        label_type_choices.add_choice(label_type, label=label_type)
 
-    field_prop = inputs.list(
+    inputs.list(
         "label_types",
-        types.OneOf([types.Object(), types.String()]),
+        types.String(),
         default=None,
         label="Label types",
         description=(
@@ -717,11 +714,6 @@ def _add_label_types(ctx, inputs, dataset_type):
         ),
         view=label_type_choices,
     )
-
-    for label_type in label_types:
-        if label_type not in supported_types:
-            field_prop.invalid = True
-            field_prop.error_message = f"Invalid label type '{label_type}'"
 
 
 def _upload_media_inputs(ctx, inputs):
@@ -859,13 +851,13 @@ def _import_media_and_labels(ctx):
     data_path = _parse_path(ctx, "data_path")
     labels_path = _parse_path(ctx, "labels_path")
     label_field = ctx.params.get("label_field", None)
-    label_types = ctx.params.get("label_types", None) or None
+    label_types = ctx.params.get("label_types", None)
     tags = ctx.params.get("tags", None)
     dynamic = ctx.params.get("dynamic", False)
     kwargs = ctx.params.get("kwargs", {})
 
     if label_types is not None:
-        kwargs["label_types"] = _to_string_list(label_types)
+        kwargs["label_types"] = label_types
 
     ctx.dataset.add_dir(
         dataset_dir=dataset_dir,
@@ -1033,20 +1025,14 @@ class MergeSamples(foo.Operator):
         key_field = ctx.params["key_field"]
         skip_existing = ctx.params["skip_existing"]
         insert_new = ctx.params["insert_new"]
-        fields = ctx.params.get("fields", None) or None
-        omit_fields = ctx.params.get("omit_fields", None) or None
+        fields = ctx.params.get("fields", None)
+        omit_fields = ctx.params.get("omit_fields", None)
         merge_lists = ctx.params["merge_lists"]
         overwrite = ctx.params["overwrite"]
         expand_schema = ctx.params["expand_schema"]
         dynamic = ctx.params["dynamic"]
         include_info = ctx.params["include_info"]
         overwrite_info = ctx.params["overwrite_info"]
-
-        if fields is not None:
-            fields = _to_string_list(fields)
-
-        if omit_fields is not None:
-            omit_fields = _to_string_list(omit_fields)
 
         src_coll = _get_merge_collection(ctx, src_type, src_dataset)
         dst_dataset = _get_merge_collection(ctx, dst_type, dst_dataset)
@@ -1253,13 +1239,11 @@ def _get_merge_parameters(ctx, inputs):
 
     all_fields = list(ctx.view.get_field_schema().keys())
 
-    fields = _to_string_list(ctx.params.get("fields", []))
-    field_choices = types.AutocompleteView(multiple=True)
+    field_choices = types.DropdownView(multiple=True)
     for field in all_fields:
-        if field not in fields:
-            field_choices.add_choice(field, label=field)
+        field_choices.add_choice(field, label=field)
 
-    field_prop = inputs.list(
+    inputs.list(
         "fields",
         types.String(),
         default=None,
@@ -1274,18 +1258,11 @@ def _get_merge_parameters(ctx, inputs):
         view=field_choices,
     )
 
-    for field in fields:
-        if field not in all_fields:
-            field_prop.invalid = True
-            field_prop.error_message = f"Field '{field}' does not exist"
-
-    omit_fields = _to_string_list(ctx.params.get("omit_fields", []))
-    omit_field_choices = types.AutocompleteView(multiple=True)
+    omit_field_choices = types.DropdownView(multiple=True)
     for field in all_fields:
-        if field not in omit_fields:
-            omit_field_choices.add_choice(field, label=field)
+        omit_field_choices.add_choice(field, label=field)
 
-    field_prop = inputs.list(
+    inputs.list(
         "omit_fields",
         types.String(),
         default=None,
@@ -1299,11 +1276,6 @@ def _get_merge_parameters(ctx, inputs):
         ),
         view=omit_field_choices,
     )
-
-    for field in omit_fields:
-        if field not in all_fields:
-            field_prop.invalid = True
-            field_prop.error_message = f"Field '{field}' does not exist"
 
     inputs.bool(
         "merge_lists",
@@ -1863,29 +1835,23 @@ def _export_samples_inputs(ctx, inputs):
 
         if dataset_type == "CSV":
             supported_fields = _get_csv_fields(target_view)
-            fields = _to_string_list(ctx.params.get("csv_fields", []))
 
-            field_choices = types.AutocompleteView(multiple=True)
+            field_choices = types.DropdownView(multiple=True)
             for field in supported_fields:
-                if field not in fields:
-                    field_choices.add_choice(field, label=field)
+                field_choices.add_choice(field, label=field)
 
-            field_prop = inputs.list(
+            inputs.list(
                 "csv_fields",
-                types.OneOf([types.Object(), types.String()]),
+                types.String(),
                 required=True,
                 label="Fields",
                 description="Field(s) to include as columns of the CSV",
                 view=field_choices,
             )
 
+            fields = ctx.params.get("csv_fields", None)
             if not fields:
                 return False
-
-            for field in fields:
-                if field not in supported_fields:
-                    field_prop.invalid = True
-                    field_prop.error_message = f"Invalid field '{field}'"
         elif _requires_label_field(dataset_type):
             multiple = _can_export_multiple_fields(dataset_type)
             supported_fields = _get_label_fields(
@@ -1893,29 +1859,22 @@ def _export_samples_inputs(ctx, inputs):
             )
 
             if multiple:
-                fields = _to_string_list(ctx.params.get("label_fields", []))
-
-                label_field_choices = types.AutocompleteView(multiple=True)
+                label_field_choices = types.DropdownView(multiple=True)
                 for field in supported_fields:
-                    if field not in fields:
-                        label_field_choices.add_choice(field, label=field)
+                    label_field_choices.add_choice(field, label=field)
 
-                field_prop = inputs.list(
+                inputs.list(
                     "label_fields",
-                    types.OneOf([types.Object(), types.String()]),
+                    types.String(),
                     required=True,
                     label="Label fields",
                     description="The field(s) containing the labels to export",
                     view=label_field_choices,
                 )
 
+                fields = ctx.params.get("label_fields", None)
                 if not fields:
                     return False
-
-                for field in fields:
-                    if field not in supported_fields:
-                        field_prop.invalid = True
-                        field_prop.error_message = f"Invalid field '{field}'"
             else:
                 label_field_choices = types.Dropdown()
                 for field in supported_fields:
@@ -2057,17 +2016,11 @@ def _export_samples(ctx):
     export_media = ctx.params.get("export_media", None)
     dataset_type = ctx.params.get("dataset_type", None)
     label_field = ctx.params.get("label_field", None)
-    label_fields = ctx.params.get("label_fields", None) or None
-    csv_fields = ctx.params.get("csv_fields", None) or None
+    label_fields = ctx.params.get("label_fields", None)
+    csv_fields = ctx.params.get("csv_fields", None)
     abs_paths = ctx.params.get("abs_paths", None)
     manual = ctx.params.get("manual", False)
     kwargs = ctx.params.get("kwargs", {})
-
-    if label_fields is not None:
-        label_fields = _to_string_list(label_fields)
-
-    if csv_fields is not None:
-        csv_fields = _to_string_list(csv_fields)
 
     if _can_export_multiple_fields(dataset_type):
         label_field = label_fields
@@ -2589,11 +2542,8 @@ class DrawLabels(foo.Operator):
     def execute(self, ctx):
         target = ctx.params.get("target", None)
         output_dir = _parse_path(ctx, "output_dir")
-        label_fields = ctx.params.get("label_fields", None) or None
+        label_fields = ctx.params.get("label_fields", None)
         overwrite = ctx.params.get("overwrite", False)
-
-        if label_fields is not None:
-            label_fields = _to_string_list(label_fields)
 
         target_view = _get_target_view(ctx, target)
 
@@ -2645,16 +2595,14 @@ def _draw_labels_inputs(ctx, inputs):
     supported_fields = _get_fields_with_type(
         target_view, fo.Label, frames=target_view._contains_videos()
     )
-    label_fields = _to_string_list(ctx.params.get("label_fields", []))
 
-    label_field_choices = types.AutocompleteView(multiple=True)
+    label_field_choices = types.DropdownView(multiple=True)
     for field in supported_fields:
-        if field not in label_fields:
-            label_field_choices.add_choice(field, label=field)
+        label_field_choices.add_choice(field, label=field)
 
-    field_prop = inputs.list(
+    inputs.list(
         "label_fields",
-        types.OneOf([types.Object(), types.String()]),
+        types.String(),
         required=False,
         default=None,
         label="Label fields",
@@ -2663,11 +2611,6 @@ def _draw_labels_inputs(ctx, inputs):
         ),
         view=label_field_choices,
     )
-
-    for field in label_fields:
-        if field not in supported_fields:
-            field_prop.invalid = True
-            field_prop.error_message = f"Invalid field '{field}'"
 
     file_explorer = types.FileExplorerView(
         choose_dir=True,
@@ -2700,13 +2643,6 @@ def _draw_labels_inputs(ctx, inputs):
         return False
 
     return True
-
-
-def _to_string_list(values):
-    if not values:
-        return []
-
-    return [d["value"] if isinstance(d, dict) else d for d in values]
 
 
 def _parse_path(ctx, key):

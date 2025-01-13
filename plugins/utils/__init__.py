@@ -416,8 +416,6 @@ def _dataset_info_inputs(ctx, inputs):
     ## app_config.media_fields
 
     media_fields = ctx.params.get("app_config_media_fields", None)
-    if media_fields is not None:
-        media_fields = _to_string_list(media_fields)
     edited_media_fields = (
         media_fields is not None
         and media_fields != ctx.dataset.app_config.media_fields
@@ -428,16 +426,13 @@ def _dataset_info_inputs(ctx, inputs):
         media_fields = ctx.dataset.app_config.media_fields
 
     if tab_choice == "APP_CONFIG":
-        str_fields = _get_string_fields(ctx.dataset)
+        str_field_choices = types.DropdownView(multiple=True)
+        for field in _get_string_fields(ctx.dataset):
+            str_field_choices.add_choice(field, label=field)
 
-        str_field_choices = types.AutocompleteView(multiple=True)
-        for field in str_fields:
-            if field not in media_fields:
-                str_field_choices.add_choice(field, label=field)
-
-        field_prop = inputs.list(
+        inputs.list(
             "app_config_media_fields",
-            types.OneOf([types.Object(), types.String()]),
+            types.String(),
             default=ctx.dataset.app_config.media_fields,
             required=True,
             label="Media fields"
@@ -448,12 +443,6 @@ def _dataset_info_inputs(ctx, inputs):
             ),
             view=str_field_choices,
         )
-
-        if edited_media_fields:
-            for field in media_fields:
-                if field not in str_fields:
-                    field_prop.invalid = True
-                    field_prop.error_message = f"Invalid media field '{field}'"
 
     ## app_config.grid_media_field
 
@@ -957,9 +946,7 @@ def _parse_app_config(ctx):
     app_config = ctx.dataset.app_config.copy()
 
     if "app_config_media_fields" in ctx.params:
-        app_config.media_fields = _to_string_list(
-            ctx.params["app_config_media_fields"]
-        )
+        app_config.media_fields = ctx.params["app_config_media_fields"]
 
     if "app_config_grid_media_field" in ctx.params:
         app_config.grid_media_field = ctx.params["app_config_grid_media_field"]
@@ -1994,13 +1981,6 @@ def _generate_thumbnails_inputs(ctx, inputs):
     )
 
     return True
-
-
-def _to_string_list(values):
-    if not values:
-        return []
-
-    return [d["value"] if isinstance(d, dict) else d for d in values]
 
 
 def _get_fields_with_type(view, type):
