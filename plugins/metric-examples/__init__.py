@@ -89,7 +89,7 @@ class AbsoluteErrorMetric(EvaluationMetric):
             name="absolute_error",
             label="Absolute Error Metric",
             description="A metric for absolute error.",
-            tags=["metric"],
+            tags=["metric", "regression"],
         )
 
     def compute_by_sample(self, sample, eval_key, ytrue, ypred):
@@ -130,7 +130,7 @@ class MeanAbsoluteErrorMetric(EvaluationMetric):
             name="mean_absolute_error",
             label="Mean Absolute Error Metric",
             description="A metric for computing mean absolute error across all frames or samples.",
-            tags=["metric"],
+            tags=["metric", "regression"],
         )
 
     def get_parameters(self, ctx, inputs):
@@ -147,7 +147,7 @@ class MeanAbsoluteErrorMetric(EvaluationMetric):
         dataset = samples._dataset
 
         if dataset.has_field(dataset._FRAMES_PREFIX + error_eval_key):
-            # Compute MAE values across all frames.
+            # Compute MAE across all frames.
             values = dataset.values(dataset._FRAMES_PREFIX + error_eval_key)
             values = list(itertools.chain.from_iterable(values))
         elif dataset.has_field(error_eval_key):
