@@ -10,6 +10,7 @@ import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import numpy as np
+import itertools
 
 
 class EvaluationMetric(foo.Operator):
@@ -17,6 +18,9 @@ class EvaluationMetric(foo.Operator):
         pass
 
     def parse_parameters(self, ctx, params):
+        pass
+
+    def compute_by_sample(self, sample, eval_key, **kwargs):
         pass
 
     def compute(self, samples, eval_key, results, **kwargs):
@@ -69,6 +73,15 @@ class ExampleMetric(EvaluationMetric):
         return list(filter(samples.has_field, expected_fields))
 
 
+def _safe_mean(values):
+    values = [v for v in values if v is not None]
+    return np.mean(values) if values else None
+
+
+def _abs_error(ypred, ytrue):
+    return abs(ypred - ytrue)
+
+
 class AbsoluteErrorMetric(EvaluationMetric):
     @property
     def config(self):
@@ -79,38 +92,30 @@ class AbsoluteErrorMetric(EvaluationMetric):
             tags=["metric"],
         )
 
-    def compute(self, samples, eval_key, results):
-        def _safe_mean(values):
-            values = [v for v in values if v is not None]
-            return np.mean(values) if values else None
-
-        def _abs_error(ypred, ytrue):
-            return abs(ypred - ytrue)
-
-        dataset = samples._dataset
-        is_video = dataset._is_frame_field(results.config.gt_field)
-        frame_errors = None
-        if is_video:
-            frame_errors = [
-                list(map(_abs_error, yp, yt))
-                for yp, yt in zip(results.ypred, results.ytrue)
-            ]
-            sample_errors = [_safe_mean(e) for e in frame_errors]
-        else:
-            sample_errors = list(map(_abs_error, results.ypred, results.ytrue))
-
+    def compute_by_sample(self, sample, eval_key, ytrue, ypred):
         metric_field = f"{eval_key}_{self.config.name}"
-        if is_video:
-            # Sample-level errors
-            dataset.set_values(metric_field, sample_errors)
-
-            # Per-frame errors
-            dataset.set_values(
-                dataset._FRAMES_PREFIX + metric_field, frame_errors
-            )
+        if sample.media_type == "video":
+            frame_errors = list(map(_abs_error, ypred, ytrue))
+            for idx, frame in enumerate(sample.frames.values()):
+                frame[metric_field] = frame_errors[idx]
+            sample[metric_field] = _safe_mean(frame_errors)
         else:
-            # Per-sample errors
-            dataset.set_values(metric_field, sample_errors)
+            sample[metric_field] = _abs_error(ypred, ytrue)
+
+    def compute(self, samples, eval_key, results):
+        ypred, ytrue = results.ypred, results.ytrue
+        start_idx = 0
+        for sample in samples.iter_samples(autosave=True):
+            num_frames = (
+                len(sample._frames) if sample.media_type == "video" else 1
+            )
+            self.compute_by_sample(
+                sample,
+                eval_key,
+                ytrue=ytrue[start_idx : start_idx + num_frames],
+                ypred=ypred[start_idx : start_idx + num_frames],
+            )
+            start_idx += num_frames
 
     def get_fields(self, samples, eval_key):
         metric_field = f"{eval_key}_{self.config.name}"
@@ -124,25 +129,33 @@ class MeanAbsoluteErrorMetric(EvaluationMetric):
         return foo.OperatorConfig(
             name="mean_absolute_error",
             label="Mean Absolute Error Metric",
-            description="A metric for mean absolute error.",
+            description="A metric for computing mean absolute error across all frames or samples.",
             tags=["metric"],
         )
 
     def get_parameters(self, ctx, inputs):
         eval_key = ctx.params.get("eval_key", None)
         inputs.str(
-            "sample_eval_key",
-            label="Sample eval key parameter",
-            description="Sample eval key for Mean Absolute Error",
+            "error_eval_key",
+            label="Sample/Frame error eval key parameter",
+            description="Sample/Frame error eval key to use for computing Mean Absolute Error",
             default=f"{eval_key}_absolute_error",
             required=True,
         )
 
-    def compute(self, samples, eval_key, results, sample_eval_key=None):
+    def compute(self, samples, eval_key, results, error_eval_key):
         dataset = samples._dataset
-        if not (sample_eval_key or dataset.has_field(sample_eval_key)):
+
+        if dataset.has_field(dataset._FRAMES_PREFIX + error_eval_key):
+            # Compute MAE values across all frames.
+            values = dataset.values(dataset._FRAMES_PREFIX + error_eval_key)
+            values = list(itertools.chain.from_iterable(values))
+        elif dataset.has_field(error_eval_key):
+            # Compute MAE across all samples.
+            values = dataset.values(error_eval_key)
+        else:
             return None
-        values = dataset.values(sample_eval_key)
+
         return np.average(values).tolist()
 
 
