@@ -695,14 +695,14 @@ def _import_labels_only_inputs(ctx, inputs):
 
 
 def _add_label_types(ctx, inputs, dataset_type):
-    label_types = _get_dataset_type(dataset_type).get("label_types", None)
+    supported_types = _get_dataset_type(dataset_type).get("label_types", None)
 
-    if label_types is None or len(label_types) <= 1:
+    if supported_types is None or len(supported_types) <= 1:
         return
 
-    label_type_choices = types.Choices()
-    for field in label_types:
-        label_type_choices.add_choice(field, label=field)
+    label_type_choices = types.DropdownView(multiple=True)
+    for label_type in supported_types:
+        label_type_choices.add_choice(label_type, label=label_type)
 
     inputs.list(
         "label_types",
@@ -1025,8 +1025,8 @@ class MergeSamples(foo.Operator):
         key_field = ctx.params["key_field"]
         skip_existing = ctx.params["skip_existing"]
         insert_new = ctx.params["insert_new"]
-        fields = ctx.params.get("fields", None) or None
-        omit_fields = ctx.params.get("omit_fields", None) or None
+        fields = ctx.params.get("fields", None)
+        omit_fields = ctx.params.get("omit_fields", None)
         merge_lists = ctx.params["merge_lists"]
         overwrite = ctx.params["overwrite"]
         expand_schema = ctx.params["expand_schema"]
@@ -1239,7 +1239,7 @@ def _get_merge_parameters(ctx, inputs):
 
     all_fields = list(ctx.view.get_field_schema().keys())
 
-    field_choices = types.Choices()
+    field_choices = types.DropdownView(multiple=True)
     for field in all_fields:
         field_choices.add_choice(field, label=field)
 
@@ -1258,7 +1258,7 @@ def _get_merge_parameters(ctx, inputs):
         view=field_choices,
     )
 
-    omit_field_choices = types.Choices()
+    omit_field_choices = types.DropdownView(multiple=True)
     for field in all_fields:
         omit_field_choices.add_choice(field, label=field)
 
@@ -1834,8 +1834,10 @@ def _export_samples_inputs(ctx, inputs):
         )
 
         if dataset_type == "CSV":
-            field_choices = types.Dropdown(multiple=True)
-            for field in _get_csv_fields(target_view):
+            supported_fields = _get_csv_fields(target_view)
+
+            field_choices = types.DropdownView(multiple=True)
+            for field in supported_fields:
                 field_choices.add_choice(field, label=field)
 
             inputs.list(
@@ -1852,13 +1854,15 @@ def _export_samples_inputs(ctx, inputs):
                 return False
         elif _requires_label_field(dataset_type):
             multiple = _can_export_multiple_fields(dataset_type)
-            label_field_choices = types.Dropdown(multiple=multiple)
-            for field in _get_label_fields(
+            supported_fields = _get_label_fields(
                 target_view, dataset_type, allow_coercion=True
-            ):
-                label_field_choices.add_choice(field, label=field)
+            )
 
             if multiple:
+                label_field_choices = types.DropdownView(multiple=True)
+                for field in supported_fields:
+                    label_field_choices.add_choice(field, label=field)
+
                 inputs.list(
                     "label_fields",
                     types.String(),
@@ -1869,7 +1873,13 @@ def _export_samples_inputs(ctx, inputs):
                 )
 
                 fields = ctx.params.get("label_fields", None)
+                if not fields:
+                    return False
             else:
+                label_field_choices = types.Dropdown()
+                for field in supported_fields:
+                    label_field_choices.add_choice(field, label=field)
+
                 inputs.enum(
                     "label_field",
                     label_field_choices.values(),
@@ -1880,9 +1890,8 @@ def _export_samples_inputs(ctx, inputs):
                 )
 
                 fields = ctx.params.get("label_field", None)
-
-            if fields is None:
-                return False
+                if fields is None:
+                    return False
 
     if _can_export_abs_paths(dataset_type):
         inputs.bool(
@@ -2098,13 +2107,17 @@ def _estimate_export_size(view, export_type, fields):
 
 
 def _get_csv_fields(view):
+    csv_fields = []
+
     for path, field in view.get_field_schema().items():
         if isinstance(field, fo.EmbeddedDocumentField):
             for _path, _field in field.get_field_schema().items():
                 if _is_valid_csv_field(_field):
-                    yield path + "." + _path
+                    csv_fields.append(path + "." + _path)
         elif _is_valid_csv_field(field):
-            yield path
+            csv_fields.append(path)
+
+    return csv_fields
 
 
 def _is_valid_csv_field(field):
@@ -2579,11 +2592,12 @@ def _draw_labels_inputs(ctx, inputs):
     target = ctx.params.get("target", default_target)
     target_view = _get_target_view(ctx, target)
 
-    label_field_choices = types.Dropdown(multiple=True)
-    label_fields = _get_fields_with_type(
+    supported_fields = _get_fields_with_type(
         target_view, fo.Label, frames=target_view._contains_videos()
     )
-    for field in label_fields:
+
+    label_field_choices = types.DropdownView(multiple=True)
+    for field in supported_fields:
         label_field_choices.add_choice(field, label=field)
 
     inputs.list(

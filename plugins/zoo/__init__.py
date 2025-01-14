@@ -99,7 +99,6 @@ def _get_builtin_zoo_dataset(ctx, inputs):
     inputs.list(
         "tags",
         types.String(),
-        default=None,
         required=False,
         label="Tags",
         description="Provide optional tag(s) to filter the available datasets",
@@ -381,12 +380,12 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
     name = zoo_dataset.name
 
     if "coco" in name:
-        label_types = ("detections", "segmentations")
+        supported_label_types = ("detections", "segmentations")
         default = "only detections"
         id_type = "COCO"
         only_matching = True
     elif "open-images" in name:
-        label_types = (
+        supported_label_types = (
             "detections",
             "classifications",
             "relationships",
@@ -396,15 +395,15 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
         id_type = "Open Images"
         only_matching = True
     elif "activitynet" in name:
-        label_types = None
+        supported_label_types = None
         id_type = None
         only_matching = False
     else:
         return
 
-    if label_types is not None:
-        label_type_choices = types.Choices()
-        for field in label_types:
+    if supported_label_types is not None:
+        label_type_choices = types.DropdownView(multiple=True)
+        for field in supported_label_types:
             label_type_choices.add_choice(field, label=field)
 
         inputs.list(
@@ -705,7 +704,6 @@ def _apply_zoo_model_inputs(ctx, inputs):
     inputs.list(
         "tags",
         types.String(),
-        default=None,
         required=False,
         label="Tags",
         description="Provide optional tag(s) to filter the available models",
@@ -730,7 +728,8 @@ def _apply_zoo_model_inputs(ctx, inputs):
             description = (
                 "The name of a model from the "
                 "[FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/models.html) "
-                "to apply. Also includes models from any remote sources "
+                "to apply. Also includes models from any "
+                "[remote sources](https://docs.voxel51.com/model_zoo/remote.html) "
                 "you've already registered"
             )
         caption = None
