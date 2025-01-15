@@ -782,6 +782,73 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+class PromptExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_prompt",
+            label="Examples: Prompt",
+        )
+
+    def render(self, ctx):
+        panel = types.Object()
+        msg = ctx.panel.state.message
+        result = f"message: {msg}" if msg else "..."
+        panel.md(
+            f"""
+            ### Prompt Example
+
+            This is an example of a prompt that can be used to gather user input.
+                 
+            {result}
+        """
+        )
+        panel.btn("prompt", label="Prompt", on_click=self.on_click_prompt)
+        exec_btn = types.OperatorExecutionButtonView(
+            operator="@voxel51/panel-examples/example_message",
+            on_success=self.on_success,
+            on_cancel=self.on_cancel,
+            prompt=True,
+        )
+        panel.view("adv", label="Advanced Prompt", view=exec_btn)
+        return types.Property(
+            panel,
+            view=types.GridView(margin=5),
+        )
+
+    def on_success(self, ctx):
+        ctx.panel.state.message = ctx.params.get("result", {}).get("message")
+        ctx.ops.notify("Prompt was successful!")
+
+    def on_cancel(self, ctx):
+        ctx.ops.notify("Prompt was canceled", variant="warning")
+
+    def on_click_prompt(self, ctx):
+        ctx.prompt(
+            "@voxel51/panel-examples/example_message",
+            on_success=self.on_success,
+            on_cancel=self.on_cancel,
+        )
+
+
+class ExampleMessage(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_message",
+            label="Example Message",
+            allow_delegated_execution=True,
+        )
+
+    def resolve_input(self, ctx):
+        input = types.Object()
+        input.str("message", label="Message")
+        return types.Property(input)
+
+    def execute(self, ctx):
+        return {"message": ctx.params.get("message", "no message!")}
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +861,5 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(ExampleMessage)
+    p.register(PromptExample)
