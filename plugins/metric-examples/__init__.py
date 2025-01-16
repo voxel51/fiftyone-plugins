@@ -48,7 +48,8 @@ class ExampleMetric(EvaluationMetric):
             name="example_metric",
             label="Example metric",
             description="This is an example metric",
-            tags=["metric"],
+            metric_tags=None,
+            lower_is_better=True,
         )
 
     def get_parameters(self, ctx, inputs):
@@ -89,7 +90,8 @@ class AbsoluteErrorMetric(EvaluationMetric):
             name="absolute_error",
             label="Absolute Error Metric",
             description="A metric for absolute error.",
-            tags=["metric", "regression"],
+            metric_tags=["regression"],
+            lower_is_better=True,
         )
 
     def compute_by_sample(self, sample, eval_key, ytrue, ypred):
@@ -130,7 +132,8 @@ class MeanAbsoluteErrorMetric(EvaluationMetric):
             name="mean_absolute_error",
             label="Mean Absolute Error Metric",
             description="A metric for computing mean absolute error across all frames or samples.",
-            tags=["metric", "regression"],
+            metric_tags=["regression"],
+            lower_is_better=True,
         )
 
     def get_parameters(self, ctx, inputs):

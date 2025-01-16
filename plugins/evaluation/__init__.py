@@ -5,6 +5,7 @@ Evaluation operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+
 import json
 from packaging.version import Version
 
@@ -231,12 +232,10 @@ def _get_evaluation_type(view, pred_field):
 def _add_custom_metrics(ctx, inputs, eval_type, method):
     supported_metrics = []
     for operator in foo.list_operators(type="operator"):
-        if (
-            "metric" in operator.config.kwargs.get("tags", [])
-            and operator.config.kwargs.get("type", None) in (eval_type, None)
-            and operator.config.kwargs.get("method", None) in (method, None)
-        ):
-            supported_metrics.append(operator)
+        if "metric_tags" in operator.config.kwargs:
+            metric_tags = operator.config.kwargs["metric_tags"]
+            if not metric_tags or eval_type in metric_tags:
+                supported_metrics.append(operator)
 
     if not supported_metrics:
         return
