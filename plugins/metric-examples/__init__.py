@@ -49,7 +49,6 @@ class ExampleMetric(EvaluationMetric):
             label="Example metric",
             description="This is an example metric",
             metric_tags=None,
-            lower_is_better=True,
         )
 
     def get_parameters(self, ctx, inputs):
