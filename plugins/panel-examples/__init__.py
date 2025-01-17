@@ -781,6 +781,79 @@ class WalkthroughExample(foo.Panel):
             ),
         )
 
+class ExampleComplexOperator(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_complex_operator",
+            label="Examples: Complex Operator",
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
+        )
+    
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.str("message", label="Message", default="Hello, World!")
+        inputs.str("error_message", label="Error Message")
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        if ctx.params.get("error_message"):
+            raise ValueError(ctx.params["error_message"])
+
+        msg = ctx.params.get("message", "No message provided...")
+        ctx.ops.notify(msg)
+        return {"message": msg}
+
+
+PLUGIN_URI = "@voxel51/panel-examples"
+COMPLEX_OPERATOR_URI = f"{PLUGIN_URI}/example_complex_operator"
+class OperatorExecButtonExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_operator_exec_button",
+            label="Examples: Operator Exec Button",
+        )
+
+    def on_load(self, ctx):
+        pass
+
+    def render(self, ctx):
+        panel = types.Object()
+        panel.view('a', view=types.OperatorExecutionButtonView(
+            label="Run Example Operator",
+            operator=COMPLEX_OPERATOR_URI,
+            params={"message": "Hello, World!"},
+            on_success=self.on_success
+        ))
+        panel.view('b', view=types.OperatorExecutionButtonView(
+            label="Run Operator w/ Error",
+            operator=COMPLEX_OPERATOR_URI,
+            params={"error_message": "This is an error"},
+            on_success=self.on_success,
+            on_error=self.on_error
+        ))
+        panel.view('c', view=types.OperatorExecutionButtonView(
+            label="Run Operator w/ Prompt",
+            operator=COMPLEX_OPERATOR_URI,
+            prompt=True,
+            on_success=self.on_prompt_success,
+            on_cancel=self.on_cancel
+        ))
+        return types.Property(panel)
+    
+    def on_cancel(self, ctx):
+        ctx.ops.notify("Operator cancel")
+
+    def on_success(self, ctx):
+        ctx.ops.notify("Operator executed successfully!")
+
+    def on_prompt_success(self, ctx):
+        ctx.ops.notify("Operator with prompt executed successfully!", variant="success")
+
+    def on_error(self, ctx):
+        ctx.ops.notify("Operator execution failed!", variant="error")
 
 def register(p):
     p.register(CounterExample)
@@ -794,3 +867,5 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(ExampleComplexOperator)
+    p.register(OperatorExecButtonExample)
