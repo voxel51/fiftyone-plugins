@@ -58,7 +58,7 @@ class EvaluateModel(foo.Operator):
         # Parse custom metrics
         if metrics:
             custom_metrics = {}
-            for metric in _to_string_list(metrics):
+            for metric in metrics:
                 operator = foo.get_operator(metric)
                 kwargs.pop(f"header|{metric}", None)
                 params = kwargs.pop(f"parameters|{metric}", None)
@@ -231,29 +231,25 @@ def _get_evaluation_type(view, pred_field):
 
 def _add_custom_metrics(ctx, inputs, eval_type, method):
     supported_metrics = []
-    for operator in foo.list_operators(type="operator"):
-        if "metric_tags" in operator.config.kwargs:
-            metric_tags = operator.config.kwargs["metric_tags"]
-            if not metric_tags or eval_type in metric_tags:
-                supported_metrics.append(operator)
+    for operator in foo.list_operators(type=foo.EvaluationMetric):
+        eval_types = getattr(operator.config, "eval_types", None)
+        if eval_types is None or eval_type in eval_types:
+            supported_metrics.append(operator)
 
     if not supported_metrics:
         return
 
-    metrics = _to_string_list(ctx.params.get("metrics", []))
-
-    metric_choices = types.AutocompleteView(multiple=True)
+    metric_choices = types.DropdownView(multiple=True)
     for operator in supported_metrics:
-        if operator.uri not in metrics:
-            metric_choices.add_choice(
-                operator.uri,
-                label=operator.config.label,
-                description=operator.config.description,
-            )
+        metric_choices.add_choice(
+            operator.uri,
+            label=operator.config.label,
+            description=operator.config.description,
+        )
 
-    prop = inputs.list(
+    inputs.list(
         "metrics",
-        types.OneOf([types.Object(), types.String()]),
+        types.String(),
         required=False,
         default=None,
         label="Custom metrics",
@@ -261,14 +257,7 @@ def _add_custom_metrics(ctx, inputs, eval_type, method):
         view=metric_choices,
     )
 
-    for metric in metrics:
-        if not any(metric == operator.uri for operator in supported_metrics):
-            prop.invalid = True
-            prop.error_message = f"Invalid metric '{metric}'"
-            return
-
-    if not metrics:
-        return
+    metrics = ctx.params.get("metrics", None) or []
 
     for metric in metrics:
         operator = foo.get_operator(metric)
@@ -1277,13 +1266,6 @@ def get_new_eval_key(
         eval_key = None
 
     return eval_key
-
-
-def _to_string_list(values):
-    if not values:
-        return []
-
-    return [d["value"] if isinstance(d, dict) else d for d in values]
 
 
 def register(p):

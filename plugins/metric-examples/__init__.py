@@ -1,76 +1,196 @@
 """
 Example metrics.
 
-| Copyright 2017-2024, Voxel51, Inc.
+| Copyright 2017-2025, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+import itertools
+
+import numpy as np
 
 import fiftyone as fo
 import fiftyone.operators as foo
-import fiftyone.operators.types as types
-import numpy as np
-import itertools
+from fiftyone import ViewField as F
 
 
-class EvaluationMetric(foo.Operator):
-    def get_parameters(self, ctx, inputs):
-        pass
-
-    def parse_parameters(self, ctx, params):
-        pass
-
-    def compute_by_sample(self, sample, eval_key, **kwargs):
-        pass
-
-    def compute(self, samples, eval_key, results, **kwargs):
-        raise NotImplementedError("Subclass must implement compute()")
-
-    def get_fields(self, samples, eval_key):
-        return []
-
-    def rename(self, samples, eval_key, new_eval_key):
-        dataset = samples._dataset
-        for metric_field in self.get_fields(samples, eval_key):
-            new_metric_field = metric_field.replace(eval_key, new_eval_key, 1)
-            dataset.rename_sample_field(metric_field, new_metric_field)
-
-    def cleanup(self, samples, eval_key):
-        dataset = samples._dataset
-        for metric_field in self.get_fields(samples, eval_key):
-            dataset.delete_sample_field(metric_field, error_level=1)
-
-
-class ExampleMetric(EvaluationMetric):
+class ExampleMetric(foo.EvaluationMetric):
     @property
     def config(self):
-        return foo.OperatorConfig(
+        return foo.EvaluationMetricConfig(
             name="example_metric",
             label="Example metric",
-            description="This is an example metric",
-            metric_tags=None,
+            description="An example evaluation metric",
         )
 
     def get_parameters(self, ctx, inputs):
         inputs.str(
             "value",
-            label="Example parameter",
-            description="This is an example metric parameter",
+            label="Example value",
+            description="The example value to store/return",
             default="foo",
             required=True,
         )
 
-    def compute(self, samples, eval_key, results, value="foo"):
+    def compute(self, samples, results, value="foo"):
         dataset = samples._dataset
+        eval_key = results.key
         metric_field = f"{eval_key}_{self.config.name}"
         dataset.add_sample_field(metric_field, fo.StringField)
         samples.set_field(metric_field, value).save()
 
         return value
 
-    def get_fields(self, samples, eval_key):
-        expected_fields = [f"{eval_key}_{self.config.name}"]
-        return list(filter(samples.has_field, expected_fields))
+    def get_fields(self, samples, config, eval_key):
+        return [f"{eval_key}_{self.config.name}"]
+
+
+class MeanAbsoluteErrorMetric(foo.EvaluationMetric):
+    @property
+    def config(self):
+        return foo.EvaluationMetricConfig(
+            name="mean_absolute_error",
+            label="Mean Absolute Error",
+            description="Computes the mean absolute error of the regression data",
+            eval_types=["regression"],
+            lower_is_better=True,
+        )
+
+    def compute(self, samples, results):
+        dataset = samples._dataset
+        eval_key = results.key
+        is_frame_field = samples._is_frame_field(results.config.gt_field)
+
+        ytrue = results.ytrue
+        ypred = results.ypred
+        missing = results.missing
+
+        metric_field = f"{eval_key}_absolute_error"
+        compute_error = _make_compute_error_fcn(_absolute_error, missing)
+
+        if is_frame_field:
+            # Split values back into frames
+            frame_counts = samples.values(F("frames").length())
+            _ytrue = _unflatten(ytrue, frame_counts)
+            _ypred = _unflatten(ypred, frame_counts)
+
+            frame_errors = [
+                list(map(compute_error, _yp, _yt))
+                for _yp, _yt in zip(_ypred, _ytrue)
+            ]
+            sample_errors = [_safe_mean(e) for e in frame_errors]
+
+            errors = list(itertools.chain.from_iterable(frame_errors))
+
+            # Per-frame errors
+            _metric_field = samples._FRAMES_PREFIX + metric_field
+            samples.set_values(_metric_field, frame_errors)
+
+            # Per-sample errors
+            samples.set_values(metric_field, sample_errors)
+        else:
+            # Per-sample errors
+            errors = list(map(compute_error, ypred, ytrue))
+            samples.set_values(metric_field, errors)
+
+        return _safe_mean(errors)
+
+    def get_fields(self, samples, config, eval_key):
+        metric_field = f"{eval_key}_absolute_error"
+
+        fields = [metric_field]
+        if samples._is_frame_field(config.gt_field):
+            fields.append(samples._FRAMES_PREFIX + metric_field)
+
+        return fields
+
+
+class MeanSquaredErrorMetric(foo.EvaluationMetric):
+    @property
+    def config(self):
+        return foo.EvaluationMetricConfig(
+            name="mean_squared_error",
+            label="Mean Squared Error",
+            description="Computes the mean squared error of the regression data",
+            eval_types=["regression"],
+            lower_is_better=True,
+        )
+
+    def compute(self, samples, results):
+        dataset = samples._dataset
+        eval_key = results.key
+        is_frame_field = samples._is_frame_field(results.config.gt_field)
+
+        ytrue = results.ytrue
+        ypred = results.ypred
+        missing = results.missing
+
+        metric_field = f"{eval_key}_squared_error"
+        compute_error = _make_compute_error_fcn(_squared_error, missing)
+
+        if is_frame_field:
+            # Split values back into frames
+            frame_counts = samples.values(F("frames").length())
+            _ytrue = _unflatten(ytrue, frame_counts)
+            _ypred = _unflatten(ypred, frame_counts)
+
+            # Per-frame errors
+            frame_errors = [
+                list(map(compute_error, _yp, _yt))
+                for _yp, _yt in zip(_ypred, _ytrue)
+            ]
+            errors = list(itertools.chain.from_iterable(frame_errors))
+            _metric_field = samples._FRAMES_PREFIX + metric_field
+            samples.set_values(_metric_field, frame_errors)
+
+            # Per-sample mean errors
+            sample_errors = [_safe_mean(e) for e in frame_errors]
+            samples.set_values(metric_field, sample_errors)
+        else:
+            # Per-sample errors
+            errors = list(map(compute_error, ypred, ytrue))
+            samples.set_values(metric_field, errors)
+
+        return _safe_mean(errors)
+
+    def get_fields(self, samples, config, eval_key):
+        metric_field = f"{eval_key}_squared_error"
+
+        fields = [metric_field]
+        if samples._is_frame_field(config.gt_field):
+            fields.append(samples._FRAMES_PREFIX + metric_field)
+
+        return fields
+
+
+def _unflatten(values, counts):
+    _values = iter(values)
+    return [list(itertools.islice(_values, n)) for n in counts]
+
+
+def _make_compute_error_fcn(error_fcn, missing):
+    def compute_error(yp, yt):
+        if missing is not None:
+            if yp is None:
+                yp = missing
+
+            if yt is None:
+                yt = missing
+
+        try:
+            return error_fcn(yp, yt)
+        except:
+            return None
+
+    return compute_error
+
+
+def _absolute_error(ypred, ytrue):
+    return np.abs(ypred - ytrue)
+
+
+def _squared_error(ypred, ytrue):
+    return np.square(ypred - ytrue)
 
 
 def _safe_mean(values):
@@ -78,90 +198,7 @@ def _safe_mean(values):
     return np.mean(values) if values else None
 
 
-def _abs_error(ypred, ytrue):
-    return abs(ypred - ytrue)
-
-
-class AbsoluteErrorMetric(EvaluationMetric):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="absolute_error",
-            label="Absolute Error Metric",
-            description="A metric for absolute error.",
-            metric_tags=["regression"],
-            lower_is_better=True,
-        )
-
-    def compute_by_sample(self, sample, eval_key, ytrue, ypred):
-        metric_field = f"{eval_key}_{self.config.name}"
-        if sample.media_type == "video":
-            frame_errors = list(map(_abs_error, ypred, ytrue))
-            for idx, frame in enumerate(sample.frames.values()):
-                frame[metric_field] = frame_errors[idx]
-            sample[metric_field] = _safe_mean(frame_errors)
-        else:
-            sample[metric_field] = _abs_error(ypred, ytrue)
-
-    def compute(self, samples, eval_key, results):
-        ypred, ytrue = results.ypred, results.ytrue
-        start_idx = 0
-        for sample in samples.iter_samples(autosave=True):
-            num_frames = (
-                len(sample._frames) if sample.media_type == "video" else 1
-            )
-            self.compute_by_sample(
-                sample,
-                eval_key,
-                ytrue=ytrue[start_idx : start_idx + num_frames],
-                ypred=ypred[start_idx : start_idx + num_frames],
-            )
-            start_idx += num_frames
-
-    def get_fields(self, samples, eval_key):
-        metric_field = f"{eval_key}_{self.config.name}"
-        expected_fields = [metric_field, samples._FRAMES_PREFIX + metric_field]
-        return list(filter(samples.has_field, expected_fields))
-
-
-class MeanAbsoluteErrorMetric(EvaluationMetric):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="mean_absolute_error",
-            label="Mean Absolute Error Metric",
-            description="A metric for computing mean absolute error across all frames or samples.",
-            metric_tags=["regression"],
-            lower_is_better=True,
-        )
-
-    def get_parameters(self, ctx, inputs):
-        eval_key = ctx.params.get("eval_key", None)
-        inputs.str(
-            "error_eval_key",
-            label="Sample/Frame error eval key parameter",
-            description="Sample/Frame error eval key to use for computing Mean Absolute Error",
-            default=f"{eval_key}_absolute_error",
-            required=True,
-        )
-
-    def compute(self, samples, eval_key, results, error_eval_key):
-        dataset = samples._dataset
-
-        if dataset.has_field(dataset._FRAMES_PREFIX + error_eval_key):
-            # Compute MAE across all frames.
-            values = dataset.values(dataset._FRAMES_PREFIX + error_eval_key)
-            values = list(itertools.chain.from_iterable(values))
-        elif dataset.has_field(error_eval_key):
-            # Compute MAE across all samples.
-            values = dataset.values(error_eval_key)
-        else:
-            return None
-
-        return np.average(values).tolist()
-
-
 def register(p):
     p.register(ExampleMetric)
-    p.register(AbsoluteErrorMetric)
     p.register(MeanAbsoluteErrorMetric)
+    p.register(MeanSquaredErrorMetric)
