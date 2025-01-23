@@ -21,6 +21,8 @@ class ExampleMetric(foo.EvaluationMetric):
             name="example_metric",
             label="Example metric",
             description="An example evaluation metric",
+            aggregate_key="example",
+            unlisted=True,
         )
 
     def get_parameters(self, ctx, inputs):
@@ -45,15 +47,17 @@ class ExampleMetric(foo.EvaluationMetric):
         return [f"{eval_key}_{self.config.name}"]
 
 
-class MeanAbsoluteErrorMetric(foo.EvaluationMetric):
+class AbsoluteErrorMetric(foo.EvaluationMetric):
     @property
     def config(self):
         return foo.EvaluationMetricConfig(
-            name="mean_absolute_error",
-            label="Mean Absolute Error",
-            description="Computes the mean absolute error of the regression data",
+            name="absolute_error",
+            label="Absolute Error",
+            description="Computes the absolute error of the regression data",
             eval_types=["regression"],
+            aggregate_key="mean_absolute_error",
             lower_is_better=True,
+            unlisted=True,
         )
 
     def compute(self, samples, results):
@@ -105,15 +109,17 @@ class MeanAbsoluteErrorMetric(foo.EvaluationMetric):
         return fields
 
 
-class MeanSquaredErrorMetric(foo.EvaluationMetric):
+class SquaredErrorMetric(foo.EvaluationMetric):
     @property
     def config(self):
         return foo.EvaluationMetricConfig(
-            name="mean_squared_error",
-            label="Mean Squared Error",
-            description="Computes the mean squared error of the regression data",
+            name="squared_error",
+            label="Squared Error",
+            description="Computes the squared error of the regression data",
             eval_types=["regression"],
+            aggregate_key="mean_squared_error",
             lower_is_better=True,
+            unlisted=True,
         )
 
     def compute(self, samples, results):
@@ -200,5 +206,5 @@ def _safe_mean(values):
 
 def register(p):
     p.register(ExampleMetric)
-    p.register(MeanAbsoluteErrorMetric)
-    p.register(MeanSquaredErrorMetric)
+    p.register(AbsoluteErrorMetric)
+    p.register(SquaredErrorMetric)
