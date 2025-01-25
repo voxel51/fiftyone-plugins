@@ -310,6 +310,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/allenleetc/plotly-map-panel">@allenleetc/plotly-map-panel</a></b></td>
         <td>🌎 Plotly-based Map Panel with adjustable marker cosmetics!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/Madave94/multi-annotator-toolkit">@madave94/multi_annotator_toolkit</a></b></td>
+        <td>🧹 Tackle noisy annotation! Find and analyze annotation issues in datasets with multiple annotators per image.</td>
+    </tr>
 </table>
 
 ## Using Plugins
