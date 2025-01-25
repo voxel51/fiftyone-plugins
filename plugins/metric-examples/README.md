@@ -1,7 +1,7 @@
 # Metric Examples
 
 A plugin that demonstrates how to define
-[custom evaluation metrics](https://docs.voxel51.com/user_guide/evaluation.html)
+[custom evaluation metrics](https://docs.voxel51.com/user_guide/evaluation.html#custom-evaluation-metrics)
 that you can apply when evaluating models in FiftyOne.
 
 ## Installation
