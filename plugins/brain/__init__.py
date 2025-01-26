@@ -9,6 +9,7 @@ import base64
 from collections import defaultdict
 from datetime import datetime
 import json
+from packaging.version import Version
 
 from bson import json_util
 
@@ -1447,8 +1448,10 @@ def get_embeddings(ctx, inputs, view, patches_field):
     embeddings = ctx.params.get("embeddings", None)
 
     if embeddings not in embeddings_fields:
+        model_names, _ = _get_zoo_models_with_embeddings(ctx, inputs)
+
         model_choices = types.AutocompleteView()
-        for name in sorted(_get_zoo_models()):
+        for name in sorted(model_names):
             model_choices.add_choice(name, label=name)
 
         inputs.enum(
@@ -1499,9 +1502,36 @@ def get_embeddings(ctx, inputs, view, patches_field):
             )
 
 
-def _get_zoo_models():
+def _get_allowed_model_licenses(ctx, inputs):
+    license = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES", None)
+    if license is None:
+        return None
+
+    licenses = license.split(",")
+
+    inputs.view(
+        "licenses",
+        types.Notice(
+            label=(
+                f"Only models with licenses {licenses} will be available below"
+            )
+        ),
+    )
+
+    return licenses
+
+
+def _get_zoo_models_with_embeddings(ctx, inputs):
+    # @todo can remove this if we require `fiftyone>=1.4.0`
+    if Version(fo.__version__) >= Version("1.4.0"):
+        licenses = _get_allowed_model_licenses(ctx, inputs)
+        kwargs = dict(license=licenses)
+    else:
+        licenses = None
+        kwargs = {}
+
     if hasattr(fozm, "_list_zoo_models"):
-        manifest = fozm._list_zoo_models()
+        manifest = fozm._list_zoo_models(**kwargs)
     else:
         # Can remove this code path if we require fiftyone>=1.0.0
         manifest = fozm._load_zoo_models_manifest()
@@ -1512,7 +1542,7 @@ def _get_zoo_models():
         if model.has_tag("embeddings"):
             available_models.add(model.name)
 
-    return available_models
+    return available_models, licenses
 
 
 def get_new_brain_key(

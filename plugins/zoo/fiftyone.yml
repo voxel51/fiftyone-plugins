@@ -8,3 +8,6 @@ license: Apache 2.0
 operators:
   - load_zoo_dataset
   - apply_zoo_model
+secrets:
+  - FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES
+  - FIFTYONE_ZOO_ALLOWED_DATASET_LICENSES

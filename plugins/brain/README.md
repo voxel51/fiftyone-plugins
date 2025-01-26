@@ -17,6 +17,23 @@ Refer to the [main README](https://github.com/voxel51/fiftyone-plugins) for
 more information about managing downloaded plugins and developing plugins
 locally.
 
+## Configuration
+
+You can optionally configure which license(s) models must be distributed under
+in order to be made available by this plugin's operators by setting the
+following
+[plugin secrets](https://docs.voxel51.com/plugins/using_plugins.html#plugin-secrets):
+
+```shell
+export FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES="MIT,Apache 2.0"
+```
+
+Run the following command to see the available models and their licenses:
+
+```shell
+fiftyone zoo models list
+```
+
 ## Usage
 
 1.  Launch the App:
