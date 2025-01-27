@@ -6,6 +6,7 @@ FiftyOne Zoo operators.
 |
 """
 from collections import defaultdict
+from packaging.version import Version
 
 import fiftyone as fo
 import fiftyone.operators as foo
@@ -537,10 +538,18 @@ class ApplyZooModel(foo.Operator):
 
         target_view = _get_target_view(ctx, target)
 
+        # @todo can remove this if we require `fiftyone>=1.4.0`
+        kwargs = {}
+        if Version(fo.__version__) >= Version("1.4.0"):
+            zoo_model = foz.get_zoo_model(model)
+            if isinstance(zoo_model, foz.RemoteZooModel):
+                kwargs = ctx.params.get("remote_params", {})
+                zoo_model._parse_parameters(ctx, kwargs)
+
         if source is not None:
-            model = foz.load_zoo_model(source, model_name=model)
+            model = foz.load_zoo_model(source, model_name=model, **kwargs)
         else:
-            model = foz.load_zoo_model(model)
+            model = foz.load_zoo_model(model, **kwargs)
 
         # No multiprocessing allowed when running synchronously
         if not ctx.delegated:
@@ -828,6 +837,14 @@ def _apply_zoo_model_inputs(ctx, inputs):
             view=embeddings_field_choices,
         )
     else:
+        # @todo can remove this if we require `fiftyone>=1.4.0`
+        if Version(fo.__version__) >= Version("1.4.0"):
+            if isinstance(zoo_model, foz.RemoteZooModel):
+                obj = types.Object()
+                zoo_model._get_parameters(ctx, obj)
+                if len(obj.properties) > 0:
+                    inputs.define_property("remote_params", obj)
+
         label_field_choices = types.AutocompleteView()
         for field in _get_fields_with_type(target_view, fo.Label):
             label_field_choices.add_choice(field, label=field)
