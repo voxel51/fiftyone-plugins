@@ -9,6 +9,7 @@ from collections import defaultdict
 from packaging.version import Version
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone.utils.github import GitHubRepository
@@ -89,7 +90,7 @@ def _get_allowed_dataset_licenses(ctx, inputs):
 
 def _get_zoo_datasets(ctx, inputs):
     # @todo can remove this if we require `fiftyone>=1.4.0`
-    if Version(fo.__version__) >= Version("1.4.0"):
+    if Version(foc.VERSION) >= Version("1.4.0"):
         licenses = _get_allowed_dataset_licenses(ctx, inputs)
         kwargs = dict(license=licenses)
     else:
@@ -768,7 +769,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         tab = ctx.params.get("tab", "REMOTE")
 
         # @todo can remove this if we require `fiftyone>=1.4.0`
-        if Version(fo.__version__) >= Version("1.4.0"):
+        if Version(foc.VERSION) >= Version("1.4.0"):
             licenses = _get_allowed_model_licenses(ctx, inputs)
             kwargs = dict(license=licenses)
         else:

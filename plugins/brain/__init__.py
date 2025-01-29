@@ -16,6 +16,7 @@ from bson import json_util
 import eta.core.image as etai
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.core.patches as fop
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -1523,7 +1524,7 @@ def _get_allowed_model_licenses(ctx, inputs):
 
 def _get_zoo_models_with_embeddings(ctx, inputs):
     # @todo can remove this if we require `fiftyone>=1.4.0`
-    if Version(fo.__version__) >= Version("1.4.0"):
+    if Version(foc.VERSION) >= Version("1.4.0"):
         licenses = _get_allowed_model_licenses(ctx, inputs)
         kwargs = dict(license=licenses)
     else:
