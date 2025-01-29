@@ -545,7 +545,7 @@ class ApplyZooModel(foo.Operator):
             zoo_model = foz.get_zoo_model(model)
             if isinstance(zoo_model, foz.RemoteZooModel):
                 kwargs = ctx.params.get("remote_params", {})
-                zoo_model._parse_parameters(ctx, kwargs)
+                zoo_model.parse_parameters(ctx, kwargs)
 
         if source is not None:
             model = foz.load_zoo_model(source, model_name=model, **kwargs)
@@ -841,10 +841,9 @@ def _apply_zoo_model_inputs(ctx, inputs):
         # @todo can remove this if we require `fiftyone>=1.4.0`
         if Version(foc.VERSION) >= Version("1.4.0"):
             if isinstance(zoo_model, foz.RemoteZooModel):
-                obj = types.Object()
-                zoo_model._get_parameters(ctx, obj)
-                if len(obj.properties) > 0:
-                    inputs.define_property("remote_params", obj)
+                prop = zoo_model.resolve_input(ctx)
+                if prop is not None:
+                    inputs.add_property("remote_params", prop)
 
         label_field_choices = types.AutocompleteView()
         for field in _get_fields_with_type(target_view, fo.Label):
