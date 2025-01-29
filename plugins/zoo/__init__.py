@@ -9,6 +9,7 @@ from collections import defaultdict
 from packaging.version import Version
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone.utils.github import GitHubRepository
@@ -540,7 +541,7 @@ class ApplyZooModel(foo.Operator):
 
         # @todo can remove this if we require `fiftyone>=1.4.0`
         kwargs = {}
-        if Version(fo.__version__) >= Version("1.4.0"):
+        if Version(foc.VERSION) >= Version("1.4.0"):
             zoo_model = foz.get_zoo_model(model)
             if isinstance(zoo_model, foz.RemoteZooModel):
                 kwargs = ctx.params.get("remote_params", {})
@@ -838,7 +839,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         )
     else:
         # @todo can remove this if we require `fiftyone>=1.4.0`
-        if Version(fo.__version__) >= Version("1.4.0"):
+        if Version(foc.VERSION) >= Version("1.4.0"):
             if isinstance(zoo_model, foz.RemoteZooModel):
                 obj = types.Object()
                 zoo_model._get_parameters(ctx, obj)

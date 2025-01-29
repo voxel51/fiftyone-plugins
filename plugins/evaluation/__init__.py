@@ -12,6 +12,7 @@ from packaging.version import Version
 from bson import json_util
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 
@@ -190,7 +191,7 @@ def evaluate_model(ctx, inputs):
     _get_evaluation_method(eval_type, method).get_parameters(ctx, inputs)
 
     # @todo can remove this if we require `fiftyone>=1.3.0`
-    if Version(fo.__version__) >= Version("1.3.0"):
+    if Version(foc.VERSION) >= Version("1.3.0"):
         _add_custom_metrics(ctx, inputs, eval_type, method)
 
     return True
