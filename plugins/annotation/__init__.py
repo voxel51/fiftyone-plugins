@@ -908,7 +908,7 @@ class LoadAnnotations(foo.Operator):
         anno_key = ctx.params["anno_key"]
         unexpected = ctx.params["unexpected"]
         cleanup = ctx.params["cleanup"]
-        dest_field = ctx.params["dest_field"]
+        dest_field = ctx.params.get("dest_field", None)
 
         _inject_annotation_secrets(ctx)
 
