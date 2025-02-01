@@ -908,11 +908,15 @@ class LoadAnnotations(foo.Operator):
         anno_key = ctx.params["anno_key"]
         unexpected = ctx.params["unexpected"]
         cleanup = ctx.params["cleanup"]
+        dest_field = ctx.params["dest_field"]
 
         _inject_annotation_secrets(ctx)
 
         ctx.dataset.load_annotations(
-            anno_key, unexpected=unexpected, cleanup=cleanup
+            anno_key,
+            unexpected=unexpected,
+            cleanup=cleanup,
+            dest_field=dest_field,
         )
 
         if not ctx.delegated:
@@ -977,6 +981,17 @@ def load_annotations(ctx, inputs):
         description=(
             "Whether to delete any informtation regarding this run from "
             "the annotation backend after loading the annotations"
+        ),
+    )
+
+    inputs.str(
+        "dest_field",
+        required=False,
+        default=None,
+        label="Destination Field",
+        description=(
+            "An optional name of a new destination field into which to load "
+            "the annotations"
         ),
     )
 
