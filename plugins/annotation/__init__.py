@@ -280,6 +280,16 @@ def get_label_schema(ctx, inputs, backend, view):
             ),
         )
 
+        inputs.list(
+            "label_schema_fields",
+            build_label_schema_field(
+                ctx, backend, view, existing_project=True
+            ),
+            required=False,
+            label="Label fields",
+            description="Configure the field(s) in your label schema",
+        )
+
         project_name = ctx.params.get("project_name", None)
 
         return project_name
@@ -326,7 +336,7 @@ def get_label_schema(ctx, inputs, backend, view):
         return label_schema_fields
 
 
-def build_label_schema_field(ctx, backend, view):
+def build_label_schema_field(ctx, backend, view, existing_project=False):
     field_schema = types.Object()
 
     scalar_types, label_types = backend.get_supported_types()
@@ -365,6 +375,9 @@ def build_label_schema_field(ctx, backend, view):
         description="The type of the field",
         view=field_type_choices,
     )
+
+    if existing_project:
+        return field_schema
 
     # @todo support per-class attributes
     field_schema.list(
@@ -890,11 +903,15 @@ class LoadAnnotations(foo.Operator):
         anno_key = ctx.params["anno_key"]
         unexpected = ctx.params["unexpected"]
         cleanup = ctx.params["cleanup"]
+        dest_field = ctx.params.get("dest_field", None)
 
         _inject_annotation_secrets(ctx)
 
         ctx.dataset.load_annotations(
-            anno_key, unexpected=unexpected, cleanup=cleanup
+            anno_key,
+            unexpected=unexpected,
+            cleanup=cleanup,
+            dest_field=dest_field,
         )
 
         if not ctx.delegated:
@@ -959,6 +976,17 @@ def load_annotations(ctx, inputs):
         description=(
             "Whether to delete any informtation regarding this run from "
             "the annotation backend after loading the annotations"
+        ),
+    )
+
+    inputs.str(
+        "dest_field",
+        required=False,
+        default=None,
+        label="Destination field",
+        description=(
+            "An optional name of a new destination field into which to load "
+            "the annotations"
         ),
     )
 
