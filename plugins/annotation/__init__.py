@@ -280,18 +280,19 @@ def get_label_schema(ctx, inputs, backend, view):
             ),
         )
 
-        project_name = ctx.params.get("project_name", None)
-
         inputs.list(
             "label_schema_fields",
-            build_label_field_name_and_type(ctx, backend, view),
+            build_label_schema_field(
+                ctx, backend, view, existing_project=True
+            ),
             required=False,
             label="Label fields",
             description="Configure the field(s) in your label schema",
         )
 
-        return project_name
+        project_name = ctx.params.get("project_name", None)
 
+        return project_name
     elif schema_type == "JSON":
         # @todo switch to editable JSON viewer
         prop = inputs.str(
@@ -335,9 +336,8 @@ def get_label_schema(ctx, inputs, backend, view):
         return label_schema_fields
 
 
-def build_label_field_name_and_type(ctx, backend, view, field_schema=None):
-    if not field_schema:
-        field_schema = types.Object()
+def build_label_schema_field(ctx, backend, view, existing_project=False):
+    field_schema = types.Object()
 
     scalar_types, label_types = backend.get_supported_types()
 
@@ -376,13 +376,8 @@ def build_label_field_name_and_type(ctx, backend, view, field_schema=None):
         view=field_type_choices,
     )
 
-    return field_schema
-
-
-def build_label_schema_field(ctx, backend, view):
-    field_schema = types.Object()
-
-    field_schema = build_label_field_name_and_type(ctx, backend, view, field_schema=field_schema)
+    if existing_project:
+        return field_schema
 
     # @todo support per-class attributes
     field_schema.list(
@@ -988,7 +983,7 @@ def load_annotations(ctx, inputs):
         "dest_field",
         required=False,
         default=None,
-        label="Destination Field",
+        label="Destination field",
         description=(
             "An optional name of a new destination field into which to load "
             "the annotations"
