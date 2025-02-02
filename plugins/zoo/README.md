@@ -19,6 +19,26 @@ Refer to the [main README](https://github.com/voxel51/fiftyone-plugins) for
 more information about managing downloaded plugins and developing plugins
 locally.
 
+## Configuration
+
+You can optionally configure which license(s) models and datasets must be
+distributed under in order to be made available by this plugin's operators by
+setting the following
+[plugin secrets](https://docs.voxel51.com/plugins/using_plugins.html#plugin-secrets):
+
+```shell
+export FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES="MIT,Apache 2.0"
+export FIFTYONE_ZOO_ALLOWED_DATASET_LICENSES="CC-BY-SA-3.0,CC-BY-4.0"
+```
+
+Run the following commands to see the available models/datasets and their
+licenses:
+
+```shell
+fiftyone zoo models list
+fiftyone zoo datasets list
+```
+
 ## Usage
 
 1.  Launch the App:
