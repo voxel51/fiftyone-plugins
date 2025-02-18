@@ -11,6 +11,7 @@ import numpy as np
 
 import fiftyone as fo
 import fiftyone.operators as foo
+from fiftyone.operators import types
 from fiftyone import ViewField as F
 
 
@@ -25,7 +26,8 @@ class ExampleMetric(foo.EvaluationMetric):
             unlisted=True,
         )
 
-    def get_parameters(self, ctx, inputs):
+    def resolve_input(self, ctx):
+        inputs = types.Object()
         inputs.str(
             "value",
             label="Example value",
@@ -33,6 +35,7 @@ class ExampleMetric(foo.EvaluationMetric):
             default="foo",
             required=True,
         )
+        return types.Property(inputs)
 
     def compute(self, samples, results, value="foo"):
         dataset = samples._dataset
