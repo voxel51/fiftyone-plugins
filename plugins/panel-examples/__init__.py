@@ -782,6 +782,54 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+class TimerExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_timer",
+            label="Examples: Timer",
+        )
+
+    def on_load(self, ctx):
+        ctx.panel.state.ticks = 0
+        ctx.panel.state.running = True
+
+    def on_interval(self, ctx):
+        ticks = ctx.panel.state.ticks
+        ctx.panel.state.ticks = ticks + 1
+
+    def toggle_timer(self, ctx):
+        ctx.panel.state.running = not ctx.panel.state.running
+
+    def render(self, ctx):
+        panel = types.Object()
+        status = "Running" if ctx.panel.state.running else "Stopped"
+        if ctx.panel.state.running:
+            timer = types.TimerView(
+                interval=1000, on_interval=self.on_interval
+            )
+            panel.view("timer", timer)
+        ticks = ctx.panel.state.ticks or 0
+        panel.md(
+            f"""
+            **Ticks: {ticks}**
+
+            Status: {status}
+        """
+        )
+        btn_label = (
+            "Start Timer" if not ctx.panel.state.running else "Stop Timer"
+        )
+        panel.btn("stop_btn", label=btn_label, on_click=self.toggle_timer)
+
+        return types.Property(
+            panel,
+            view=types.GridView(
+                align_x="center", align_y="center", orientation="vertical"
+            ),
+        )
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +842,4 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(TimerExample)
