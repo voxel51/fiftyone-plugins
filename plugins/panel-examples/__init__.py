@@ -782,6 +782,54 @@ class WalkthroughExample(foo.Panel):
         )
 
 
+import fiftyone as fo
+import random as rand
+
+
+def gen_random_bbox():
+    min_x = rand.randint(0, 100) / 100
+    min_y = rand.randint(0, 100) / 100
+    max_x = min_x + rand.randint(1, 10) / 100
+    max_y = min_y + rand.randint(1, 10) / 100
+    return [min_x, min_y, max_x, max_y]
+
+
+class UpdateModalExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_update_modal",
+            label="Examples: Update Modal",
+            surfaces="modal",
+        )
+
+    def on_click(self, ctx):
+        cur_sample = ctx.dataset[ctx.current_sample]
+        cur_sample.ground_truth.detections.clear()
+        cur_sample.ground_truth.detections.append(
+            fo.Detection(label="person", bounding_box=gen_random_bbox())
+        )
+        ctx.ops.set_active_fields(["ground_truth"])
+        if ctx.panel.state.save:
+            cur_sample.save()
+            ctx.ops.reload_current_sample()
+        else:
+            ctx.ops.update_app_samples(
+                [dict(id=cur_sample.id, values=cur_sample.to_dict())]
+            )
+
+    def render(self, ctx):
+        panel = types.Object()
+        panel.bool("save", label="Save changes?", default=False)
+        panel.btn("btn", label="Add random bbox", on_click=self.on_click)
+        return types.Property(
+            panel,
+            # view=types.GridView(
+            #     height=100, width=100, align_x="center", align_y="center"
+            # ),
+        )
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -794,3 +842,4 @@ def register(p):
     p.register(InteractivePlotExample)
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
+    p.register(UpdateModalExample)
