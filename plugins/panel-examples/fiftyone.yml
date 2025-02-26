@@ -17,3 +17,4 @@ panels:
   - example_interactive_plot
   - example_dropdown_menu
   - example_walkthrough
+  - example_update_modal
