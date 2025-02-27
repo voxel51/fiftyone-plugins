@@ -6,7 +6,7 @@ Dashboard plugin.
 |
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import random
 from textwrap import dedent
@@ -174,6 +174,15 @@ class DashboardPanel(foo.Panel):
             range = ctx.params.get("range")
             if range:
                 min_val, max_val = range
+                if _check_for_isoformat(min_val):
+                    x_data = dashboard_state.load_plot_data(item.name)['x']
+                    x_datetime = [datetime.fromisoformat(x) for x in x_data]
+                    min_idx = x_datetime.index(datetime.fromisoformat(min_val))
+                    min_val = x_datetime[min_idx]
+                    if min_idx == len(x_data) - 1:
+                        max_val = min_val + timedelta(seconds=1)
+                    else:
+                        max_val = x_datetime[min_idx + 1]
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -853,14 +862,18 @@ class DashboardState(object):
             return {}
 
         bins = item.bins
-        counts, edges, _ = self.view.histogram_values(x, bins=bins)
+        x_values = self.view.distinct(x)
+        if len(x_values) == 1 and isinstance(x_values[0], datetime):
+            counts = [len(self.view)] + [0] * (bins - 1)
+            edges = [x_values[0]+timedelta(milliseconds=i) for i in range(bins)]
+        else: 
+            counts, edges, _ = self.view.histogram_values(x, bins=bins)
 
         counts = np.asarray(counts)
         edges = np.asarray(edges)
 
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
-
         # Check if edges contain datetime objects
         if isinstance(left_edges[0], datetime):
             # Convert datetime objects to ISO format strings
@@ -868,7 +881,7 @@ class DashboardState(object):
 
             # Set widths to None or convert to total seconds
             widths = None
-            # Or widths = [width.total_seconds() for width in widths]
+            # widths = [int(width.total_seconds()*1000) for width in widths]
             # Converting widths to total_seconds() results in thin lines, not bars
             # Cannot interact with bar plot this way
         else:
@@ -1076,6 +1089,12 @@ def _parse_path(sample_collection, path):
 
     return root, leaf
 
+def _check_for_isoformat(value):
+    try:
+        datetime.fromisoformat(str(value))
+        return True
+    except ValueError:
+        return False
 
 def register(p):
     p.register(DashboardPanel)
