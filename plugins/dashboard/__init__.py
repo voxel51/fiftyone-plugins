@@ -1055,7 +1055,7 @@ def _make_view_for_value(sample_collection, path, value):
     return sample_collection.match(expr)
 
 def _make_view_for_range(sample_collection, path, min_val, max_val):
-    expr = (F(path) >= min_val) & (F(path) < max_val)
+    expr = (F(path) >= min_val) & (F(path) <= max_val)
     return sample_collection.match(expr)
 
 
