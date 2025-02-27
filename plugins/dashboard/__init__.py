@@ -182,7 +182,7 @@ class DashboardPanel(foo.Panel):
                     if min_idx == len(x_data) - 1:
                         max_val = min_val + timedelta(seconds=1)
                     else:
-                        max_val = x_datetime[min_idx + 1]
+                        max_val = x_datetime[min_idx + 1] 
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -1054,9 +1054,11 @@ def _make_view_for_value(sample_collection, path, value):
 
     return sample_collection.match(expr)
 
-
-def _make_view_for_range(sample_collection, path, min_val, max_val):
-    expr = (F(path) >= min_val) & (F(path) <= max_val)
+def _make_view_for_range(sample_collection, path, min_val, max_val, is_datetime=False):
+    if is_datetime:
+        expr = (F(path) >= min_val) & (F(path) < max_val)
+    else:
+        expr = (F(path) >= min_val) & (F(path) <= max_val)
     return sample_collection.match(expr)
 
 
