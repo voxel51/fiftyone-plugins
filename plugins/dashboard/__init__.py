@@ -874,18 +874,11 @@ class DashboardState(object):
 
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
-        # Check if edges contain datetime objects
-        if isinstance(left_edges[0], datetime):
-            # Convert datetime objects to ISO format strings
-            left_edges = [edge.isoformat() for edge in left_edges]
 
-            # Set widths to None or convert to total seconds
-            widths = None
-            # Or widths = [width.total_seconds() for width in widths]
-            # Converting widths to total_seconds() results in thin lines, not bars
-            # Cannot interact with bar plot this way
+        if isinstance(left_edges[0], datetime):
+            left_edges = [edge.isoformat() for edge in left_edges]
+            widths = None # widths set to None to avoid thin unclickable bars with datetime field
         else:
-            # If edges are numerical, convert to list as before
             left_edges = left_edges.tolist()
             widths = widths.tolist()
 
