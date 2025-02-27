@@ -871,9 +871,10 @@ class DashboardState(object):
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
-        if isinstance(left_edges[0], datetime):
-            left_edges = [edge.isoformat() for edge in left_edges]
-            widths = None # widths set to None to avoid thin unclickable bars with datetime field
+        if len(left_edges) > 0 :
+            if isinstance(left_edges[0], datetime):
+                left_edges = [edge.isoformat() for edge in left_edges]
+                widths = None # widths set to None to avoid thin unclickable bars with datetime field
         else:
             left_edges = left_edges.tolist()
             widths = widths.tolist()
