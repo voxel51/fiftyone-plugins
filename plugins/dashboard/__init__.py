@@ -177,12 +177,8 @@ class DashboardPanel(foo.Panel):
                 if _check_for_isoformat(min_val):
                     x_data = dashboard_state.load_plot_data(item.name)['x']
                     x_datetime = [datetime.fromisoformat(x) for x in x_data]
-                    min_idx = x_datetime.index(datetime.fromisoformat(min_val))
-                    min_val = x_datetime[min_idx]
-                    if min_idx == len(x_data) - 1:
-                        max_val = min_val + timedelta(seconds=1)
-                    else:
-                        max_val = x_datetime[min_idx + 1] 
+                    min_val = datetime.fromisoformat(min_val)
+                    max_val = find_datetime_max_val(x_datetime, min_val)  
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -1088,6 +1084,16 @@ def _check_for_isoformat(value):
         return True
     except ValueError:
         return False
+    
+def find_datetime_max_val(x_datetime, min_val):
+    if min_val < x_datetime[0]:
+        return x_datetime[0]
+    if min_val >= x_datetime[-1]:
+        return min_val + timedelta(seconds=1)
+    for i in range(len(x_datetime) - 1):
+        if x_datetime[i] <= min_val < x_datetime[i + 1]:
+            return x_datetime[i + 1]
+            
 
 def register(p):
     p.register(DashboardPanel)
