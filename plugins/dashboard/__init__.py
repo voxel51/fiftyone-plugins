@@ -174,9 +174,7 @@ class DashboardPanel(foo.Panel):
             range = ctx.params.get("range")
             if range:
                 min_val, max_val = range
-                is_datetime = False
                 if _check_for_isoformat(min_val):
-                    is_datetime = True
                     x_data = dashboard_state.load_plot_data(item.name)['x']
                     x_datetime = [datetime.fromisoformat(x) for x in x_data]
                     min_idx = x_datetime.index(datetime.fromisoformat(min_val))
@@ -186,7 +184,7 @@ class DashboardPanel(foo.Panel):
                     else:
                         max_val = x_datetime[min_idx + 1] 
                 view = _make_view_for_range(
-                    dashboard_state.view, x_field, min_val, max_val, is_datetime=is_datetime
+                    dashboard_state.view, x_field, min_val, max_val
                 )
                 ctx.ops.set_view(view=view)
 
@@ -1056,11 +1054,8 @@ def _make_view_for_value(sample_collection, path, value):
 
     return sample_collection.match(expr)
 
-def _make_view_for_range(sample_collection, path, min_val, max_val, is_datetime=False):
-    if is_datetime:
-        expr = (F(path) >= min_val) & (F(path) < max_val)
-    else:
-        expr = (F(path) >= min_val) & (F(path) <= max_val)
+def _make_view_for_range(sample_collection, path, min_val, max_val):
+    expr = (F(path) >= min_val) & (F(path) < max_val)
     return sample_collection.match(expr)
 
 
