@@ -881,7 +881,7 @@ class DashboardState(object):
 
             # Set widths to None or convert to total seconds
             widths = None
-            # widths = [int(width.total_seconds()*1000) for width in widths]
+            # Or widths = [width.total_seconds() for width in widths]
             # Converting widths to total_seconds() results in thin lines, not bars
             # Cannot interact with bar plot this way
         else:
