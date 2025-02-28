@@ -600,6 +600,46 @@ def _dataset_info_inputs(ctx, inputs):
             prop.invalid = True
             prop.error_message = "Invalid sidebar groups"
 
+    ## default_visibility_labels (added in `fiftyone==1.4.0`)
+
+    if hasattr(ctx.dataset.app_config, "default_visibility_labels"):
+        default_visibility_labels, valid = _parse_field(
+            ctx, "default_visibility_labels", type=dict
+        )
+        edited_default_visibility_labels = (
+            default_visibility_labels is not None
+            and default_visibility_labels
+            != ctx.dataset.app_config.default_visibility_labels
+        )
+        if edited_default_visibility_labels:
+            num_changed += 1
+
+        if tab_choice == "APP_CONFIG":
+            _default_visibility_labels = (
+                ctx.dataset.app_config.default_visibility_labels
+            )
+            if _default_visibility_labels is not None:
+                _default_visibility_labels = _serialize(
+                    _default_visibility_labels
+                )
+
+            prop = inputs.str(
+                "app_config_default_visibility_labels",
+                default=_default_visibility_labels,
+                required=True,
+                label="Default visibility labels"
+                + (" (edited)" if edited_default_visibility_labels else ""),
+                description=(
+                    "An optional dict with `'include'` and `'exclude'` lists "
+                    "of fields to show/hide by default"
+                ),
+                view=types.CodeView(),
+            )
+
+            if not valid:
+                prop.invalid = True
+                prop.error_message = "Invalid default visibility labels"
+
     ## app_config.color_scheme
 
     color_scheme, valid = _parse_field(
@@ -975,6 +1015,17 @@ def _parse_app_config(ctx):
             sidebar_groups = None
 
         app_config.sidebar_groups = sidebar_groups
+
+    if "app_config_default_visibility_labels" in ctx.params:
+        default_visibility_labels = ctx.params[
+            "app_config_default_visibility_labels"
+        ]
+        if default_visibility_labels:
+            default_visibility_labels = json.loads(default_visibility_labels)
+        else:
+            default_visibility_labels = None
+
+        app_config.default_visibility_labels = default_visibility_labels
 
     if "app_config_color_scheme" in ctx.params:
         color_scheme = ctx.params["app_config_color_scheme"]
