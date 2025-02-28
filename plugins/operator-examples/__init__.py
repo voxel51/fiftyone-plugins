@@ -167,6 +167,13 @@ class InputListExample(foo.Operator):
         list_row.str("first_name", label="First Name", view=list_row_cell)
         list_row.str("last_name", label="Last Name", view=list_row_cell)
         inputs.list("list", list_row, label="List", default=default_people)
+        inputs.list(
+            "simple",
+            types.String(),
+            label="Tags",
+            default=["tag1", "tag2"],
+            view=types.AutocompleteView(),
+        )
         return types.Property(inputs)
 
     def execute(self, ctx):

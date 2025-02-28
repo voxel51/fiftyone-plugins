@@ -199,9 +199,8 @@ class EditDatasetInfo(foo.Operator):
             if persistent != ctx.dataset.persistent:
                 ctx.dataset.persistent = persistent
 
-        if tags is not None:
-            if tags != ctx.dataset.tags:
-                ctx.dataset.tags = tags
+        if tags != ctx.dataset.tags:
+            ctx.dataset.tags = tags
 
         if info is not None:
             info = json.loads(info)
@@ -354,7 +353,7 @@ def _dataset_info_inputs(ctx, inputs):
     ## tags
 
     tags = ctx.params.get("tags", None)
-    edited_tags = tags is not None and tags != ctx.dataset.tags
+    edited_tags = tags != ctx.dataset.tags
     if edited_tags:
         num_changed += 1
 
