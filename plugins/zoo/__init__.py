@@ -41,12 +41,11 @@ class LoadZooDataset(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        kwargs = ctx.params.copy()
-        kwargs.pop("tags", None)
-        name = kwargs.pop("name")
-        splits = kwargs.pop("splits", None)
-        label_field = kwargs.pop("label_field", None)
-        kwargs.pop("dataset_name", None)
+        name = ctx.params.get("name")
+        splits = ctx.params.get("splits", None)
+        label_field = ctx.params.get("label_field", None)
+        dataset_name = ctx.params.get("dataset_name", None)
+        kwargs = ctx.params.get("kwargs", {})
 
         dataset_name = _get_zoo_dataset_name(ctx)
 
@@ -291,7 +290,9 @@ def _load_zoo_dataset_inputs(ctx, inputs):
 
             return False
 
-    _get_source_dir(ctx, inputs, zoo_dataset)
+    kwargs = types.Object()
+
+    _get_source_dir(ctx, kwargs, zoo_dataset)
 
     if zoo_dataset.has_splits:
         split_choices = types.DropdownView(multiple=True)
@@ -311,7 +312,9 @@ def _load_zoo_dataset_inputs(ctx, inputs):
             view=split_choices,
         )
 
-    _partial_download_inputs(ctx, inputs, zoo_dataset)
+    _partial_download_inputs(ctx, kwargs, zoo_dataset)
+
+    inputs.define_property("kwargs", kwargs)
 
     inputs.str(
         "label_field",
