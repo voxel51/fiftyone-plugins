@@ -407,7 +407,7 @@ instructions.
 
 If you want join a fast-growing community of engineers, researchers, and
 practitioners who love computer vision, join the
-[FiftyOne Slack community](https://slack.voxel51.com/) 🚀🚀🚀
+[FiftyOne Discord community](https://community.voxel51.com/?_gl=1*1ph47fb*_gcl_au*NjI4MTMwMzIxLjE3MzY0NTM0MDc.) 🚀🚀🚀
 
 **💡 Pro tip:** the `#plugins` channel is a great place to discuss plugins!
 
