@@ -172,87 +172,102 @@ class EditDatasetInfo(foo.Operator):
         )
 
     def execute(self, ctx):
-        name = ctx.params.get("name", None)
-        description = ctx.params.get("description", None) or None
-        persistent = ctx.params.get("persistent", None)
-        tags = ctx.params.get("tags", None)
-        info = ctx.params.get("info", None)
-        app_config = _parse_app_config(ctx)
-        classes = ctx.params.get("classes", None)
-        default_classes = ctx.params.get("default_classes", None)
-        mask_targets = ctx.params.get("mask_targets", None)
-        default_mask_targets = ctx.params.get("default_mask_targets", None)
-        skeletons = ctx.params.get("skeletons", None)
-        default_skeleton = ctx.params.get("default_skeleton", None) or None
-
-        if name is not None:
+        if "name" in ctx.params:
+            name = ctx.params["name"]
             if name != ctx.dataset.name:
                 ctx.dataset.name = name
 
-        if description is not None:
+        if "description" in ctx.params:
+            description = ctx.params["description"] or None
             if description != ctx.dataset.description:
                 ctx.dataset.description = description
-        elif ctx.dataset.description is not None:
-            ctx.dataset.description = None
 
-        if persistent is not None:
+        if "persistent" in ctx.params:
+            persistent = ctx.params["persistent"]
             if persistent != ctx.dataset.persistent:
                 ctx.dataset.persistent = persistent
 
-        if tags is not None:
+        if "tags" in ctx.params:
+            tags = ctx.params["tags"]
+            if tags is None:
+                tags = []
             if tags != ctx.dataset.tags:
                 ctx.dataset.tags = tags
 
-        if info is not None:
-            info = json.loads(info)
+        if "info" in ctx.params:
+            info = ctx.params["info"]
+            if info is not None:
+                info = json.loads(info)
+            else:
+                info = {}
             if info != ctx.dataset.info:
                 ctx.dataset.info = info
 
-        if app_config is not None:
-            if app_config != ctx.dataset.app_config:
-                ctx.dataset.app_config = app_config
+        app_config = _parse_app_config(ctx)
+        if app_config != ctx.dataset.app_config:
+            ctx.dataset.app_config = app_config
 
-        if classes is not None:
-            classes = json.loads(classes)
+        if "classes" in ctx.params:
+            classes = ctx.params["classes"]
+            if classes is not None:
+                classes = json.loads(classes)
+            else:
+                classes = {}
             if classes != ctx.dataset.classes:
                 ctx.dataset.classes = classes
 
-        if default_classes is not None:
-            default_classes = json.loads(default_classes)
+        if "default_classes" in ctx.params:
+            default_classes = ctx.params["default_classes"]
+            if default_classes is not None:
+                default_classes = json.loads(default_classes)
+            else:
+                default_classes = []
             if default_classes != ctx.dataset.default_classes:
                 ctx.dataset.default_classes = default_classes
 
-        if mask_targets is not None:
-            mask_targets = {
-                k: _parse_mask_targets(v)
-                for k, v in json.loads(mask_targets).items()
-            }
+        if "mask_targets" in ctx.params:
+            mask_targets = ctx.params["mask_targets"]
+            if mask_targets is not None:
+                mask_targets = {
+                    k: _parse_mask_targets(v)
+                    for k, v in json.loads(mask_targets).items()
+                }
+            else:
+                mask_targets = {}
             if mask_targets != ctx.dataset.mask_targets:
                 ctx.dataset.mask_targets = mask_targets
 
-        if default_mask_targets is not None:
-            default_mask_targets = _parse_mask_targets(
-                json.loads(default_mask_targets)
-            )
+        if "default_mask_targets" in ctx.params:
+            default_mask_targets = ctx.params["default_mask_targets"]
+            if default_mask_targets is not None:
+                default_mask_targets = _parse_mask_targets(
+                    json.loads(default_mask_targets)
+                )
+            else:
+                default_mask_targets = {}
             if default_mask_targets != ctx.dataset.default_mask_targets:
                 ctx.dataset.default_mask_targets = default_mask_targets
 
-        if skeletons is not None:
-            skeletons = {
-                field: fo.KeypointSkeleton.from_dict(skeleton)
-                for field, skeleton in json.loads(skeletons).items()
-            }
+        if "skeletons" in ctx.params:
+            skeletons = ctx.params["skeletons"]
+            if skeletons is not None:
+                skeletons = {
+                    field: fo.KeypointSkeleton.from_dict(skeleton)
+                    for field, skeleton in json.loads(skeletons).items()
+                }
+            else:
+                skeletons = {}
             if skeletons != ctx.dataset.skeletons:
                 ctx.dataset.skeletons = skeletons
 
-        if default_skeleton is not None:
-            default_skeleton = fo.KeypointSkeleton.from_dict(
-                json.loads(default_skeleton)
-            )
+        if "default_skeleton" in ctx.params:
+            default_skeleton = ctx.params["default_skeleton"] or None
+            if default_skeleton is not None:
+                default_skeleton = fo.KeypointSkeleton.from_dict(
+                    json.loads(default_skeleton)
+                )
             if default_skeleton != ctx.dataset.default_skeleton:
                 ctx.dataset.default_skeleton = default_skeleton
-        elif ctx.dataset.default_skeleton is not None:
-            ctx.dataset.default_skeleton = None
 
         ctx.trigger("reload_dataset")
 
@@ -326,7 +341,7 @@ def _dataset_info_inputs(ctx, inputs):
         inputs.str(
             "description",
             default=ctx.dataset.description,
-            required=False,  # can be None
+            required=False,
             label="Description" + (" (edited)" if edited_description else ""),
             description="A description for the dataset",
         )
@@ -353,8 +368,8 @@ def _dataset_info_inputs(ctx, inputs):
 
     ## tags
 
-    tags = ctx.params.get("tags", None)
-    edited_tags = tags is not None and tags != ctx.dataset.tags
+    tags = ctx.params.get("tags", None) or []
+    edited_tags = "tags" in ctx.params and tags != ctx.dataset.tags
     if edited_tags:
         num_changed += 1
 
@@ -372,7 +387,7 @@ def _dataset_info_inputs(ctx, inputs):
     ## info
 
     info, valid = _parse_field(ctx, "info", type=dict)
-    edited_info = info is not None and info != ctx.dataset.info
+    edited_info = "info" in ctx.params and info != ctx.dataset.info
     if edited_info:
         num_changed += 1
 
@@ -520,7 +535,7 @@ def _dataset_info_inputs(ctx, inputs):
                 required=True,
                 description=(
                     "Whether to fall back to the default media field "
-                    "('filepath') when the configured media field's value is "
+                    "`filepath` when the configured media field's value is "
                     "not defined for a sample"
                 ),
                 view=types.CheckboxView(
@@ -600,6 +615,46 @@ def _dataset_info_inputs(ctx, inputs):
             prop.invalid = True
             prop.error_message = "Invalid sidebar groups"
 
+    ## default_visibility_labels (added in `fiftyone==1.4.0`)
+
+    if hasattr(ctx.dataset.app_config, "default_visibility_labels"):
+        default_visibility_labels, valid = _parse_field(
+            ctx, "app_config_default_visibility_labels", type=dict
+        )
+        edited_default_visibility_labels = (
+            "app_config_default_visibility_labels" in ctx.params  # can be None
+            and default_visibility_labels
+            != ctx.dataset.app_config.default_visibility_labels
+        )
+        if edited_default_visibility_labels:
+            num_changed += 1
+
+        if tab_choice == "APP_CONFIG":
+            _default_visibility_labels = (
+                ctx.dataset.app_config.default_visibility_labels
+            )
+            if _default_visibility_labels is not None:
+                _default_visibility_labels = _serialize(
+                    _default_visibility_labels
+                )
+
+            prop = inputs.str(
+                "app_config_default_visibility_labels",
+                default=_default_visibility_labels,
+                required=False,
+                label="Default visibility labels"
+                + (" (edited)" if edited_default_visibility_labels else ""),
+                description=(
+                    "An optional dict with `include` and/or `exclude` keys "
+                    "that contain lists of fields to show/hide by default"
+                ),
+                view=types.CodeView(),
+            )
+
+            if not valid:
+                prop.invalid = True
+                prop.error_message = "Invalid default visibility labels"
+
     ## app_config.color_scheme
 
     color_scheme, valid = _parse_field(
@@ -640,7 +695,8 @@ def _dataset_info_inputs(ctx, inputs):
 
     plugins, valid = _parse_field(ctx, "app_config_plugins", type=dict)
     edited_plugins = (
-        plugins is not None and plugins != ctx.dataset.app_config.plugins
+        "app_config_plugins" in ctx.params  # can be None
+        and plugins != ctx.dataset.app_config.plugins
     )
     if edited_plugins:
         num_changed += 1
@@ -649,7 +705,7 @@ def _dataset_info_inputs(ctx, inputs):
         prop = inputs.str(
             "app_config_plugins",
             default=_serialize(ctx.dataset.app_config.plugins),
-            required=True,
+            required=False,
             label="Plugin settings" + (" (edited)" if edited_plugins else ""),
             description=(
                 "An optional dict mapping plugin names to plugin settings"
@@ -664,7 +720,10 @@ def _dataset_info_inputs(ctx, inputs):
     ## classes
 
     classes, valid = _parse_field(ctx, "classes", type=dict)
-    edited_classes = classes is not None and classes != ctx.dataset.classes
+    edited_classes = (
+        "classes" in ctx.params  # can be None
+        and classes != ctx.dataset.classes
+    )
     if edited_classes:
         num_changed += 1
 
@@ -699,7 +758,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     default_classes, valid = _parse_field(ctx, "default_classes", type=list)
     edited_default_classes = (
-        default_classes is not None
+        "default_classes" in ctx.params  # can be None
         and default_classes != ctx.dataset.default_classes
     )
     if edited_default_classes:
@@ -731,7 +790,8 @@ def _dataset_info_inputs(ctx, inputs):
             k: _parse_mask_targets(v) for k, v in mask_targets.items()
         }
     edited_mask_targets = (
-        mask_targets is not None and mask_targets != ctx.dataset.mask_targets
+        "mask_targets" in ctx.params  # can be None
+        and mask_targets != ctx.dataset.mask_targets
     )
     if edited_mask_targets:
         num_changed += 1
@@ -773,7 +833,7 @@ def _dataset_info_inputs(ctx, inputs):
     if default_mask_targets is not None:
         default_mask_targets = _parse_mask_targets(default_mask_targets)
     edited_default_mask_targets = (
-        default_mask_targets is not None
+        "default_mask_targets" in ctx.params  # can be None
         and default_mask_targets != ctx.dataset.default_mask_targets
     )
     if edited_default_mask_targets:
@@ -811,7 +871,8 @@ def _dataset_info_inputs(ctx, inputs):
         except:
             valid = False
     edited_skeletons = (
-        skeletons is not None and skeletons != ctx.dataset.skeletons
+        "skeletons" in ctx.params  # can be None
+        and skeletons != ctx.dataset.skeletons
     )
     if edited_skeletons:
         num_changed += 1
@@ -879,7 +940,7 @@ def _dataset_info_inputs(ctx, inputs):
         prop = inputs.str(
             "default_skeleton",
             default=default,
-            required=False,  # can be None
+            required=False,
             label="Default skeleton"
             + (" (edited)" if edited_default_skeleton else ""),
             description=(
@@ -942,7 +1003,6 @@ def _parse_field(ctx, name, type=dict, default=None):
 
 
 def _parse_app_config(ctx):
-    # Start from current AppConfig to ensure that additional fields aren't lost
     app_config = ctx.dataset.app_config.copy()
 
     if "app_config_media_fields" in ctx.params:
@@ -976,6 +1036,17 @@ def _parse_app_config(ctx):
 
         app_config.sidebar_groups = sidebar_groups
 
+    if "app_config_default_visibility_labels" in ctx.params:
+        default_visibility_labels = ctx.params[
+            "app_config_default_visibility_labels"
+        ]
+        if default_visibility_labels:
+            default_visibility_labels = json.loads(default_visibility_labels)
+        else:
+            default_visibility_labels = None
+
+        app_config.default_visibility_labels = default_visibility_labels
+
     if "app_config_color_scheme" in ctx.params:
         color_scheme = ctx.params["app_config_color_scheme"]
         if color_scheme:
@@ -987,7 +1058,12 @@ def _parse_app_config(ctx):
 
     if "app_config_plugins" in ctx.params:
         plugins = ctx.params["app_config_plugins"]
-        app_config.plugins = json.loads(plugins)
+        if plugins:
+            plugins = json.loads(plugins)
+        else:
+            plugins = None
+
+        app_config.plugins = plugins
 
     return app_config
 
