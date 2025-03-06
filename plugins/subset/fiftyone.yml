@@ -1,0 +1,9 @@
+name: "@voxel51/subset"
+description: Build custom model evaluation subsets to display statistics of interest about your FiftyOne datasets
+version: 1.0.0
+fiftyone:
+  version: ">=0.25.0"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/subset
+license: Apache 2.0
+operators:
+  - configure_subset
