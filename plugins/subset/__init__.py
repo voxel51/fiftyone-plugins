@@ -16,6 +16,7 @@ import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone import ViewField as F
+import fiftyone.core.fields as fof
 
 
 class PlotlyPlotType(Enum):
@@ -37,6 +38,14 @@ NUMERIC_TYPES = (fo.IntField, fo.FloatField, fo.DateTimeField, fo.DateField)
 CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
+
+MAX_CATEGORIES = 100
+ALLOWED_BY_TYPES = (
+    fof.StringField,
+    fof.BooleanField,
+    fof.IntField,
+    fof.FloatField,
+)
 
 
 class ConfigureSubset(foo.Operator):
@@ -112,13 +121,40 @@ class ConfigureSubset(foo.Operator):
         chosen_subset_type = ctx.params.get("subset_type", None)
         chosen_subset_field = ctx.params.get("subset_field", None)
         chosen_label_attr = ctx.params.get("label_attribute", None)
+        gt_field = ctx.params.get("gt_field", None)
 
         if chosen_subset_type == "label_attribute":
             label_choices = types.Choices()
 
-            label_fields = ctx.dataset._get_label_fields()
-            for label_field in label_fields:
-                _, label_path = ctx.dataset._get_label_field_path(label_field)
+            schema = ctx.dataset.get_field_schema(flat=True)
+            # bad_roots = tuple(
+            #     k + "."
+            #     for k, v in schema.items()
+            #     if isinstance(v, fof.ListField)
+            # )
+            fields = [
+                path
+                for path, field in schema.items()
+                if (
+                    (
+                        isinstance(field, ALLOWED_BY_TYPES)
+                        or (
+                            isinstance(field, fof.ListField)
+                            and isinstance(field.field, ALLOWED_BY_TYPES)
+                        )
+                    )
+                    and path.startswith(f"{gt_field}.")
+                    # and not path.startswith(bad_roots)
+                )
+            ]
+
+            print("fields", fields)
+
+            # label_fields = ctx.dataset._get_label_fields()
+            # for label_field in label_fields:
+            # for label_field in fields:
+            for label_path in fields:
+                # _, label_path = ctx.dataset._get_label_field_path(label_field)
                 label_choices.add_choice(label_path, label=label_path)
 
             inputs.enum(
@@ -135,7 +171,7 @@ class ConfigureSubset(foo.Operator):
             chosen_subset_type == "label_attribute"
             and chosen_label_attr is not None
         ):
-            counts = ctx.dataset.count_values(f"{chosen_label_attr}.label")
+            counts = ctx.dataset.count_values(chosen_label_attr)
             sorted_data = {k: v for k, v in sorted(counts.items())}
 
             obj = types.Object()
