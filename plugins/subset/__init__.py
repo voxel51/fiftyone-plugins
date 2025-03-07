@@ -119,7 +119,7 @@ class ConfigureSubset(foo.Operator):
         )
 
         chosen_subset_type = ctx.params.get("subset_type", None)
-        chosen_subset_field = ctx.params.get("subset_field", None)
+        chosen_subset_field_name = ctx.params.get("subset_field", None)
         chosen_label_attr = ctx.params.get("label_attribute", None)
         gt_field = ctx.params.get("gt_field", None)
 
@@ -189,39 +189,56 @@ class ConfigureSubset(foo.Operator):
             view_names = ctx.dataset.list_saved_views()
 
             if view_names:
-                view_choices = types.AutocompleteView()
-                for name in view_names:
-                    view_choices.add_choice(name, label=name)
+                sorted_view_names = sorted(view_names)
+                obj = types.Object()
 
-                inputs.enum(
-                    "src_view",
-                    view_choices.values(),
-                    required=True,
-                    label="Saved view",
-                    description="Choose a saved view to apply to this dataset",
-                    view=view_choices,
-                )
+                for name in sorted_view_names:
+                    obj.bool(
+                        name,
+                        default=True,
+                        label=name,
+                        view=types.CheckboxView(space=3),
+                    )
+
+                inputs.define_property("saved_views_values", obj)
 
         if chosen_subset_type == "sample_field":
-            all_fields = list(ctx.dataset.get_field_schema().keys())
+            # TODO: check if we need flat=True
+            all_fields = ctx.dataset.get_field_schema(flat=True)
             field_choices = types.Choices()
 
-            for field in all_fields:
-                field_choices.add_choice(field, label=field)
+            for field_path, field in all_fields.items():
+                if isinstance(field, ALLOWED_BY_TYPES):
+                    field_choices.add_choice(field_path, label=field_path)
+                if isinstance(field, fof.ListField):
+                    if isinstance(field.field, ALLOWED_BY_TYPES):
+                        field_choices.add_choice(field_path, label=field_path)
 
             inputs.str(
                 "subset_field",
                 default=None,
                 label="Field",
-                description=("A sample field"),
+                description=("Choose applicable sample field values."),
                 view=field_choices,
                 required=True,
             )
 
-        if chosen_subset_type == "sample_field" and chosen_subset_field:
-            values = ctx.dataset.distinct(chosen_subset_field)
-            obj = types.Object()
+        if chosen_subset_type == "sample_field" and chosen_subset_field_name:
+            chosen_subset_field = ctx.dataset.get_field_schema(flat=True)[
+                chosen_subset_field_name
+            ]
 
+            if chosen_subset_field is None:
+                raise ValueError(
+                    f"Field {chosen_subset_field_name} does not exist"
+                )
+
+            values = ctx.dataset.distinct(chosen_subset_field_name)
+
+            # TODO: check field type and for continuous values show custom code
+
+            # for discrete values
+            obj = types.Object()
             for value in values:
                 obj.bool(
                     value,
