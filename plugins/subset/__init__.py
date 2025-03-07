@@ -58,6 +58,31 @@ class ConfigureSubset(foo.Operator):
             # unlisted=True,
         )
 
+    def get_code_example(self, plot_type):
+        examples = {
+            "static_field": dedent(
+                """
+                subsets = {
+                    "sunny": dict(type="field", field="tags", value="sunny"),
+                    "cloudy": dict(type="field", field="tags", value="cloudy"),
+                    "rainy": dict(type="field", field="tags", value="rainy"),
+                }
+            """
+            ).strip(),
+            "dynamic_field": dedent(
+                """
+                from fiftyone import ViewField as F
+
+                subsets = {
+                    "Low": {"field": F($FIELD) < 0.25},
+                    "middle": {"field": F($FIELD) >= 0.25 & F($FIELD) < 0.75},
+                    "high": {"field": F($FIELD) > 0.75},
+                }
+            """
+            ).strip(),
+        }
+        return examples.get(plot_type, "")
+
     def resolve_input(self, ctx):
         inputs = types.Object()
         inputs.view(
@@ -123,6 +148,30 @@ class ConfigureSubset(foo.Operator):
         chosen_label_attr = ctx.params.get("label_attribute", None)
         gt_field = ctx.params.get("gt_field", None)
 
+        if chosen_subset_type == "custom_code":
+            inputs.view(
+                "info_header_3",
+                types.Header(
+                    label="Custom code",
+                    divider=False,
+                    description="Write custom code to define subset",
+                ),
+            )
+            inputs.view(
+                "code_editor",
+                label="Code editor",
+                default=self.get_code_example("static_field"),
+                view=types.CodeView(language="python", space=6, height=250),
+                componentsProps={
+                    "editor": {
+                        "width": "100% !important",
+                    },
+                    "container": {
+                        "width": "100% !important",
+                    },
+                },
+            )
+
         if chosen_subset_type == "label_attribute":
             label_choices = types.Choices()
 
@@ -147,8 +196,6 @@ class ConfigureSubset(foo.Operator):
                     # and not path.startswith(bad_roots)
                 )
             ]
-
-            print("fields", fields)
 
             # label_fields = ctx.dataset._get_label_fields()
             # for label_field in label_fields:
