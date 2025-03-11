@@ -19,6 +19,9 @@ from fiftyone import ViewField as F
 import fiftyone.core.fields as fof
 
 
+STORE_NAME = "scenarios"
+
+
 class PlotlyPlotType(Enum):
     BAR = "bar"
     SCATTER = "scatter"
@@ -58,6 +61,15 @@ class ConfigureScenario(foo.Operator):
             # unlisted=True,
         )
 
+    # def on_load(self, ctx):
+    #     print("asdasdasd")
+    #     ctx.panel.state.scenarios = []
+    #     store = ctx.store("scenarios")
+
+    #     # store_values = store.get("user_choice")
+    #     store.set("my_key", {"foo": "bar"}, ttl=60)
+    #     print("asdasdasd", store.list_keys())  # ["user_choice", "my_key"]
+
     def get_code_example(self, plot_type):
         examples = {
             "static_field": dedent(
@@ -77,6 +89,18 @@ class ConfigureScenario(foo.Operator):
                     "Low": {"field": F($FIELD) < 0.25},
                     "middle": {"field": F($FIELD) >= 0.25 & F($FIELD) < 0.75},
                     "high": {"field": F($FIELD) > 0.75},
+                }
+            """
+            ).strip(),
+            "dynamic_field_2": dedent(
+                """
+                from fiftyone import ViewField as F
+
+                bbox_area = F("bounding_box")[2] * F("bounding_box")[3]
+                subsets = {
+                    "Small objects": dict(type="attribute", expr=bbox_area <= 0.05),
+                    "Medium objects": dict(type="attribute", expr=(0.05 <= bbox_area) & (bbox_area <= 0.5)),
+                    "Large objects": dict(type="attribute", expr=bbox_area > 0.5),
                 }
             """
             ).strip(),
@@ -141,11 +165,20 @@ class ConfigureScenario(foo.Operator):
             "scenario_type",
             dropdown_choices.values(),
             label="scenario_type",
-            default=dropdown_choices.values()[0],
+            default=dropdown_choices.values()[-1],
             view=types.DropdownView(),
         )
 
-    def render_custom_code(self, inputs):
+    def execute_custom_code(self, ctx, custom_code):
+        try:
+            local_vars = {}
+            exec(custom_code, {"ctx": ctx}, local_vars)
+            data = local_vars.get("subsets", {})
+            return data, None
+        except Exception as e:
+            return None, str(e)
+
+    def render_custom_code(self, ctx, inputs, custom_code=None):
         inputs.view(
             "info_header_3",
             types.Header(
@@ -155,21 +188,54 @@ class ConfigureScenario(foo.Operator):
             ),
         )
         inputs.view(
-            "code_editor",
+            "custom_code",
             label="Code editor",
-            default=self.get_code_example("static_field"),
+            default=self.get_code_example("dynamic_field_2"),
             view=types.CodeView(
-                language="python", space=6, height=250, width=500
+                language="python",
+                space=6,
+                height=150,
+                componentsProps={
+                    "editor": {
+                        "minWidth": "520px",
+                        "width": "520px",
+                        "flex-grow": 1,
+                    },
+                },
             ),
-            componentsProps={
-                "editor": {
-                    "width": "100% !important",
-                },
-                "container": {
-                    "width": "100% !important",
-                },
-            },
         )
+
+        if custom_code is not None:
+            # NOTE: data is the scenario expression in mongo syntax
+            data, error = self.execute_custom_code(ctx, custom_code)
+            if error:
+                # TODO: we have the line number in the error usually. ex: (line 4)
+                # - get the line from error
+                # - highlight the line in the editor
+                # - look at monaco.editor.setModelMarkers(editor.getModel()!, "owner", [
+                #   {
+                #     startLineNumber: 3,
+                #     endLineNumber: 3,
+                #     startColumn: 1,
+                #     endColumn: 100,
+                #     message: "Syntax Error: Something is wrong here.",
+                #     severity: monaco.MarkerSeverity.Error,
+                #   },
+                # ]);
+                inputs.view(
+                    "custom_code_error",
+                    view=types.AlertView(
+                        severity="error",
+                        label="Error in custom code",
+                        description=error,
+                    ),
+                )
+            else:
+                # TODO: save this when "Analyze scenario" is clicked instead
+                store = ctx.store(STORE_NAME)
+                scenario_name = ctx.params.get("scenario_name", "")
+                if scenario_name:
+                    store.set(scenario_name, custom_code)
 
     def render_label_attribute(
         self, ctx, inputs, gt_field, chosen_scenario_label_attribute=None
@@ -316,10 +382,11 @@ class ConfigureScenario(foo.Operator):
         chosen_scenario_label_attribute = ctx.params.get(
             "scenario_label_attribute", None
         )
+        chosen_custom_code = ctx.params.get("custom_code", None)
         gt_field = ctx.params.get("gt_field", None)
 
         if chosen_scenario_type == "custom_code":
-            self.render_custom_code(inputs)
+            self.render_custom_code(ctx, inputs, chosen_custom_code)
 
         if chosen_scenario_type == "label_attribute":
             self.render_label_attribute(
