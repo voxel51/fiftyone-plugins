@@ -225,7 +225,7 @@ class DashboardPanel(foo.Panel):
             if not ids:
                 return
 
-            matched_ids_view = ctx.dataset.select(ids)
+            matched_ids_view = ctx.view.select(ids)
             ctx.ops.set_view(view=matched_ids_view)
 
     def render_menu(self, ctx):
