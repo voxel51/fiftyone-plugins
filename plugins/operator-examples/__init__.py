@@ -883,6 +883,22 @@ class ExampleComplexExecution(foo.Operator):
         print(f"Message: {ctx.params['message']}")
 
 
+class SetSampleModal(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="set_sample_modal",
+            label="Set sample modal",
+        )
+
+    def execute(self, ctx):
+        cur_sample = ctx.dataset[ctx.current_sample]
+        cur_sample.heatmaps.map_path = cur_sample.heatmaps.alt_path
+        ctx.ops.update_app_samples(
+            [dict(id=cur_sample.id, values=cur_sample.to_dict())]
+        )
+
+
 def register(p):
     p.register(MessagesExample)
     p.register(SimpleInputExample)
@@ -909,3 +925,4 @@ def register(p):
     p.register(TargetViewExample)
     p.register(PythonViewExample)
     p.register(ExampleComplexExecution)
+    p.register(SetSampleModal)
