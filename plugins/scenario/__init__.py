@@ -9,8 +9,8 @@ Dashboard plugin.
 from enum import Enum
 import random
 from textwrap import dedent
-
-import numpy as np
+import bson
+from datetime import datetime, timezone
 
 import fiftyone as fo
 import fiftyone.operators as foo
@@ -104,6 +104,22 @@ class ConfigureScenario(foo.Operator):
                 }
             """
             ).strip(),
+            "dynamic_field_3": dedent(
+                """
+                from fiftyone import ViewField as F
+
+                subsets = {
+                    "Sunny unique objects": [
+                        dict(type="field", field="tags", value="sunny"),
+                        dict(type="field", expr=F("uniqueness") > 0.75),
+                    ],
+                    "Rainy common objects": [
+                        dict(type="field", field="tags", value="rainy"),
+                        dict(type="field", expr=F("uniqueness") < 0.25),
+                    ]
+                }
+            """
+            ).strip(),
         }
         return examples.get(plot_type, "")
 
@@ -178,6 +194,32 @@ class ConfigureScenario(foo.Operator):
         except Exception as e:
             return None, str(e)
 
+    def extract_evaluation_keys(self, ctx):
+        eval_key_a, eval_key_b = None, None
+        eval_keys = ctx.params.get("panel_state", {}).get("evaluations", [])
+
+        if len(eval_keys) > 0:
+            eval_key_a = eval_keys[0]["key"]
+        else:
+            raise ValueError("No evaluation keys found")
+
+        if len(eval_keys) > 1:
+            eval_key_b = eval_keys[1]["key"]
+
+        return eval_key_a, eval_key_b
+
+    def render_preview(self, ctx, inputs, subset_expression=None):
+        try:
+            eval_key_a, eval_key_b = self.extract_evaluation_keys(ctx)
+            eval_result_a = ctx.dataset.load_evaluation_results(eval_key_a)
+            eval_result_b = ctx.dataset.load_evaluation_results(eval_key_b)
+            with eval_result_a.use_subset(subset_expression):
+                eval_result_a.print_report()
+        except Exception as e:
+            # TODO
+            print(e)
+            return
+
     def render_custom_code(self, ctx, inputs, custom_code=None):
         inputs.view(
             "info_header_3",
@@ -190,38 +232,32 @@ class ConfigureScenario(foo.Operator):
         inputs.view(
             "custom_code",
             label="Code editor",
-            default=self.get_code_example("dynamic_field_2"),
+            default=self.get_code_example("dynamic_field_3"),
             view=types.CodeView(
                 language="python",
-                space=6,
+                space=2,
                 height=150,
+                width="100%",
                 componentsProps={
                     "editor": {
                         "minWidth": "520px",
-                        "width": "520px",
-                        "flex-grow": 1,
+                        "options": {
+                            "minimap": {"enabled": False},
+                        },
+                    },
+                    "container": {
+                        "minWidth": "520px",
                     },
                 },
             ),
         )
 
-        if custom_code is not None:
+        if custom_code:
             # NOTE: data is the scenario expression in mongo syntax
-            data, error = self.execute_custom_code(ctx, custom_code)
+            custom_code_expression, error = self.execute_custom_code(
+                ctx, custom_code
+            )
             if error:
-                # TODO: we have the line number in the error usually. ex: (line 4)
-                # - get the line from error
-                # - highlight the line in the editor
-                # - look at monaco.editor.setModelMarkers(editor.getModel()!, "owner", [
-                #   {
-                #     startLineNumber: 3,
-                #     endLineNumber: 3,
-                #     startColumn: 1,
-                #     endColumn: 100,
-                #     message: "Syntax Error: Something is wrong here.",
-                #     severity: monaco.MarkerSeverity.Error,
-                #   },
-                # ]);
                 inputs.view(
                     "custom_code_error",
                     view=types.AlertView(
@@ -235,7 +271,19 @@ class ConfigureScenario(foo.Operator):
                 store = ctx.store(STORE_NAME)
                 scenario_name = ctx.params.get("scenario_name", "")
                 if scenario_name:
-                    store.set(scenario_name, custom_code)
+                    store.set(
+                        scenario_name,
+                        {
+                            "id": bson.ObjectId(),
+                            "name": scenario_name,
+                            "type": "custom_code",
+                            "custom_code": custom_code,
+                            "createdAt": datetime.now(timezone.utc),
+                        },
+                    )
+                # self.render_preview(
+                #     ctx, inputs, subset_expression=custom_code_expression
+                # )
 
     def render_label_attribute(
         self, ctx, inputs, gt_field, chosen_scenario_label_attribute=None
