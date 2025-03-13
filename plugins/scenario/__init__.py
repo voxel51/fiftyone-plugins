@@ -1,46 +1,22 @@
 """
-Dashboard plugin.
+Scenario plugin.
 
-| Copyright 2017-2024, Voxel51, Inc.
+| Copyright 2017-2025, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
 
-from enum import Enum
-import random
 from textwrap import dedent
 import bson
 from datetime import datetime, timezone
 
-import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-from fiftyone import ViewField as F
 import fiftyone.core.fields as fof
 
 
 STORE_NAME = "scenarios"
 
-
-class PlotlyPlotType(Enum):
-    BAR = "bar"
-    SCATTER = "scatter"
-    LINE = "line"
-    PIE = "pie"
-
-
-class PlotType(Enum):
-    CATEGORICAL_HISTOGRAM = "categorical_histogram"
-    NUMERIC_HISTOGRAM = "numeric_histogram"
-    LINE = "line"
-    SCATTER = "scatter"
-    PIE = "pie"
-
-
-NUMERIC_TYPES = (fo.IntField, fo.FloatField, fo.DateTimeField, fo.DateField)
-CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
-REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
-REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 
 MAX_CATEGORIES = 100
 ALLOWED_BY_TYPES = (
@@ -58,17 +34,8 @@ class ConfigureScenario(foo.Operator):
             name="configure_scenario",
             label="Configure scenario",
             dynamic=True,
-            # unlisted=True,
+            unlisted=True,
         )
-
-    # def on_load(self, ctx):
-    #     print("asdasdasd")
-    #     ctx.panel.state.scenarios = []
-    #     store = ctx.store("scenarios")
-
-    #     # store_values = store.get("user_choice")
-    #     store.set("my_key", {"foo": "bar"}, ttl=60)
-    #     print("asdasdasd", store.list_keys())  # ["user_choice", "my_key"]
 
     def get_code_example(self, plot_type):
         examples = {
@@ -185,7 +152,7 @@ class ConfigureScenario(foo.Operator):
             view=types.DropdownView(),
         )
 
-    def execute_custom_code(self, ctx, custom_code):
+    def process_custom_code(self, ctx, custom_code):
         try:
             local_vars = {}
             exec(custom_code, {"ctx": ctx}, local_vars)
@@ -211,8 +178,10 @@ class ConfigureScenario(foo.Operator):
     def render_preview(self, ctx, inputs, subset_expression=None):
         try:
             eval_key_a, eval_key_b = self.extract_evaluation_keys(ctx)
+
             eval_result_a = ctx.dataset.load_evaluation_results(eval_key_a)
             eval_result_b = ctx.dataset.load_evaluation_results(eval_key_b)
+
             with eval_result_a.use_subset(subset_expression):
                 eval_result_a.print_report()
         except Exception as e:
@@ -221,44 +190,91 @@ class ConfigureScenario(foo.Operator):
             return
 
     def render_custom_code(self, ctx, inputs, custom_code=None):
-        inputs.view(
+        stack = inputs.v_stack(
+            "custom_code_stack",
+            width="100%",
+            align_x="center",
+            componentsProps={
+                "grid": {
+                    "sx": {
+                        "border": "1px solid #333",
+                        "display": "flex",
+                        "flexDirection": "column",
+                    }
+                },
+            },
+        )
+
+        control_stack = stack.h_stack(
+            "control_stack",
+            width="100%",
+            align_x="space-between",
+            py=2,
+            px=2,
+        )
+
+        body_stack = stack.v_stack(
+            "body_stack",
+            width="100%",
+            componentsProps={
+                "grid": {
+                    "sx": {
+                        "display": "flex",
+                    }
+                },
+            },
+        )
+
+        control_stack.view(
             "info_header_3",
             types.Header(
-                label="Custom code",
+                label="Code Editor",
                 divider=False,
-                description="Write custom code to define scenario",
             ),
         )
-        inputs.view(
+
+        control_stack.view(
+            "preview_sample_distribution_btn",
+            types.Button(
+                label="View sample distribution",
+                variant="outlined",
+            ),
+        )
+
+        body_stack.view(
             "custom_code",
-            label="Code editor",
             default=self.get_code_example("dynamic_field_3"),
             view=types.CodeView(
                 language="python",
                 space=2,
-                height=150,
+                height=250,
                 width="100%",
                 componentsProps={
                     "editor": {
-                        "minWidth": "520px",
+                        "width": "100%",
                         "options": {
                             "minimap": {"enabled": False},
+                            "scrollBeyondLastLine": False,
+                            "cursorBlinking": "phase",
                         },
                     },
                     "container": {
-                        "minWidth": "520px",
+                        "width": "100%",
                     },
                 },
             ),
         )
 
+        print("custom_code", custom_code)
         if custom_code:
             # NOTE: data is the scenario expression in mongo syntax
-            custom_code_expression, error = self.execute_custom_code(
+            custom_code_expression, error = self.process_custom_code(
                 ctx, custom_code
             )
+            print("custom_code_expression", custom_code_expression)
             if error:
-                inputs.view(
+                print("error", error)
+                stack.view(
                     "custom_code_error",
                     view=types.AlertView(
                         severity="error",
@@ -281,9 +297,9 @@ class ConfigureScenario(foo.Operator):
                             "createdAt": datetime.now(timezone.utc),
                         },
                     )
-                # self.render_preview(
-                #     ctx, inputs, subset_expression=custom_code_expression
-                # )
+                self.render_preview(
+                    ctx, body_stack, subset_expression=custom_code_expression
+                )
 
     def render_label_attribute(
         self, ctx, inputs, gt_field, chosen_scenario_label_attribute=None
@@ -430,7 +446,11 @@ class ConfigureScenario(foo.Operator):
         chosen_scenario_label_attribute = ctx.params.get(
             "scenario_label_attribute", None
         )
-        chosen_custom_code = ctx.params.get("custom_code", None)
+        chosen_custom_code = (
+            ctx.params.get("custom_code_stack", {})
+            .get("body_stack", {})
+            .get("custom_code", "")
+        )
         gt_field = ctx.params.get("gt_field", None)
 
         if chosen_scenario_type == "custom_code":
@@ -451,8 +471,6 @@ class ConfigureScenario(foo.Operator):
         return types.Property(inputs, view=prompt)
 
     def execute(self, ctx):
-        print("executing", ctx.params)
-
         return {
             "scenario_type": ctx.params.get("radio_choices", ""),
             "scenario_field": ctx.params.get("scenario_field", ""),
