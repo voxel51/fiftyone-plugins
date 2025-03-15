@@ -1,6 +1,6 @@
 name: "@voxel51/delegated"
 description: Utilities for working with delegated operations
-version: 1.0.1
+version: 1.0.2
 fiftyone:
   version: "*"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/delegated
