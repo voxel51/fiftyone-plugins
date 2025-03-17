@@ -26,6 +26,29 @@ ALLOWED_BY_TYPES = (
     fof.FloatField,
 )
 
+SCENARIO_BUILDING_CHOICES = [
+    {
+        "type": "sample_field",
+        "label": "Select sample fields",
+        "icon": "add_card_outlined",
+    },
+    {
+        "type": "label_attribute",
+        "label": "Select label attributes",
+        "icon": "add_card_outlined",
+    },
+    {
+        "type": "saved_views",
+        "label": "Select saved views",
+        "icon": "create_new_folder_outlined';",
+    },
+    {
+        "type": "custom_code",
+        "label": "Custom code",
+        "icon": "code_outlined",
+    },
+]
+
 
 class ConfigureScenario(foo.Operator):
     @property
@@ -105,13 +128,15 @@ class ConfigureScenario(foo.Operator):
             "scenario_name",
             label="Scenario Name",
             default=default,
+            required=True,
             view=types.TextFieldView(
                 label="Scenario Name",
                 placeholder="Enter a name for the scenario",
             ),
         )
 
-    def render_scenario_type(self, inputs):
+    def render_scenario_types(self, inputs, selected_type):
+        print("ssss", selected_type)
         inputs.view(
             "info_header_2",
             types.Header(
@@ -121,35 +146,30 @@ class ConfigureScenario(foo.Operator):
             ),
         )
 
-        dropdown_choices = types.RadioGroup()
+        groups = types.RadioGroup()
+        for choice in SCENARIO_BUILDING_CHOICES:
+            groups.add_choice(choice["type"], label=choice["label"])
 
-        dropdown_choices.add_choice(
-            "sample_field",
-            label="Select sample fields",
-            description="Select sample fields",
-        )
-        dropdown_choices.add_choice(
-            "label_attribute",
-            label="Select label attributes",
-            description="Select sample fields",
-        )
-        dropdown_choices.add_choice(
-            "saved_views",
-            label="Select saved views",
-            description="Select label attribute",
-        )
-        dropdown_choices.add_choice(
-            "custom_code",
-            label="Custom code",
-            description="Custom code",
+        radio_view = types.RadioView(
+            label="Scenario type",
+            description="Select the type of scenario to analyze",
+            variant="button",
+            choices=[
+                types.Choice(
+                    choice["type"],
+                    label=choice["label"],
+                    icon=choice["icon"],
+                )
+                for choice in SCENARIO_BUILDING_CHOICES
+            ],
         )
 
         inputs.enum(
             "scenario_type",
-            dropdown_choices.values(),
-            label="scenario_type",
-            default=dropdown_choices.values()[-1],
-            view=types.DropdownView(),
+            groups.values(),
+            label="Scenario building type",
+            default=selected_type,
+            view=radio_view,
         )
 
     def process_custom_code(self, ctx, custom_code):
@@ -265,15 +285,11 @@ class ConfigureScenario(foo.Operator):
             ),
         )
 
-        print("custom_code", custom_code)
         if custom_code:
-            # NOTE: data is the scenario expression in mongo syntax
             custom_code_expression, error = self.process_custom_code(
                 ctx, custom_code
             )
-            print("custom_code_expression", custom_code_expression)
             if error:
-                print("error", error)
                 stack.view(
                     "custom_code_error",
                     view=types.AlertView(
@@ -413,7 +429,7 @@ class ConfigureScenario(foo.Operator):
 
             values = ctx.dataset.distinct(chosen_scenario_field_name)
 
-            # TODO: check field type and for continuous values show custom code
+            # TODO: check the field type and show the custom code for continuous values or > 100 categories
 
             # for discrete values
             obj = types.Object()
@@ -431,17 +447,14 @@ class ConfigureScenario(foo.Operator):
         inputs = types.Object()
         self.render_header(inputs)
 
-        defaults = {
-            "scenario_name": "",
-        }
-
         # model name
-        self.render_name_input(inputs, defaults["scenario_name"])
-
-        # scenario type selection TODO: needs a new component
-        self.render_scenario_type(inputs)
+        print("ctx.params", ctx.params)
+        chosen_scenario_name = ctx.params.get("scenario_name", None)
+        self.render_name_input(inputs, chosen_scenario_name)
 
         chosen_scenario_type = ctx.params.get("scenario_type", None)
+        self.render_scenario_types(inputs, chosen_scenario_type)
+
         chosen_scenario_field_name = ctx.params.get("scenario_field", None)
         chosen_scenario_label_attribute = ctx.params.get(
             "scenario_label_attribute", None
