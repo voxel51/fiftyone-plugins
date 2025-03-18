@@ -136,7 +136,6 @@ class ConfigureScenario(foo.Operator):
         )
 
     def render_scenario_types(self, inputs, selected_type):
-        print("ssss", selected_type)
         inputs.view(
             "info_header_2",
             types.Header(
@@ -180,34 +179,6 @@ class ConfigureScenario(foo.Operator):
             return data, None
         except Exception as e:
             return None, str(e)
-
-    def extract_evaluation_keys(self, ctx):
-        eval_key_a, eval_key_b = None, None
-        eval_keys = ctx.params.get("panel_state", {}).get("evaluations", [])
-
-        if len(eval_keys) > 0:
-            eval_key_a = eval_keys[0]["key"]
-        else:
-            raise ValueError("No evaluation keys found")
-
-        if len(eval_keys) > 1:
-            eval_key_b = eval_keys[1]["key"]
-
-        return eval_key_a, eval_key_b
-
-    def render_preview(self, ctx, inputs, subset_expression=None):
-        try:
-            eval_key_a, eval_key_b = self.extract_evaluation_keys(ctx)
-
-            eval_result_a = ctx.dataset.load_evaluation_results(eval_key_a)
-            eval_result_b = ctx.dataset.load_evaluation_results(eval_key_b)
-
-            with eval_result_a.use_subset(subset_expression):
-                eval_result_a.print_report()
-        except Exception as e:
-            # TODO
-            print(e)
-            return
 
     def render_custom_code(self, ctx, inputs, custom_code=None):
         stack = inputs.v_stack(
@@ -286,9 +257,7 @@ class ConfigureScenario(foo.Operator):
         )
 
         if custom_code:
-            custom_code_expression, error = self.process_custom_code(
-                ctx, custom_code
-            )
+            _, error = self.process_custom_code(ctx, custom_code)
             if error:
                 stack.view(
                     "custom_code_error",
@@ -299,23 +268,11 @@ class ConfigureScenario(foo.Operator):
                     ),
                 )
             else:
-                # TODO: save this when "Analyze scenario" is clicked instead
                 store = ctx.store(STORE_NAME)
                 scenario_name = ctx.params.get("scenario_name", "")
                 if scenario_name:
-                    store.set(
-                        scenario_name,
-                        {
-                            "id": bson.ObjectId(),
-                            "name": scenario_name,
-                            "type": "custom_code",
-                            "custom_code": custom_code,
-                            "createdAt": datetime.now(timezone.utc),
-                        },
-                    )
-                self.render_preview(
-                    ctx, body_stack, subset_expression=custom_code_expression
-                )
+                    # TODO: save this when "Analyze scenario" is clicked instead
+                    pass
 
     def render_label_attribute(
         self, ctx, inputs, gt_field, chosen_scenario_label_attribute=None
@@ -448,7 +405,6 @@ class ConfigureScenario(foo.Operator):
         self.render_header(inputs)
 
         # model name
-        print("ctx.params", ctx.params)
         chosen_scenario_name = ctx.params.get("scenario_name", None)
         self.render_name_input(inputs, chosen_scenario_name)
 
