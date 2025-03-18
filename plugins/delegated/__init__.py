@@ -39,7 +39,8 @@ class ManageDelegatedOperations(foo.Operator):
         ids = []
         for name, obj in ctx.params.items():
             if name.startswith("row_") and obj.get("action", False):
-                ids.append(obj["id"])
+                id = name.rsplit("_", 1)[-1]
+                ids.append(id)
 
         if not ids:
             return
@@ -72,7 +73,7 @@ def _manage_delegated_operations_inputs(ctx, inputs):
         ready = _manage_delegated_operations_runs(ctx, inputs)
 
     if not ready:
-        prop = inputs.str("hidden", view=types.HiddenView(read_only=True))
+        prop = inputs.str("hidden", view=types.HiddenView())
         prop.invalid = True
 
 
@@ -230,12 +231,11 @@ def _manage_delegated_operations_runs(ctx, inputs):
             description="Select runs to cleanup",
             view=types.MarkdownView(read_only=True, space=space2),
         )
-        obj.str("id", view=types.HiddenView(read_only=True, space=0.5))
     inputs.define_property(f"{uuid}_header", obj)
 
     selected_run_states = []
     for i, op in enumerate(ops, 1):
-        prop_name = f"row_{uuid}_op{i}"
+        prop_name = f"row_{uuid}_{op.id}"
         obj = types.Object()
         obj.str(
             "operator",
@@ -263,11 +263,6 @@ def _manage_delegated_operations_runs(ctx, inputs):
                 "action",
                 default=False,
                 view=types.CheckboxView(space=space2),
-            )
-            obj.str(
-                "id",
-                default=str(op.id),
-                view=types.HiddenView(read_only=True, space=0.5),
             )
         inputs.define_property(prop_name, obj)
 
