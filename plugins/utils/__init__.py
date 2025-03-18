@@ -615,45 +615,47 @@ def _dataset_info_inputs(ctx, inputs):
             prop.invalid = True
             prop.error_message = "Invalid sidebar groups"
 
-    ## default_visibility_labels (added in `fiftyone==1.4.0`)
+    ## app_config.active_fields (added in `fiftyone==1.4.0`)
 
-    if hasattr(ctx.dataset.app_config, "default_visibility_labels"):
-        default_visibility_labels, valid = _parse_field(
-            ctx, "app_config_default_visibility_labels", type=dict
+    if hasattr(ctx.dataset.app_config, "active_fields"):
+        active_fields, valid = _parse_field(
+            ctx, "app_config_active_fields", type=dict
         )
-        edited_default_visibility_labels = (
-            "app_config_default_visibility_labels" in ctx.params  # can be None
-            and default_visibility_labels
-            != ctx.dataset.app_config.default_visibility_labels
+        if active_fields is not None:
+            try:
+                active_fields = fo.ActiveFields.from_dict(active_fields)
+            except:
+                valid = False
+        edited_active_fields = (
+            "app_config_active_fields" in ctx.params  # can be None
+            and active_fields != ctx.dataset.app_config.active_fields
         )
-        if edited_default_visibility_labels:
+        if edited_active_fields:
             num_changed += 1
 
         if tab_choice == "APP_CONFIG":
-            _default_visibility_labels = (
-                ctx.dataset.app_config.default_visibility_labels
-            )
-            if _default_visibility_labels is not None:
-                _default_visibility_labels = _serialize(
-                    _default_visibility_labels
+            default_active_fields = ctx.dataset.app_config.active_fields
+            if default_active_fields is not None:
+                default_active_fields = default_active_fields.to_json(
+                    pretty_print=4
                 )
 
             prop = inputs.str(
-                "app_config_default_visibility_labels",
-                default=_default_visibility_labels,
+                "app_config_active_fields",
+                default=default_active_fields,
                 required=False,
-                label="Default visibility labels"
-                + (" (edited)" if edited_default_visibility_labels else ""),
+                label="Active fields"
+                + (" (edited)" if edited_active_fields else ""),
                 description=(
-                    "An optional dict with `include` and/or `exclude` keys "
-                    "that contain lists of fields to show/hide by default"
+                    "An optional set of dataset fields to mark as active "
+                    "(visible) by default"
                 ),
                 view=types.CodeView(),
             )
 
             if not valid:
                 prop.invalid = True
-                prop.error_message = "Invalid default visibility labels"
+                prop.error_message = "Invalid active fields"
 
     ## app_config.color_scheme
 
@@ -1036,16 +1038,16 @@ def _parse_app_config(ctx):
 
         app_config.sidebar_groups = sidebar_groups
 
-    if "app_config_default_visibility_labels" in ctx.params:
-        default_visibility_labels = ctx.params[
-            "app_config_default_visibility_labels"
-        ]
-        if default_visibility_labels:
-            default_visibility_labels = json.loads(default_visibility_labels)
+    if "app_config_active_fields" in ctx.params:
+        active_fields = ctx.params["app_config_active_fields"]
+        if active_fields:
+            active_fields = fo.ActiveFields.from_dict(
+                json.loads(active_fields)
+            )
         else:
-            default_visibility_labels = None
+            active_fields = None
 
-        app_config.default_visibility_labels = default_visibility_labels
+        app_config.active_fields = active_fields
 
     if "app_config_color_scheme" in ctx.params:
         color_scheme = ctx.params["app_config_color_scheme"]
