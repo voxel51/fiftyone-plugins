@@ -33,8 +33,8 @@ class ManageIndexes(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        create = ctx.params.get("create", [])
-        drop = ctx.params.get("drop", [])
+        create = ctx.params.get("create", None) or []
+        drop = ctx.params.get("drop", None) or []
 
         for obj in create:
             field_name = obj["field_name"]
@@ -143,14 +143,12 @@ def _manage_indexes(ctx, inputs):
     inputs.list(
         "create",
         _create_index(ctx),
-        default=[],
         label="Create indexes",
         description="New indexes to create",
     )
     inputs.list(
         "drop",
         _drop_index(ctx),
-        default=[],
         label="Drop indexes",
         description="Existing indexes to drop",
     )
@@ -167,14 +165,14 @@ def _manage_indexes(ctx, inputs):
 def _build_action_label(ctx):
     create = [
         c
-        for c in ctx.params.get("create", [])
+        for c in ctx.params.get("create", None) or []
         if c.get("field_name", None) is not None
     ]
     nc = len(create)
 
     drop = [
         d
-        for d in ctx.params.get("drop", [])
+        for d in ctx.params.get("drop", None) or []
         if d.get("index_name", None) is not None
     ]
     nd = len(drop)
@@ -275,7 +273,7 @@ def _get_indexable_paths(ctx):
         paths.discard(index_name)
 
     # Discard fields that are already being newly indexed
-    for obj in ctx.params.get("create", []):
+    for obj in ctx.params.get("create", None) or []:
         paths.discard(obj.get("field_name", None))
 
     return sorted(paths)
