@@ -551,7 +551,7 @@ class ConfigureScenario(foo.Operator):
         return types.Property(inputs, view=prompt)
 
     def execute(self, ctx):
-        print("execute:here", ctx.params)
+        # print("execute:here", ctx.params)
 
         return {
             "scenario_type": ctx.params.get("radio_choices", ""),
