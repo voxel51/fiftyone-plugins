@@ -1,54 +1,25 @@
 """
-Dashboard plugin.
+Scenario plugin.
 
-| Copyright 2017-2024, Voxel51, Inc.
+| Copyright 2017-2025, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
 
-from enum import Enum
-import random
-from textwrap import dedent
-
-import numpy as np
-
-import fiftyone as fo
+from bson import ObjectId
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
-from fiftyone import ViewField as F
 import fiftyone.core.fields as fof
 
+from .utils import (
+    get_scenario_example,
+    SCENARIO_BUILDING_CHOICES,
+    ALLOWED_BY_TYPES,
+    KEY_COLOR,
+    COMPARE_KEY_COLOR,
+)
 
 STORE_NAME = "scenarios"
-
-
-class PlotlyPlotType(Enum):
-    BAR = "bar"
-    SCATTER = "scatter"
-    LINE = "line"
-    PIE = "pie"
-
-
-class PlotType(Enum):
-    CATEGORICAL_HISTOGRAM = "categorical_histogram"
-    NUMERIC_HISTOGRAM = "numeric_histogram"
-    LINE = "line"
-    SCATTER = "scatter"
-    PIE = "pie"
-
-
-NUMERIC_TYPES = (fo.IntField, fo.FloatField, fo.DateTimeField, fo.DateField)
-CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
-REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
-REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
-
-MAX_CATEGORIES = 100
-ALLOWED_BY_TYPES = (
-    fof.StringField,
-    fof.BooleanField,
-    fof.IntField,
-    fof.FloatField,
-)
 
 
 class ConfigureScenario(foo.Operator):
@@ -58,54 +29,8 @@ class ConfigureScenario(foo.Operator):
             name="configure_scenario",
             label="Configure scenario",
             dynamic=True,
-            # unlisted=True,
+            unlisted=True,
         )
-
-    # def on_load(self, ctx):
-    #     print("asdasdasd")
-    #     ctx.panel.state.scenarios = []
-    #     store = ctx.store("scenarios")
-
-    #     # store_values = store.get("user_choice")
-    #     store.set("my_key", {"foo": "bar"}, ttl=60)
-    #     print("asdasdasd", store.list_keys())  # ["user_choice", "my_key"]
-
-    def get_code_example(self, plot_type):
-        examples = {
-            "static_field": dedent(
-                """
-                subsets = {
-                    "sunny": dict(type="field", field="tags", value="sunny"),
-                    "cloudy": dict(type="field", field="tags", value="cloudy"),
-                    "rainy": dict(type="field", field="tags", value="rainy"),
-                }
-            """
-            ).strip(),
-            "dynamic_field": dedent(
-                """
-                from fiftyone import ViewField as F
-
-                subsets = {
-                    "Low": {"field": F($FIELD) < 0.25},
-                    "middle": {"field": F($FIELD) >= 0.25 & F($FIELD) < 0.75},
-                    "high": {"field": F($FIELD) > 0.75},
-                }
-            """
-            ).strip(),
-            "dynamic_field_2": dedent(
-                """
-                from fiftyone import ViewField as F
-
-                bbox_area = F("bounding_box")[2] * F("bounding_box")[3]
-                subsets = {
-                    "Small objects": dict(type="attribute", expr=bbox_area <= 0.05),
-                    "Medium objects": dict(type="attribute", expr=(0.05 <= bbox_area) & (bbox_area <= 0.5)),
-                    "Large objects": dict(type="attribute", expr=bbox_area > 0.5),
-                }
-            """
-            ).strip(),
-        }
-        return examples.get(plot_type, "")
 
     def render_header(self, inputs):
         inputs.view(
@@ -122,13 +47,14 @@ class ConfigureScenario(foo.Operator):
             "scenario_name",
             label="Scenario Name",
             default=default,
+            required=True,
             view=types.TextFieldView(
                 label="Scenario Name",
                 placeholder="Enter a name for the scenario",
             ),
         )
 
-    def render_scenario_type(self, inputs):
+    def render_scenario_types(self, inputs, selected_type):
         inputs.view(
             "info_header_2",
             types.Header(
@@ -138,38 +64,40 @@ class ConfigureScenario(foo.Operator):
             ),
         )
 
-        dropdown_choices = types.RadioGroup()
+        groups = types.RadioGroup()
+        for choice in SCENARIO_BUILDING_CHOICES:
+            groups.add_choice(choice["type"], label=choice["label"])
 
-        dropdown_choices.add_choice(
-            "sample_field",
-            label="Select sample fields",
-            description="Select sample fields",
-        )
-        dropdown_choices.add_choice(
-            "label_attribute",
-            label="Select label attributes",
-            description="Select sample fields",
-        )
-        dropdown_choices.add_choice(
-            "saved_views",
-            label="Select saved views",
-            description="Select label attribute",
-        )
-        dropdown_choices.add_choice(
-            "custom_code",
-            label="Custom code",
-            description="Custom code",
+        radio_view = types.RadioView(
+            label="Scenario type",
+            description="Select the type of scenario to analyze",
+            variant="button",
+            choices=[
+                types.Choice(
+                    choice["type"],
+                    label=choice["label"],
+                    icon=choice["icon"],
+                )
+                for choice in SCENARIO_BUILDING_CHOICES
+            ],
+            componentsProps={
+                "container": {
+                    "sx": {
+                        "width": "100%",
+                    }
+                },
+            },
         )
 
         inputs.enum(
             "scenario_type",
-            dropdown_choices.values(),
-            label="scenario_type",
-            default=dropdown_choices.values()[-1],
-            view=types.DropdownView(),
+            groups.values(),
+            label="Scenario building type",
+            default=selected_type,
+            view=radio_view,
         )
 
-    def execute_custom_code(self, ctx, custom_code):
+    def process_custom_code(self, ctx, custom_code):
         try:
             local_vars = {}
             exec(custom_code, {"ctx": ctx}, local_vars)
@@ -178,51 +106,268 @@ class ConfigureScenario(foo.Operator):
         except Exception as e:
             return None, str(e)
 
-    def render_custom_code(self, ctx, inputs, custom_code=None):
-        inputs.view(
-            "info_header_3",
-            types.Header(
-                label="Custom code",
-                divider=False,
-                description="Write custom code to define scenario",
+    def extract_evaluation_keys(self, ctx):
+        eval_key_a, eval_key_b = None, None
+        eval_keys = ctx.params.get("panel_state", {}).get("evaluations", [])
+
+        if len(eval_keys) > 0:
+            eval_key_a = eval_keys[0]["key"]
+        else:
+            raise ValueError("No evaluation keys found")
+
+        if len(eval_keys) > 1:
+            eval_key_b = eval_keys[1]["key"]
+
+        return eval_key_a, eval_key_b
+
+    # TODO: use @cache(ttl=x)
+    def get_sample_distribution(self, ctx, subset_expressions):
+        try:
+            eval_key_a, eval_key_b = self.extract_evaluation_keys(ctx)
+
+            eval_result_a = ctx.dataset.load_evaluation_results(eval_key_a)
+            if eval_key_b:
+                eval_result_b = ctx.dataset.load_evaluation_results(eval_key_b)
+
+            counts = {eval_key_a: {"color": KEY_COLOR}}
+            for name, subset_def in subset_expressions.items():
+                with eval_result_a.use_subset(subset_def):
+                    counts[eval_key_a][name] = len(eval_result_a.ytrue_ids)
+
+            if eval_key_b and eval_result_b:
+                counts[eval_key_b] = {"color": COMPARE_KEY_COLOR}
+                for name, subset_def in subset_expressions.items():
+                    with eval_result_b.use_subset(subset_def):
+                        counts[eval_key_b][name] = len(eval_result_b.ytrue_ids)
+
+            return counts
+        except Exception as e:
+            # TODO show Alert with error?
+            print(e)
+            return
+
+    def convert_to_plotly_data(self, ctx, preview_data):
+        if preview_data is None or len(preview_data) == 0:
+            return []
+
+        order = ctx.params.get("plot_controls", {}).get(
+            "order", "alphabetical"
+        )
+        limit = ctx.params.get("plot_controls", {}).get("limit", 10)
+        reverse = ctx.params.get("plot_controls", {}).get("reverse", False)
+
+        plot_data = []
+        for eval_key, counts in preview_data.items():
+            for name, count in counts.items():
+                if name == "color":
+                    continue
+                plot_data.append(
+                    {
+                        "x": [name],
+                        "y": [count],
+                        "type": "bar",
+                        "name": eval_key,
+                        "marker": {"color": preview_data[eval_key]["color"]},
+                        "width": 0.25,
+                    }
+                )
+
+        if order == "alphabetical":
+            plot_data.sort(key=lambda x: x["x"][0])
+        elif order == "frequency":
+            plot_data.sort(key=lambda x: x["y"][0], reverse=True)
+        else:
+            raise ValueError(f"Invalid order: {order}")
+        if limit:
+            # TODO: handle case where 1 model eval is selected vs. 2
+            plot_data = plot_data[:limit]
+        if reverse:
+            plot_data = plot_data[::-1]
+        return plot_data
+
+    def render_sample_distribution(self, ctx, inputs, subset_expressions):
+        show_sample_distribution = (
+            ctx.params.get("custom_code_stack", {})
+            .get("control_stack", {})
+            .get("view_sample_distribution", False)
+        )
+
+        if not show_sample_distribution:
+            return
+
+        # render controls
+        stack = inputs.v_stack(
+            "plot_controls",
+            width="100%",
+            align_x="center",
+            gap=2,
+            align_y="start",
+            componentsProps={
+                "grid": {
+                    "sx": {
+                        "display": "flex",
+                        "flexDirection": "row",
+                    }
+                },
+            },
+        )
+        order_choices = types.Choices(label="Order", space=3)
+        order_choices.add_choice(
+            "alphabetical",
+            label="Alphabetical",
+            description="Sort categories alphabetically",
+        )
+        order_choices.add_choice(
+            "frequency",
+            label="Frequency",
+            description="Sort categories by frequency",
+        )
+        stack.enum(
+            "order",
+            values=order_choices.values(),
+            view=order_choices,
+            default="alphabetical",
+            label="Order",
+            description="The order to display the categories",
+            space=3,
+        )
+        stack.int(
+            "limit",
+            default=None,
+            label="Limit bars",
+            view=types.View(space=3),
+            description="Optional max bars to display",
+            space=3,
+        )
+        stack.bool(
+            "reverse",
+            default=False,
+            label="Reverse order",
+            description="Reverse the order of the categories",
+            view=types.View(space=3),
+        )
+
+        # render plot
+        preview_data = self.get_sample_distribution(ctx, subset_expressions)
+        plot_data = self.convert_to_plotly_data(ctx, preview_data)
+        preview_container = inputs.grid("grid", height="400px", width="100%")
+        preview_height = "300px"
+        preview_container.plot(
+            "plot_preview",
+            label="Sample distribution preview",
+            config=dict(
+                displayModeBar=False,
+                scrollZoom=False,  # Disable zoom on scroll
+            ),
+            layout=dict(
+                barmode="group",  # Group bars side by side
+                bargap=0.05,  # Minimal space within a group
+                bargroupgap=0.2,  # Small gap between different groups
+                yaxis=dict(automargin=True),
+            ),
+            data=plot_data,
+            height=preview_height,
+            width="100%",
+            yaxis=dict(automargin=True),
+            xaxis=dict(
+                title=dict(
+                    text="Count",
+                    # standoff=20,
+                ),
             ),
         )
-        inputs.view(
+
+    def render_custom_code(self, ctx, inputs, custom_code=None):
+        stack = inputs.v_stack(
+            "custom_code_stack",
+            width="100%",
+            align_x="center",
+            componentsProps={
+                "grid": {
+                    "sx": {
+                        "border": "1px solid #333",
+                        "display": "flex",
+                        "flexDirection": "column",
+                    }
+                },
+            },
+        )
+
+        custom_code_controls = stack.h_stack(
+            "control_stack",
+            width="100%",
+            align_x="space-between",
+            py=2,
+            px=2,
+        )
+
+        body_stack = stack.v_stack(
+            "body_stack",
+            width="100%",
+            componentsProps={
+                "grid": {
+                    "sx": {
+                        "display": "flex",
+                    }
+                },
+            },
+        )
+
+        custom_code_controls.view(
+            "info_header_3",
+            types.Header(
+                label="Code Editor",
+                divider=False,
+            ),
+        )
+
+        custom_code_controls.bool(
+            "view_sample_distribution",
+            required=True,
+            default=False,
+            label="View sample distribution",
+            view=types.CheckboxView(
+                componentsProps={
+                    "container": {
+                        "sx": {
+                            "border": "1px solid #333",
+                            "padding": "0 2rem 0 1rem",
+                        }
+                    },
+                }
+            ),
+        )
+
+        body_stack.view(
             "custom_code",
-            label="Code editor",
-            default=self.get_code_example("dynamic_field_2"),
+            default=get_scenario_example(),
             view=types.CodeView(
                 language="python",
-                space=6,
-                height=150,
+                space=2,
+                height=175,
+                width="100%",
                 componentsProps={
                     "editor": {
-                        "minWidth": "520px",
-                        "width": "520px",
-                        "flex-grow": 1,
+                        "width": "100%",
+                        "options": {
+                            "minimap": {"enabled": False},
+                            "scrollBeyondLastLine": False,
+                            "cursorBlinking": "phase",
+                        },
+                    },
+                    "container": {
+                        "width": "100%",
                     },
                 },
             ),
         )
 
-        if custom_code is not None:
-            # NOTE: data is the scenario expression in mongo syntax
-            data, error = self.execute_custom_code(ctx, custom_code)
+        if custom_code:
+            custom_code_expression, error = self.process_custom_code(
+                ctx, custom_code
+            )
             if error:
-                # TODO: we have the line number in the error usually. ex: (line 4)
-                # - get the line from error
-                # - highlight the line in the editor
-                # - look at monaco.editor.setModelMarkers(editor.getModel()!, "owner", [
-                #   {
-                #     startLineNumber: 3,
-                #     endLineNumber: 3,
-                #     startColumn: 1,
-                #     endColumn: 100,
-                #     message: "Syntax Error: Something is wrong here.",
-                #     severity: monaco.MarkerSeverity.Error,
-                #   },
-                # ]);
-                inputs.view(
+                stack.view(
                     "custom_code_error",
                     view=types.AlertView(
                         severity="error",
@@ -231,11 +376,10 @@ class ConfigureScenario(foo.Operator):
                     ),
                 )
             else:
-                # TODO: save this when "Analyze scenario" is clicked instead
-                store = ctx.store(STORE_NAME)
-                scenario_name = ctx.params.get("scenario_name", "")
-                if scenario_name:
-                    store.set(scenario_name, custom_code)
+                print("custom_code_expression", custom_code_expression)
+                self.render_sample_distribution(
+                    ctx, inputs, custom_code_expression
+                )
 
     def render_label_attribute(
         self, ctx, inputs, gt_field, chosen_scenario_label_attribute=None
@@ -349,7 +493,7 @@ class ConfigureScenario(foo.Operator):
 
             values = ctx.dataset.distinct(chosen_scenario_field_name)
 
-            # TODO: check field type and for continuous values show custom code
+            # TODO: check the field type and show the custom code for continuous values or > 100 categories
 
             # for discrete values
             obj = types.Object()
@@ -367,22 +511,22 @@ class ConfigureScenario(foo.Operator):
         inputs = types.Object()
         self.render_header(inputs)
 
-        defaults = {
-            "scenario_name": "",
-        }
-
         # model name
-        self.render_name_input(inputs, defaults["scenario_name"])
-
-        # scenario type selection TODO: needs a new component
-        self.render_scenario_type(inputs)
+        chosen_scenario_name = ctx.params.get("scenario_name", None)
+        self.render_name_input(inputs, chosen_scenario_name)
 
         chosen_scenario_type = ctx.params.get("scenario_type", None)
+        self.render_scenario_types(inputs, chosen_scenario_type)
+
         chosen_scenario_field_name = ctx.params.get("scenario_field", None)
         chosen_scenario_label_attribute = ctx.params.get(
             "scenario_label_attribute", None
         )
-        chosen_custom_code = ctx.params.get("custom_code", None)
+        chosen_custom_code = (
+            ctx.params.get("custom_code_stack", {})
+            .get("body_stack", {})
+            .get("custom_code", "")
+        )
         gt_field = ctx.params.get("gt_field", None)
 
         if chosen_scenario_type == "custom_code":
@@ -403,7 +547,54 @@ class ConfigureScenario(foo.Operator):
         return types.Property(inputs, view=prompt)
 
     def execute(self, ctx):
-        print("executing", ctx.params)
+        scenario_type = ctx.params.get("scenario_type", None)
+        if scenario_type is None:
+            raise ValueError("Scenario type must be selected")
+
+        scenario_name = ctx.params.get("scenario_name", None)
+        if scenario_name is None or len(scenario_name) < 2:
+            raise ValueError("Scenario name is missing")
+
+        store = ctx.store(STORE_NAME)
+        scenarios = store.get("scenarios") or {}
+
+        eval_key_a, eval_key_b = self.extract_evaluation_keys(ctx)
+        if eval_key_a is None:
+            raise ValueError("No evaluation keys found")
+
+        scenarios_for_eval = scenarios.get(eval_key_a) or {}
+
+        # TODO: label-attribute and sample-field
+        if scenario_type == "custom_code":
+            custom_code = (
+                ctx.params.get("custom_code_stack", {})
+                .get("body_stack", {})
+                .get("custom_code", "")
+            )
+            _, error = self.process_custom_code(ctx, custom_code)
+            if error:
+                raise ValueError(f"Error in custom code: {error}")
+
+            scenario_subsets = custom_code
+        if scenario_type == "saved_views":
+            saved_views = ctx.params.get("saved_views_values", {})
+            scenario_subsets = [
+                name for name, selected in saved_views.items() if selected
+            ]
+            if len(scenario_subsets) == 0:
+                raise ValueError("No saved views selected")
+
+        # TODO: edit
+        scenarios_for_eval[scenario_name] = {
+            "id": ObjectId(),
+            "name": scenario_name,
+            "type": scenario_type,
+            "subsets": scenario_subsets,
+            "compare_key": eval_key_b,
+        }
+        # TODO: make a compound key if 2 evaluations
+        scenarios[eval_key_a] = scenarios_for_eval
+        store.set("scenarios", scenarios)
 
         return {
             "scenario_type": ctx.params.get("radio_choices", ""),
