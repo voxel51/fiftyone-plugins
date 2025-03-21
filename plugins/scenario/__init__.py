@@ -19,7 +19,8 @@ from .utils import (
     COMPARE_KEY_COLOR,
 )
 
-STORE_NAME = "scenarios"
+# STORE_NAME = "scenarios"
+STORE_NAME = "model_evaluation_panel_builtin"
 
 
 class ConfigureScenario(foo.Operator):
@@ -119,6 +120,20 @@ class ConfigureScenario(foo.Operator):
             eval_key_b = eval_keys[1]["key"]
 
         return eval_key_a, eval_key_b
+
+    def extract_evaluation_ids(self, ctx):
+        eval_id_a, eval_id_b = None, None
+        evaluations = ctx.params.get("panel_state", {}).get("evaluations", [])
+
+        if len(evaluations) > 0:
+            eval_id_a = evaluations[0]["id"]
+        else:
+            raise ValueError("No evaluation ids found")
+
+        if len(evaluations) > 1:
+            eval_id_b = evaluations[1]["id"]
+
+        return eval_id_a, eval_id_b
 
     # TODO: use @cache(ttl=x)
     def get_sample_distribution(self, ctx, subset_expressions):
@@ -558,11 +573,11 @@ class ConfigureScenario(foo.Operator):
         store = ctx.store(STORE_NAME)
         scenarios = store.get("scenarios") or {}
 
-        eval_key_a, eval_key_b = self.extract_evaluation_keys(ctx)
-        if eval_key_a is None:
-            raise ValueError("No evaluation keys found")
+        eval_id_a, eval_id_b = self.extract_evaluation_ids(ctx)
+        if eval_id_a is None:
+            raise ValueError("No evaluation ids found")
 
-        scenarios_for_eval = scenarios.get(eval_key_a) or {}
+        scenarios_for_eval = scenarios.get(eval_id_a) or {}
 
         # TODO: label-attribute and sample-field
         if scenario_type == "custom_code":
@@ -585,15 +600,16 @@ class ConfigureScenario(foo.Operator):
                 raise ValueError("No saved views selected")
 
         # TODO: edit
-        scenarios_for_eval[scenario_name] = {
-            "id": ObjectId(),
+        scenario_id = ObjectId()
+        scenarios_for_eval[str(scenario_id)] = {
+            "id": str(scenario_id),
             "name": scenario_name,
             "type": scenario_type,
             "subsets": scenario_subsets,
-            "compare_key": eval_key_b,
+            "compare_id": eval_id_b,
         }
-        # TODO: make a compound key if 2 evaluations
-        scenarios[eval_key_a] = scenarios_for_eval
+
+        scenarios[eval_id_a] = scenarios_for_eval
         store.set("scenarios", scenarios)
 
         return {
