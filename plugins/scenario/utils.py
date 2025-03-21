@@ -37,8 +37,23 @@ SCENARIO_BUILDING_CHOICES = [
 ]
 
 
-def get_scenario_example(scenario_name="fashion_10000"):
+def get_scenario_example(scenario_name="brightness"):
     examples = {
+        "brightness": dedent(
+            """
+            from fiftyone import ViewField as F
+            subsets = {
+                "Bright objects": [
+                    dict(type="field", field="tags", value="test"),
+                    dict(type="field", expr=F("brightness") > 0.5),
+                ],
+                "Dark objects": [
+                    dict(type="field", field="tags", value="test"),
+                    dict(type="field", expr=F("brightness") < 0.5),
+                ]
+            }
+        """
+        ).strip(),
         "fashion_10000": dedent(
             """
             from fiftyone import ViewField as F

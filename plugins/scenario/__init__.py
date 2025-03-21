@@ -6,6 +6,7 @@ Scenario plugin.
 |
 """
 
+from bson import ObjectId
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.core.fields as fof
@@ -375,12 +376,7 @@ class ConfigureScenario(foo.Operator):
                     ),
                 )
             else:
-                store = ctx.store(STORE_NAME)
-                scenario_name = ctx.params.get("scenario_name", "")
-                if scenario_name:
-                    # TODO: save this when "Analyze scenario" is clicked instead
-                    pass
-
+                print("custom_code_expression", custom_code_expression)
                 self.render_sample_distribution(
                     ctx, inputs, custom_code_expression
                 )
@@ -551,7 +547,54 @@ class ConfigureScenario(foo.Operator):
         return types.Property(inputs, view=prompt)
 
     def execute(self, ctx):
-        # print("execute:here", ctx.params)
+        scenario_type = ctx.params.get("scenario_type", None)
+        if scenario_type is None:
+            raise ValueError("Scenario type must be selected")
+
+        scenario_name = ctx.params.get("scenario_name", None)
+        if scenario_name is None or len(scenario_name) < 2:
+            raise ValueError("Scenario name is missing")
+
+        store = ctx.store(STORE_NAME)
+        scenarios = store.get("scenarios") or {}
+
+        eval_key_a, eval_key_b = self.extract_evaluation_keys(ctx)
+        if eval_key_a is None:
+            raise ValueError("No evaluation keys found")
+
+        scenarios_for_eval = scenarios.get(eval_key_a) or {}
+
+        # TODO: label-attribute and sample-field
+        if scenario_type == "custom_code":
+            custom_code = (
+                ctx.params.get("custom_code_stack", {})
+                .get("body_stack", {})
+                .get("custom_code", "")
+            )
+            _, error = self.process_custom_code(ctx, custom_code)
+            if error:
+                raise ValueError(f"Error in custom code: {error}")
+
+            scenario_subsets = custom_code
+        if scenario_type == "saved_views":
+            saved_views = ctx.params.get("saved_views_values", {})
+            scenario_subsets = [
+                name for name, selected in saved_views.items() if selected
+            ]
+            if len(scenario_subsets) == 0:
+                raise ValueError("No saved views selected")
+
+        # TODO: edit
+        scenarios_for_eval[scenario_name] = {
+            "id": ObjectId(),
+            "name": scenario_name,
+            "type": scenario_type,
+            "subsets": scenario_subsets,
+            "compare_key": eval_key_b,
+        }
+        # TODO: make a compound key if 2 evaluations
+        scenarios[eval_key_a] = scenarios_for_eval
+        store.set("scenarios", scenarios)
 
         return {
             "scenario_type": ctx.params.get("radio_choices", ""),
