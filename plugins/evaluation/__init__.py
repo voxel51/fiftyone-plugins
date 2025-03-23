@@ -78,7 +78,7 @@ class EvaluateModel(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         eval_fcn(
             pred_field,

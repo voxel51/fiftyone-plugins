@@ -1697,7 +1697,7 @@ class ComputeMetadata(foo.Operator):
             kwargs = {}
 
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
             view.compute_metadata(
                 overwrite=overwrite, num_workers=num_workers, **kwargs
@@ -2011,7 +2011,7 @@ class GenerateThumbnails(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         foui.transform_images(
             view,
