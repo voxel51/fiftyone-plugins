@@ -831,7 +831,7 @@ def _import_media_only(ctx):
         kwargs = {}
 
         progress = lambda pb: ctx.set_progress(progress=pb.progress)
-        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+        kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         ctx.dataset.add_samples(samples, num_samples=num_total, **kwargs)
         return
@@ -864,7 +864,7 @@ def _import_media_and_labels(ctx):
 
     if ctx.delegated:
         progress = lambda pb: ctx.set_progress(progress=pb.progress)
-        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+        kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
     ctx.dataset.add_dir(
         dataset_dir=dataset_dir,
@@ -908,7 +908,7 @@ def _import_labels_only(ctx):
 
     if ctx.delegated:
         progress = lambda pb: ctx.set_progress(progress=pb.progress)
-        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+        kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
     with contextlib.ExitStack() as exit_context:
         if labels_file is not None:
@@ -2177,7 +2177,7 @@ def _export_samples(ctx):
 
     if ctx.delegated:
         progress = lambda pb: ctx.set_progress(progress=pb.progress)
-        kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+        kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
     target_view.export(
         export_dir=export_dir,
@@ -2688,7 +2688,7 @@ class DrawLabels(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         target_view.draw_labels(
             output_dir,

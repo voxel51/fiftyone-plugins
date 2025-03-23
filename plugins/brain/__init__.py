@@ -83,7 +83,7 @@ class ComputeVisualization(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         fob.compute_visualization(
             target_view,
@@ -338,7 +338,7 @@ class ComputeSimilarity(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         fob.compute_similarity(
             target_view,
@@ -1230,7 +1230,7 @@ class ComputeUniqueness(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         fob.compute_uniqueness(
             target_view,
@@ -1321,7 +1321,7 @@ class ComputeMistakenness(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         fob.compute_mistakenness(
             target_view,
@@ -1501,7 +1501,7 @@ class ComputeHardness(foo.Operator):
 
         if ctx.delegated:
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=5.0)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
         fob.compute_hardness(
             target_view,
