@@ -1,0 +1,11 @@
+name: "@voxel51/metric-examples"
+description: Example evaluation metrics
+version: 1.0.0
+fiftyone:
+  version: ">=1.3.0"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/metric-examples
+license: Apache 2.0
+panels:
+  - example_metric
+  - absolute_error
+  - squared_error

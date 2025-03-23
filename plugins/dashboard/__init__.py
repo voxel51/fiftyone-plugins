@@ -1,12 +1,12 @@
 """
 Dashboard plugin.
 
-| Copyright 2017-2024, Voxel51, Inc.
+| Copyright 2017-2025, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import random
 from textwrap import dedent
@@ -174,6 +174,11 @@ class DashboardPanel(foo.Panel):
             range = ctx.params.get("range")
             if range:
                 min_val, max_val = range
+                if _check_for_isoformat(min_val):
+                    x_data = dashboard_state.load_plot_data(item.name)['x']
+                    x_datetime = [datetime.fromisoformat(x) for x in x_data]
+                    curr_val = datetime.fromisoformat(min_val)
+                    min_val, max_val = find_datetime_max_val(x_datetime, curr_val)  
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -220,7 +225,7 @@ class DashboardPanel(foo.Panel):
             if not ids:
                 return
 
-            matched_ids_view = ctx.dataset.select(ids)
+            matched_ids_view = ctx.view.select(ids)
             ctx.ops.set_view(view=matched_ids_view)
 
     def render_menu(self, ctx):
@@ -853,7 +858,12 @@ class DashboardState(object):
             return {}
 
         bins = item.bins
-        counts, edges, _ = self.view.histogram_values(x, bins=bins)
+        x_values = self.view.distinct(x)
+        if len(x_values) == 1 and isinstance(x_values[0], datetime):
+            counts = [len(self.view)] + [0] * (bins - 1)
+            edges = [x_values[0]+timedelta(milliseconds=i) for i in range(bins)]
+        else: 
+            counts, edges, _ = self.view.histogram_values(x, bins=bins)
 
         counts = np.asarray(counts)
         edges = np.asarray(edges)
@@ -861,18 +871,11 @@ class DashboardState(object):
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
-        # Check if edges contain datetime objects
-        if isinstance(left_edges[0], datetime):
-            # Convert datetime objects to ISO format strings
-            left_edges = [edge.isoformat() for edge in left_edges]
-
-            # Set widths to None or convert to total seconds
-            widths = None
-            # Or widths = [width.total_seconds() for width in widths]
-            # Converting widths to total_seconds() results in thin lines, not bars
-            # Cannot interact with bar plot this way
+        if len(left_edges) > 0 :
+            if isinstance(left_edges[0], datetime):
+                left_edges = [edge.isoformat() for edge in left_edges]
+                widths = None # widths set to None to avoid thin unclickable bars with datetime field
         else:
-            # If edges are numerical, convert to list as before
             left_edges = left_edges.tolist()
             widths = widths.tolist()
 
@@ -1076,6 +1079,22 @@ def _parse_path(sample_collection, path):
 
     return root, leaf
 
+def _check_for_isoformat(value):
+    try:
+        datetime.fromisoformat(str(value))
+        return True
+    except ValueError:
+        return False
+    
+def find_datetime_max_val(x_datetime, min_val):
+    if min_val < x_datetime[0]:
+        return min_val, x_datetime[0]
+    if min_val >= x_datetime[-1]:
+        return x_datetime[-1], min_val
+    for i in range(len(x_datetime) - 1):
+        if x_datetime[i] <= min_val < x_datetime[i + 1]:
+            return x_datetime[i], x_datetime[i + 1]
+            
 
 def register(p):
     p.register(DashboardPanel)

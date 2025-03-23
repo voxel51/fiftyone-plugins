@@ -1,15 +1,18 @@
 """
 Evaluation operators.
 
-| Copyright 2017-2024, Voxel51, Inc.
+| Copyright 2017-2025, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+
 import json
+from packaging.version import Version
 
 from bson import json_util
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 
@@ -43,6 +46,7 @@ class EvaluateModel(foo.Operator):
         gt_field = kwargs.pop("gt_field")
         eval_key = kwargs.pop("eval_key")
         method = kwargs.pop("method")
+        metrics = kwargs.pop("metrics", None)
 
         target_view = _get_target_view(ctx, target)
         _, eval_type, _ = _get_evaluation_type(target_view, pred_field)
@@ -51,6 +55,18 @@ class EvaluateModel(foo.Operator):
 
         # Remove None values
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+        # Parse custom metrics
+        if metrics:
+            custom_metrics = {}
+            for metric in metrics:
+                operator = foo.get_operator(metric)
+                kwargs.pop(f"header|{metric}", None)
+                params = kwargs.pop(f"parameters|{metric}", None)
+                operator.parse_parameters(ctx, params)
+                custom_metrics[metric] = params
+
+            kwargs["custom_metrics"] = custom_metrics
 
         if eval_type == "regression":
             eval_fcn = target_view.evaluate_regressions
@@ -124,9 +140,7 @@ def evaluate_model(ctx, inputs):
         target_view, pred_field
     )
 
-    gt_fields = set(
-        target_view.get_field_schema(embedded_doc_type=label_type).keys()
-    )
+    gt_fields = set(_get_label_fields(target_view, label_type))
     gt_fields.discard(pred_field)
 
     if not gt_fields:
@@ -178,12 +192,27 @@ def evaluate_model(ctx, inputs):
 
     _get_evaluation_method(eval_type, method).get_parameters(ctx, inputs)
 
+    # @todo can remove this if we require `fiftyone>=1.3.0`
+    if Version(foc.VERSION) >= Version("1.3.0"):
+        _add_custom_metrics(ctx, inputs, eval_type, method)
+
     return True
 
 
 def _get_label_fields(sample_collection, label_types):
-    schema = sample_collection.get_field_schema(embedded_doc_type=label_types)
-    return list(schema.keys())
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if (
+            isinstance(field, fo.EmbeddedDocumentField)
+            and issubclass(field.document_type, label_types)
+            and not path.startswith(bad_roots)
+        )
+    ]
 
 
 def _get_evaluation_type(view, pred_field):
@@ -212,6 +241,50 @@ def _get_evaluation_type(view, pred_field):
         methods = ["simple"]
 
     return label_type, eval_type, methods
+
+
+def _add_custom_metrics(ctx, inputs, eval_type, method):
+    supported_metrics = []
+    for operator in foo.list_operators(type=foo.EvaluationMetric):
+        eval_types = getattr(operator.config, "eval_types", None)
+        if eval_types is None or eval_type in eval_types:
+            supported_metrics.append(operator)
+
+    if not supported_metrics:
+        return
+
+    metric_choices = types.DropdownView(multiple=True)
+    for operator in supported_metrics:
+        metric_choices.add_choice(
+            operator.uri,
+            label=operator.config.label,
+            description=operator.config.description,
+        )
+
+    inputs.list(
+        "metrics",
+        types.String(),
+        required=False,
+        default=None,
+        label="Custom metrics",
+        description="Optional custom metric(s) to compute",
+        view=metric_choices,
+    )
+
+    metrics = ctx.params.get("metrics", None) or []
+
+    for metric in metrics:
+        operator = foo.get_operator(metric)
+        prop = operator.resolve_input(ctx)
+        if prop is not None:
+            inputs.view(
+                f"header|{metric}",
+                types.Header(
+                    label=f"{operator.config.label} parameters",
+                    divider=True,
+                ),
+            )
+            inputs.add_property(f"parameters|{metric}", prop)
 
 
 def _get_evaluation_method(eval_type, method):

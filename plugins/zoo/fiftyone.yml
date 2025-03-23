@@ -1,6 +1,6 @@
 name: "@voxel51/zoo"
 description: A collection of FiftyOne Zoo utilities
-version: 1.1.1
+version: 1.1.2
 fiftyone:
   version: ">=0.23.3"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/zoo
@@ -8,3 +8,6 @@ license: Apache 2.0
 operators:
   - load_zoo_dataset
   - apply_zoo_model
+secrets:
+  - FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES
+  - FIFTYONE_ZOO_ALLOWED_DATASET_LICENSES

@@ -1,13 +1,15 @@
 """
 FiftyOne Zoo operators.
 
-| Copyright 2017-2024, Voxel51, Inc.
+| Copyright 2017-2025, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
 from collections import defaultdict
+from packaging.version import Version
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone.utils.github import GitHubRepository
@@ -39,12 +41,11 @@ class LoadZooDataset(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
-        kwargs = ctx.params.copy()
-        kwargs.pop("tags", None)
-        name = kwargs.pop("name")
-        splits = kwargs.pop("splits", None)
-        label_field = kwargs.pop("label_field", None)
-        kwargs.pop("dataset_name", None)
+        name = ctx.params.get("name")
+        splits = ctx.params.get("splits", None)
+        label_field = ctx.params.get("label_field", None)
+        dataset_name = ctx.params.get("dataset_name", None)
+        kwargs = ctx.params.get("kwargs", {})
 
         dataset_name = _get_zoo_dataset_name(ctx)
 
@@ -70,9 +71,38 @@ def _supports_remote_datasets():
     return hasattr(fozd, "_list_zoo_datasets")
 
 
-def _get_zoo_datasets():
+def _get_allowed_dataset_licenses(ctx, inputs):
+    license = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_DATASET_LICENSES", None)
+    if license is None:
+        return None
+
+    licenses = license.split(",")
+
+    inputs.view(
+        "licenses",
+        types.Notice(
+            label=(
+                f"Only datasets with licenses {licenses} will be available "
+                "below"
+            )
+        ),
+    )
+
+    return licenses
+
+
+def _get_zoo_datasets(ctx, inputs):
+    # @todo can remove this if we require `fiftyone>=1.4.0`
+    if Version(foc.VERSION) >= Version("1.4.0"):
+        licenses = _get_allowed_dataset_licenses(ctx, inputs)
+        kwargs = dict(license=licenses)
+    else:
+        licenses = None
+        kwargs = {}
+
     if _supports_remote_datasets():
-        return fozd._list_zoo_datasets()
+        zoo_datasets = fozd._list_zoo_datasets(**kwargs)
+        return zoo_datasets, licenses
 
     # Can remove this code path if we require fiftyone>=1.0.0
     # pylint: disable=no-value-for-parameter
@@ -85,11 +115,11 @@ def _get_zoo_datasets():
             if name not in zoo_datasets:
                 zoo_datasets[name] = zoo_dataset_cls()
 
-    return zoo_datasets
+    return zoo_datasets, licenses
 
 
 def _get_builtin_zoo_dataset(ctx, inputs):
-    zoo_datasets = _get_zoo_datasets()
+    zoo_datasets, licenses = _get_zoo_datasets(ctx, inputs)
 
     datasets_by_tag = defaultdict(set)
     for name, zoo_dataset in zoo_datasets.items():
@@ -103,7 +133,6 @@ def _get_builtin_zoo_dataset(ctx, inputs):
     inputs.list(
         "tags",
         types.String(),
-        default=None,
         required=False,
         label="Tags",
         description="Provide optional tag(s) to filter the available datasets",
@@ -142,6 +171,7 @@ def _get_builtin_zoo_dataset(ctx, inputs):
     prop = inputs.enum(
         "name",
         dataset_choices.values(),
+        required=True,
         label="Zoo dataset",
         description=description,
         caption=caption,
@@ -154,14 +184,22 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         )
         prop.invalid = True
 
+    if licenses is not None and not dataset_names:
+        prop.error_message = "There are no datasets with allowed licenses"
+        prop.invalid = True
+
     name = ctx.params.get("name", None)
     if name is None or name not in zoo_datasets:
-        return None
+        return None, None
 
-    return zoo_datasets[name]
+    zoo_dataset = zoo_datasets[name]
+
+    return zoo_dataset, licenses
 
 
 def _get_remote_zoo_dataset(ctx, inputs):
+    licenses = _get_allowed_dataset_licenses(ctx, inputs)
+
     instructions = """
 Provide a [location](https://docs.voxel51.com/dataset_zoo/remote.html) to
 download the dataset from, which can be:
@@ -183,21 +221,22 @@ download the dataset from, which can be:
 
     name = ctx.params.get("name", None)
     if not name:
-        return None
+        return None, None
 
     try:
         GitHubRepository(name)
     except:
         prop.invalid = True
         prop.error_message = f"{name} is not a valid GitHub repo or identifier"
-        return None
+        return None, None
 
     try:
-        return fozd.get_zoo_dataset(name)
+        zoo_dataset = fozd.get_zoo_dataset(name)
+        return zoo_dataset, licenses
     except Exception as e:
         prop.invalid = True
         prop.error_message = str(e)
-        return None
+        return None, None
 
 
 def _load_zoo_dataset_inputs(ctx, inputs):
@@ -214,17 +253,50 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         tab = ctx.params.get("tab", "REMOTE")
 
         if tab == "REMOTE":
-            zoo_dataset = _get_remote_zoo_dataset(ctx, inputs)
+            zoo_dataset, licenses = _get_remote_zoo_dataset(ctx, inputs)
         else:
-            zoo_dataset = _get_builtin_zoo_dataset(ctx, inputs)
+            zoo_dataset, licenses = _get_builtin_zoo_dataset(ctx, inputs)
     else:
         # Can remove this code path if we require fiftyone>=1.0.0
-        zoo_dataset = _get_builtin_zoo_dataset(ctx, inputs)
+        zoo_dataset, licenses = _get_builtin_zoo_dataset(ctx, inputs)
 
     if zoo_dataset is None:
         return False
 
-    _get_source_dir(ctx, inputs, zoo_dataset)
+    if licenses is not None:
+        license = zoo_dataset.license
+
+        if license is None:
+            prop = inputs.view(
+                "created",
+                types.Error(
+                    label=(
+                        f"Cannot load dataset '{zoo_dataset.name}' because "
+                        "its license is unknown"
+                    )
+                ),
+            )
+            prop.invalid = True
+
+            return False
+
+        if not set(licenses).intersection(license.split(",")):
+            prop = inputs.view(
+                "created",
+                types.Error(
+                    label=(
+                        f"Cannot load dataset '{zoo_dataset.name}' because "
+                        f"its license '{license}' is not allowed"
+                    )
+                ),
+            )
+            prop.invalid = True
+
+            return False
+
+    kwargs = types.Object()
+
+    _get_source_dir(ctx, kwargs, zoo_dataset)
 
     if zoo_dataset.has_splits:
         split_choices = types.DropdownView(multiple=True)
@@ -244,7 +316,9 @@ def _load_zoo_dataset_inputs(ctx, inputs):
             view=split_choices,
         )
 
-    _partial_download_inputs(ctx, inputs, zoo_dataset)
+    _partial_download_inputs(ctx, kwargs, zoo_dataset)
+
+    inputs.define_property("kwargs", kwargs)
 
     inputs.str(
         "label_field",
@@ -385,12 +459,12 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
     name = zoo_dataset.name
 
     if "coco" in name:
-        label_types = ("detections", "segmentations")
+        supported_label_types = ("detections", "segmentations")
         default = "only detections"
         id_type = "COCO"
         only_matching = True
     elif "open-images" in name:
-        label_types = (
+        supported_label_types = (
             "detections",
             "classifications",
             "relationships",
@@ -400,15 +474,15 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
         id_type = "Open Images"
         only_matching = True
     elif "activitynet" in name:
-        label_types = None
+        supported_label_types = None
         id_type = None
         only_matching = False
     else:
         return
 
-    if label_types is not None:
-        label_type_choices = types.Choices()
-        for field in label_types:
+    if supported_label_types is not None:
+        label_type_choices = types.DropdownView(multiple=True)
+        for field in supported_label_types:
             label_type_choices.add_choice(field, label=field)
 
         inputs.list(
@@ -542,10 +616,18 @@ class ApplyZooModel(foo.Operator):
 
         target_view = _get_target_view(ctx, target)
 
+        # @todo can remove this if we require `fiftyone>=1.4.0`
+        kwargs = {}
+        if Version(foc.VERSION) >= Version("1.4.0"):
+            zoo_model = foz.get_zoo_model(model)
+            if isinstance(zoo_model, foz.RemoteZooModel):
+                kwargs = ctx.params.get("remote_params", {})
+                zoo_model.parse_parameters(ctx, kwargs)
+
         if source is not None:
-            model = foz.load_zoo_model(source, model_name=model)
+            model = foz.load_zoo_model(source, model_name=model, **kwargs)
         else:
-            model = foz.load_zoo_model(model)
+            model = foz.load_zoo_model(model, **kwargs)
 
         # No multiprocessing allowed when running synchronously
         if not ctx.delegated:
@@ -596,6 +678,25 @@ class ApplyZooModel(foo.Operator):
 
 def _supports_remote_models():
     return hasattr(fozm, "_list_zoo_models")
+
+
+def _get_allowed_model_licenses(ctx, inputs):
+    license = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES", None)
+    if license is None:
+        return None
+
+    licenses = license.split(",")
+
+    inputs.view(
+        "licenses",
+        types.Notice(
+            label=(
+                f"Only models with licenses {licenses} will be available below"
+            )
+        ),
+    )
+
+    return licenses
 
 
 def _get_remote_zoo_model_source(ctx, inputs):
@@ -691,18 +792,27 @@ def _apply_zoo_model_inputs(ctx, inputs):
         )
         tab = ctx.params.get("tab", "REMOTE")
 
+        # @todo can remove this if we require `fiftyone>=1.4.0`
+        if Version(foc.VERSION) >= Version("1.4.0"):
+            licenses = _get_allowed_model_licenses(ctx, inputs)
+            kwargs = dict(license=licenses)
+        else:
+            licenses = None
+            kwargs = {}
+
         if tab == "REMOTE":
             source = _get_remote_zoo_model_source(ctx, inputs)
             if source is None:
                 return False
 
-            manifest = fozm._list_zoo_models(source=source)
+            manifest = fozm._list_zoo_models(source=source, **kwargs)
         else:
             source = None
-            manifest = fozm._list_zoo_models()
+            manifest = fozm._list_zoo_models(**kwargs)
     else:
         # Can remove this code path if we require fiftyone>=1.0.0
         source = None
+        licenses = None
         manifest = fozm._load_zoo_models_manifest()
 
     # pylint: disable=no-member
@@ -718,7 +828,6 @@ def _apply_zoo_model_inputs(ctx, inputs):
     inputs.list(
         "tags",
         types.String(),
-        default=None,
         required=False,
         label="Tags",
         description="Provide optional tag(s) to filter the available models",
@@ -732,6 +841,15 @@ def _apply_zoo_model_inputs(ctx, inputs):
     else:
         model_names = set(model.name for model in manifest)
 
+    if licenses is not None:
+        _licenses = set(licenses)
+        model_names = set(
+            model.name
+            for model in manifest
+            if model.license is not None
+            and _licenses.intersection(model.license.split(","))
+        )
+
     model_choices = types.AutocompleteView()
     for name in sorted(model_names):
         model_choices.add_choice(name, label=name)
@@ -743,7 +861,8 @@ def _apply_zoo_model_inputs(ctx, inputs):
             description = (
                 "The name of a model from the "
                 "[FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/models.html) "
-                "to apply. Also includes models from any remote sources "
+                "to apply. Also includes models from any "
+                "[remote sources](https://docs.voxel51.com/model_zoo/remote.html) "
                 "you've already registered"
             )
         caption = None
@@ -768,6 +887,10 @@ def _apply_zoo_model_inputs(ctx, inputs):
         prop.error_message = (
             "There are no models with all the tags you've requested"
         )
+        prop.invalid = True
+
+    if licenses is not None and not model_names:
+        prop.error_message = "There are no models with allowed licenses"
         prop.invalid = True
 
     model = ctx.params.get("model", None)
@@ -842,6 +965,13 @@ def _apply_zoo_model_inputs(ctx, inputs):
             view=embeddings_field_choices,
         )
     else:
+        # @todo can remove this if we require `fiftyone>=1.4.0`
+        if Version(foc.VERSION) >= Version("1.4.0"):
+            if isinstance(zoo_model, foz.RemoteZooModel):
+                prop = zoo_model.resolve_input(ctx)
+                if prop is not None:
+                    inputs.add_property("remote_params", prop)
+
         label_field_choices = types.AutocompleteView()
         for field in _get_fields_with_type(target_view, fo.Label):
             label_field_choices.add_choice(field, label=field)

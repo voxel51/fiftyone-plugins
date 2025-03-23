@@ -1,7 +1,7 @@
 """
 FiftyOne Brain operators.
 
-| Copyright 2017-2024, Voxel51, Inc.
+| Copyright 2017-2025, Voxel51, Inc.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
@@ -9,12 +9,14 @@ import base64
 from collections import defaultdict
 from datetime import datetime
 import json
+from packaging.version import Version
 
 from bson import json_util
 
 import eta.core.image as etai
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.core.patches as fop
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -66,6 +68,10 @@ class ComputeVisualization(foo.Operator):
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
+
+        kwargs = ctx.params.get("kwargs", {})
+        if not kwargs.get("create_index", False):
+            kwargs.pop("points_field", None)
 
         # No multiprocessing allowed when running synchronously
         if not ctx.delegated:
@@ -139,7 +145,152 @@ def compute_visualization(ctx, inputs):
         description="An optional random seed to use",
     )
 
+    # @todo can remove version check if we require `fiftyone>=1.4.0`
+    num_dims = ctx.params.get("num_dims", None)
+    if num_dims == 2 and Version(foc.VERSION) >= Version("1.4.0"):
+        kwargs = types.Object()
+        inputs.define_property("kwargs", kwargs)
+
+        kwargs.bool(
+            "create_index",
+            default=False,
+            label="Create index",
+            description=(
+                "Whether to create a spatial index for the computed points on "
+                "your dataset. This is highly recommended for large datasets "
+                "as it enables efficient querying when lassoing points in "
+                "embeddings plot"
+            ),
+        )
+
+        create_index = ctx.params.get("kwargs", {}).get("create_index", False)
+        if create_index:
+            brain_key = ctx.params["brain_key"]
+            patches_field = ctx.params.get("patches_field", None)
+            if patches_field is not None:
+                loc = f"`{patches_field}` attribute"
+            else:
+                loc = "sample field"
+
+            inputs.str(
+                "points_field",
+                default=brain_key,
+                label="Points field",
+                description=f"The {loc} in which to store the spatial index",
+            )
+
     return True
+
+
+class ManageVisualizationIndexes(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="manage_visualization_indexes",
+            label="Manage visualization indexes",
+            dynamic=True,
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        manage_visualization_indexes(ctx, inputs)
+
+        view = types.View(label="Manage visualization indexes")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        brain_key = ctx.params["brain_key"]
+        points_field = ctx.params.get("points_field", None)
+        create_index = ctx.params.get("create_index", True)
+
+        info = ctx.dataset.get_brain_info(brain_key)
+        results = ctx.dataset.load_brain_results(brain_key)
+
+        if info.config.points_field is not None:
+            results.remove_index()
+        else:
+            results.index_points(
+                points_field=points_field, create_index=create_index
+            )
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+
+def manage_visualization_indexes(ctx, inputs):
+    # @todo can remove this if we require `fiftyone>=1.4.0`
+    if Version(foc.VERSION) < Version("1.4.0"):
+        warning = types.Warning(
+            label=(
+                "Your FiftyOne installation does not support spatial indexes "
+                "for visualization results"
+            )
+        )
+        prop = inputs.view("warning", warning)
+        prop.invalid = True
+        return
+
+    brain_key = get_brain_key(
+        ctx,
+        inputs,
+        run_type="visualization",
+        error_message="This dataset has no visualization results",
+    )
+
+    if not brain_key:
+        return
+
+    info = ctx.dataset.get_brain_info(brain_key)
+    patches_field = info.config.patches_field
+    points_field = info.config.points_field
+
+    if points_field is not None:
+        warning = types.Warning(
+            label=(
+                "These visualization results have a spatial index in the "
+                f"`{points_field}` field. Would you like to remove it?"
+            )
+        )
+        inputs.view("warning", warning)
+    else:
+        notice = types.Notice(
+            label=(
+                "These visualization results are not indexed. Creating a "
+                "spatial index is highly recommended for large datasets as it "
+                "enables efficient querying when lassoing points in "
+                "embeddings plots. Would you like to create one?"
+            )
+        )
+        inputs.view("notice", notice)
+
+        if patches_field is not None:
+            loc = f"`{patches_field}` attribute"
+        else:
+            loc = "sample field"
+
+        inputs.str(
+            "points_field",
+            default=brain_key,
+            label="Points field",
+            description=f"The {loc} in which to store the spatial index",
+        )
+
+        # Database indexes are not yet supported for patch visualizations
+        if patches_field is None:
+            inputs.bool(
+                "create_index",
+                default=True,
+                label="Create database index",
+                description=(
+                    "Whether to create a database index for the points. This "
+                    "is recommended as it will further optimize queries when "
+                    "lassoing points"
+                ),
+            )
 
 
 class ComputeSimilarity(foo.Operator):
@@ -1234,9 +1385,7 @@ def compute_mistakenness(ctx, inputs):
         return False
 
     label_type = target_view._get_label_field_type(label_field)
-    pred_fields = set(
-        target_view.get_field_schema(embedded_doc_type=label_type).keys()
-    )
+    pred_fields = set(_get_label_fields(target_view, label_type))
     pred_fields.discard(label_field)
 
     if not pred_fields:
@@ -1316,8 +1465,19 @@ def compute_mistakenness(ctx, inputs):
 
 
 def _get_label_fields(sample_collection, label_types):
-    schema = sample_collection.get_field_schema(embedded_doc_type=label_types)
-    return list(schema.keys())
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if (
+            isinstance(field, fo.EmbeddedDocumentField)
+            and issubclass(field.document_type, label_types)
+            and not path.startswith(bad_roots)
+        )
+    ]
 
 
 class ComputeHardness(foo.Operator):
@@ -1466,14 +1626,19 @@ def get_embeddings(ctx, inputs, view, patches_field):
     for field_name in sorted(embeddings_fields):
         embeddings_choices.add_choice(field_name, label=field_name)
 
+    if patches_field is not None:
+        loc = f"`{patches_field}` attribute"
+    else:
+        loc = "sample field"
+
     inputs.str(
         "embeddings",
         default=None,
         label="Embeddings",
         description=(
-            "An optional sample field containing pre-computed embeddings to "
-            "use. Or when a model is provided, a new field in which to store "
-            "the embeddings"
+            f"An optional {loc} containing pre-computed embeddings to use. "
+            f"Or when a model is provided, a new {loc} in which to store the "
+            "embeddings"
         ),
         view=embeddings_choices,
     )
@@ -1481,8 +1646,10 @@ def get_embeddings(ctx, inputs, view, patches_field):
     embeddings = ctx.params.get("embeddings", None)
 
     if embeddings not in embeddings_fields:
+        model_names, _ = _get_zoo_models_with_embeddings(ctx, inputs)
+
         model_choices = types.AutocompleteView()
-        for name in sorted(_get_zoo_models()):
+        for name in sorted(model_names):
             model_choices.add_choice(name, label=name)
 
         inputs.enum(
@@ -1533,9 +1700,36 @@ def get_embeddings(ctx, inputs, view, patches_field):
             )
 
 
-def _get_zoo_models():
+def _get_allowed_model_licenses(ctx, inputs):
+    license = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES", None)
+    if license is None:
+        return None
+
+    licenses = license.split(",")
+
+    inputs.view(
+        "licenses",
+        types.Notice(
+            label=(
+                f"Only models with licenses {licenses} will be available below"
+            )
+        ),
+    )
+
+    return licenses
+
+
+def _get_zoo_models_with_embeddings(ctx, inputs):
+    # @todo can remove this if we require `fiftyone>=1.4.0`
+    if Version(foc.VERSION) >= Version("1.4.0"):
+        licenses = _get_allowed_model_licenses(ctx, inputs)
+        kwargs = dict(license=licenses)
+    else:
+        licenses = None
+        kwargs = {}
+
     if hasattr(fozm, "_list_zoo_models"):
-        manifest = fozm._list_zoo_models()
+        manifest = fozm._list_zoo_models(**kwargs)
     else:
         # Can remove this code path if we require fiftyone>=1.0.0
         manifest = fozm._load_zoo_models_manifest()
@@ -1546,7 +1740,7 @@ def _get_zoo_models():
         if model.has_tag("embeddings"):
             available_models.add(model.name)
 
-    return available_models
+    return available_models, licenses
 
 
 def get_new_brain_key(
@@ -2058,6 +2252,9 @@ def _inject_brain_secrets(ctx):
 
 def register(p):
     p.register(ComputeVisualization)
+    # This operator is builtin to Teams
+    if not hasattr(foc, "TEAMS_VERSION"):
+        p.register(ManageVisualizationIndexes)
     p.register(ComputeSimilarity)
     p.register(SortBySimilarity)
     p.register(AddSimilarSamples)
