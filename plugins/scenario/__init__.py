@@ -552,7 +552,7 @@ class ConfigureScenario(foo.Operator):
                 ctx, inputs, gt_field, chosen_scenario_label_attribute
             )
 
-        if chosen_scenario_type == "saved_views":
+        if chosen_scenario_type == "view":
             self.render_saved_views(ctx, inputs)
 
         if chosen_scenario_type == "sample_field":
@@ -591,7 +591,7 @@ class ConfigureScenario(foo.Operator):
                 raise ValueError(f"Error in custom code: {error}")
 
             scenario_subsets = custom_code
-        if scenario_type == "saved_views":
+        if scenario_type == "view":
             saved_views = ctx.params.get("saved_views_values", {})
             scenario_subsets = [
                 name for name, selected in saved_views.items() if selected

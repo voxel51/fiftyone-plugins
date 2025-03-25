@@ -25,7 +25,7 @@ SCENARIO_BUILDING_CHOICES = [
         "icon": "add_card_outlined",
     },
     {
-        "type": "saved_views",
+        "type": "view",
         "label": "Select saved views",
         "icon": "create_new_folder_outlined",
     },
