@@ -818,29 +818,9 @@ def _import_media_only(ctx):
             yield progress
 
     make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
+    samples = map(make_sample, filepaths)
 
-    if ctx.delegated:
-        samples = map(make_sample, filepaths)
-        ctx.dataset.add_samples(samples, num_samples=len(filepaths))
-        return
-
-    batcher = fou.DynamicBatcher(
-        filepaths, target_latency=0.2, max_batch_beta=2.0
-    )
-
-    num_added = 0
-
-    with batcher:
-        for batch in batcher:
-            num_added += len(batch)
-            samples = map(make_sample, batch)
-            ctx.dataset._add_samples_batch(samples, True, False, True)
-
-            progress = num_added / num_total
-            label = f"Loaded {num_added} of {num_total}"
-            yield ctx.trigger(
-                "set_progress", dict(progress=progress, label=label)
-            )
+    ctx.dataset.add_samples(samples, num_samples=num_total)
 
 
 def _import_media_and_labels(ctx):
