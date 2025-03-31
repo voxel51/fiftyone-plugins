@@ -9,10 +9,12 @@ import base64
 import contextlib
 import multiprocessing.dummy
 import os
+from packaging.version import Version
 
 import eta.core.utils as etau
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.core.fields as fof
 import fiftyone.core.media as fom
 import fiftyone.core.storage as fos
@@ -820,7 +822,19 @@ def _import_media_only(ctx):
     make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
     samples = map(make_sample, filepaths)
 
-    ctx.dataset.add_samples(samples, num_samples=num_total)
+    # @todo can remove version check if we require `fiftyone>=1.5.0`
+    if ctx.delegated or Version(foc.VERSION) < Version("1.5.0"):
+        ctx.dataset.add_samples(samples, num_samples=num_total)
+        return
+
+    num_added = 0
+    for ids in ctx.dataset.add_samples(
+        samples, generator=True, progress=False
+    ):
+        num_added += len(ids)
+        progress = num_added / num_total
+        label = f"Loaded {num_added} of {num_total}"
+        yield ctx.trigger("set_progress", dict(progress=progress, label=label))
 
 
 def _import_media_and_labels(ctx):
