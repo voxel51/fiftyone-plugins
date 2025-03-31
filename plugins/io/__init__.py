@@ -415,7 +415,9 @@ def _import_media_and_labels_inputs(ctx, inputs):
 
     if _requires_label_field(dataset_type):
         label_field_choices = types.AutocompleteView()
-        existing_fields = _get_label_fields(ctx.dataset, dataset_type)
+        existing_fields = _get_label_fields_for_dataset_type(
+            ctx.dataset, dataset_type
+        )
         for field in existing_fields:
             label_field_choices.add_choice(field, label=field)
 
@@ -579,7 +581,9 @@ def _import_labels_only_inputs(ctx, inputs):
 
     if _requires_label_field(dataset_type):
         label_field_choices = types.AutocompleteView()
-        existing_fields = _get_label_fields(ctx.dataset, dataset_type)
+        existing_fields = _get_label_fields_for_dataset_type(
+            ctx.dataset, dataset_type
+        )
         for field in existing_fields:
             label_field_choices.add_choice(field, label=field)
 
@@ -1199,7 +1203,11 @@ def _get_merge_collection(ctx, target, other_name):
 
 
 def _get_merge_parameters(ctx, inputs):
-    key_fields = _get_sample_fields(ctx.view, _KEY_FIELD_TYPES)
+    src_type = ctx.params.get("src_type", None)
+    src_dataset = ctx.params.get("src_dataset", None)
+    src_coll = _get_merge_collection(ctx, src_type, src_dataset)
+
+    key_fields = _get_sample_fields(src_coll, _KEY_FIELD_TYPES)
     key_field_selector = types.AutocompleteView()
     for field in key_fields:
         key_field_selector.add_choice(field, label=field)
@@ -1233,11 +1241,13 @@ def _get_merge_parameters(ctx, inputs):
         required=True,
         default=False,
         label="Skip existing",
-        description="Whether to skip existing samples (True) or merge them (False)",
+        description=(
+            "Whether to skip existing samples (True) or merge them (False)"
+        ),
         view=types.CheckboxView(),
     )
 
-    all_fields = list(ctx.view.get_field_schema().keys())
+    all_fields = list(src_coll.get_field_schema().keys())
 
     field_choices = types.DropdownView(multiple=True)
     for field in all_fields:
@@ -1364,18 +1374,6 @@ _KEY_FIELD_TYPES = (
 )
 
 
-def _get_sample_fields(sample_collection, field_types):
-    schema = sample_collection.get_field_schema(flat=True)
-    bad_roots = tuple(
-        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
-    )
-    return [
-        path
-        for path, field in schema.items()
-        if (isinstance(field, field_types) and not path.startswith(bad_roots))
-    ]
-
-
 class MergeLabels(foo.Operator):
     @property
     def config(self):
@@ -1457,7 +1455,7 @@ def _merge_labels_inputs(ctx, inputs):
     target = ctx.params.get("target", default_target)
     target_view = _get_target_view(ctx, target)
 
-    field_names = _get_fields_with_type(ctx.view, fo.Label)
+    field_names = _get_label_fields(ctx.view, fo.Label)
 
     in_field_selector = types.AutocompleteView()
     for field_name in field_names:
@@ -1854,7 +1852,7 @@ def _export_samples_inputs(ctx, inputs):
                 return False
         elif _requires_label_field(dataset_type):
             multiple = _can_export_multiple_fields(dataset_type)
-            supported_fields = _get_label_fields(
+            supported_fields = _get_label_fields_for_dataset_type(
                 target_view, dataset_type, allow_coercion=True
             )
 
@@ -2106,42 +2104,62 @@ def _estimate_export_size(view, export_type, fields):
     return size_bytes
 
 
-def _get_csv_fields(view):
-    csv_fields = []
+def _get_csv_fields(sample_collection):
+    field_types = fof._PRIMITIVE_FIELDS
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if (
+            isinstance(field, field_types)
+            or (
+                isinstance(field, fo.ListField)
+                and isinstance(field.field, field_types)
+            )
+        )
+        and not path.startswith(bad_roots)
+    ]
 
-    for path, field in view.get_field_schema().items():
-        if isinstance(field, fo.EmbeddedDocumentField):
-            for _path, _field in field.get_field_schema().items():
-                if _is_valid_csv_field(_field):
-                    csv_fields.append(path + "." + _path)
-        elif _is_valid_csv_field(field):
-            csv_fields.append(path)
 
-    return csv_fields
-
-
-def _is_valid_csv_field(field):
-    if isinstance(field, fo.ListField):
-        field = field.field
-
-    return isinstance(field, fof._PRIMITIVE_FIELDS)
+def _get_sample_fields(sample_collection, field_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if isinstance(field, field_types) and not path.startswith(bad_roots)
+    ]
 
 
-def _get_fields_with_type(view, type, frames=False):
+def _get_label_fields(sample_collection, label_types, frames=False):
     if frames:
-        get_field_schema = view.get_frame_field_schema
+        schema = sample_collection.get_frame_field_schema(flat=True)
     else:
-        get_field_schema = view.get_field_schema
+        schema = sample_collection.get_field_schema(flat=True)
 
-    if issubclass(type, fo.Field):
-        label_schema = get_field_schema(ftype=type)
-    else:
-        label_schema = get_field_schema(embedded_doc_type=type)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
 
-    label_fields = list(label_schema.keys())
+    label_fields = [
+        path
+        for path, field in schema.items()
+        if (
+            isinstance(field, fo.EmbeddedDocumentField)
+            and issubclass(field.document_type, label_types)
+            and not path.startswith(bad_roots)
+        )
+    ]
 
     if frames:
-        label_fields = [view._FRAMES_PREFIX + lf for lf in label_fields]
+        label_fields = [
+            sample_collection._FRAMES_PREFIX + lf for lf in label_fields
+        ]
 
     return label_fields
 
@@ -2149,7 +2167,7 @@ def _get_fields_with_type(view, type, frames=False):
 def _get_export_types(view, export_type, allow_coercion=False):
     label_types = set(
         view.get_field(field).document_type
-        for field in _get_fields_with_type(view, fo.Label)
+        for field in _get_label_fields(view, fo.Label)
     )
 
     label_types = set(
@@ -2205,7 +2223,9 @@ def _can_export_abs_paths(dataset_type):
     return d.get("export_abs_paths", False)
 
 
-def _get_label_fields(view, dataset_type, allow_coercion=False):
+def _get_label_fields_for_dataset_type(
+    view, dataset_type, allow_coercion=False
+):
     d = _get_dataset_type(dataset_type)
     label_types = d.get("label_types", None)
 
@@ -2232,7 +2252,7 @@ def _get_label_fields(view, dataset_type, allow_coercion=False):
     label_fields = set()
     for label_type, label_cls in _LABEL_TYPES_MAP.items():
         if label_type in label_types:
-            label_fields.update(_get_fields_with_type(view, label_cls))
+            label_fields.update(_get_label_fields(view, label_cls))
 
     return sorted(label_fields)
 
@@ -2592,7 +2612,7 @@ def _draw_labels_inputs(ctx, inputs):
     target = ctx.params.get("target", default_target)
     target_view = _get_target_view(ctx, target)
 
-    supported_fields = _get_fields_with_type(
+    supported_fields = _get_label_fields(
         target_view, fo.Label, frames=target_view._contains_videos()
     )
 

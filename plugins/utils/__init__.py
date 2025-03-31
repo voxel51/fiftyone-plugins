@@ -442,7 +442,7 @@ def _dataset_info_inputs(ctx, inputs):
 
     if tab_choice == "APP_CONFIG":
         str_field_choices = types.DropdownView(multiple=True)
-        for field in _get_string_fields(ctx.dataset):
+        for field in _get_sample_fields(ctx.dataset, fo.StringField):
             str_field_choices.add_choice(field, label=field)
 
         inputs.list(
@@ -1068,16 +1068,6 @@ def _parse_app_config(ctx):
         app_config.plugins = plugins
 
     return app_config
-
-
-def _get_string_fields(dataset):
-    str_fields = []
-
-    for path, field in dataset.get_field_schema().items():
-        if isinstance(field, fo.StringField):
-            str_fields.append(path)
-
-    return str_fields
 
 
 class RenameDataset(foo.Operator):
@@ -1936,7 +1926,7 @@ def _generate_thumbnails_inputs(ctx, inputs):
         target_str = "dataset"
 
     field_selector = types.AutocompleteView()
-    for field in _get_fields_with_type(target_view, fo.StringField):
+    for field in _get_sample_fields(target_view, fo.StringField):
         if field == "filepath":
             continue
 
@@ -2061,11 +2051,16 @@ def _generate_thumbnails_inputs(ctx, inputs):
     return True
 
 
-def _get_fields_with_type(view, type):
-    if issubclass(type, fo.Field):
-        return view.get_field_schema(ftype=type).keys()
-
-    return view.get_field_schema(embedded_doc_type=type).keys()
+def _get_sample_fields(sample_collection, field_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if isinstance(field, field_types) and not path.startswith(bad_roots)
+    ]
 
 
 def _parse_path(ctx, key):
