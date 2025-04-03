@@ -155,6 +155,30 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/vitpose-plugin">@harpreetsahota/vitpose</a></b></td>
+        <td>🧘🏽 Run ViTPose Models from Hugging Face on your FiftyOne Dataset</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/moondream2-plugin">@harpreetsahota/moondream2</a></b></td>
+        <td>🌔 Run Moondream2 Models from Hugging Face on your FiftyOne Dataset</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/depthpro-plugin">@harpreetsahota/depth_pro_plugin</a></b></td>
+        <td>🥽 Perfom zero-shot metric monocular depth estimation using the Apple Depth Pro model</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/janus-vqa-fiftyone">@harpreetsahota/janus_vqa</a></b></td>
+        <td>🐋 Run the Janus Pro Models from Deepseek on your Fiftyone Dataset </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/hiera-video-embeddings-plugin">@harpreetsahota/hiera_video_embeddings</a></b></td>
+        <td>🎥 Compute embeddings for video using Facebook Hiera Models </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/aim-embeddings-plugin">@harpreetsahota/aimv2_embeddings</a></b></td>
+        <td>🍎 Compute embeddings using AIMv2 Models</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/segments-ai/segments-voxel51-plugin">@segmentsai/segments-voxel51-plugin</a></b></td>
         <td>✏️ Integrate FiftyOne with the Segments.ai annotation tool!</td>
     </tr>
