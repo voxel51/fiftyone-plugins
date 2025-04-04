@@ -1010,7 +1010,7 @@ class AddSimilarSamples(foo.Operator):
 
         if ready:
             choices = types.AutocompleteView()
-            for field in _get_fields_with_type(ctx.dataset, fo.DateTimeField):
+            for field in _get_sample_fields(ctx.dataset, fo.DateTimeField):
                 choices.add_choice(field, label=field)
 
             inputs.str(
@@ -1154,7 +1154,7 @@ def search_by_text_similarity(ctx, inputs, src_dataset):
     )
 
     choices = types.AutocompleteView()
-    for field in _get_fields_with_type(ctx.dataset, fo.StringField):
+    for field in _get_sample_fields(ctx.dataset, fo.StringField):
         choices.add_choice(field, label=field)
 
     inputs.str(
@@ -1439,22 +1439,6 @@ def compute_mistakenness(ctx, inputs):
     return mistakenness_field is not None
 
 
-def _get_label_fields(sample_collection, label_types):
-    schema = sample_collection.get_field_schema(flat=True)
-    bad_roots = tuple(
-        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
-    )
-    return [
-        path
-        for path, field in schema.items()
-        if (
-            isinstance(field, fo.EmbeddedDocumentField)
-            and issubclass(field.document_type, label_types)
-            and not path.startswith(bad_roots)
-        )
-    ]
-
-
 class ComputeHardness(foo.Operator):
     @property
     def config(self):
@@ -1586,8 +1570,7 @@ def get_embeddings(ctx, inputs, view, patches_field):
         schema = field.get_field_schema(ftype=fo.VectorField)
         embeddings_fields = set(root + "." + k for k in schema.keys())
     else:
-        schema = view.get_field_schema(ftype=fo.VectorField)
-        embeddings_fields = set(schema.keys())
+        embeddings_fields = set(_get_sample_fields(view, fo.VectorField))
 
     embeddings_choices = types.AutocompleteView()
     for field_name in sorted(embeddings_fields):
@@ -2118,13 +2101,6 @@ def _get_brain_run_type(dataset, brain_key):
     return None
 
 
-def _get_fields_with_type(view, type):
-    if issubclass(type, fo.Field):
-        return view.get_field_schema(ftype=type).keys()
-
-    return view.get_field_schema(embedded_doc_type=type).keys()
-
-
 _BRAIN_RUN_TYPES = {
     "hardness": Hardness,
     "mistakenness": MistakennessMethod,
@@ -2206,6 +2182,34 @@ def _get_dynamic_brain_key(ctx):
     run_type = ctx.params.get("run_type", None)
     brain_key_param = _get_brain_key_param(run_type)
     return ctx.params[brain_key_param]
+
+
+def _get_sample_fields(sample_collection, field_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if isinstance(field, field_types) and not path.startswith(bad_roots)
+    ]
+
+
+def _get_label_fields(sample_collection, label_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if (
+            isinstance(field, fo.EmbeddedDocumentField)
+            and issubclass(field.document_type, label_types)
+            and not path.startswith(bad_roots)
+        )
+    ]
 
 
 def _inject_brain_secrets(ctx):

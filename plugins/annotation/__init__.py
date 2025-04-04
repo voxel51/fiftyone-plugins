@@ -343,12 +343,10 @@ def build_label_schema_field(ctx, backend, view, existing_project=False):
 
     fields = []
     if scalar_types:
-        scalar_fields = view.get_field_schema(ftype=scalar_types)
-        fields.extend(scalar_fields.keys())
+        fields.extend(_get_sample_fields(view, tuple(scalar_types)))
 
     if label_types:
-        label_fields = view.get_field_schema(embedded_doc_type=label_types)
-        fields.extend(label_fields.keys())
+        fields.extend(_get_label_fields(view, tuple(label_types)))
 
     field_choices = types.AutocompleteView(space=6)
     for field in fields:
@@ -420,6 +418,34 @@ def _build_label_schema(label_schema_fields):
             label_schema[field_name]["attributes"] = attributes
 
     return label_schema
+
+
+def _get_sample_fields(sample_collection, field_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if isinstance(field, field_types) and not path.startswith(bad_roots)
+    ]
+
+
+def _get_label_fields(sample_collection, label_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if (
+            isinstance(field, fo.EmbeddedDocumentField)
+            and issubclass(field.document_type, label_types)
+            and not path.startswith(bad_roots)
+        )
+    ]
 
 
 def create_class_schema(ctx, backend):

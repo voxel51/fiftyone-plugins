@@ -906,9 +906,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
 
     if embeddings:
         patch_types = (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines)
-        patches_fields = list(
-            target_view.get_field_schema(embedded_doc_type=patch_types).keys()
-        )
+        patches_fields = _get_label_fields(target_view, patch_types)
 
         if patches_fields:
             patches_field_choices = types.DropdownView()
@@ -933,12 +931,12 @@ def _apply_zoo_model_inputs(ctx, inputs):
         if patches_field is not None:
             root, _ = target_view._get_label_field_root(patches_field)
             field = target_view.get_field(root, leaf=True)
-            schema = field.get_field_schema(ftype=fo.VectorField)
+            fields = list(field.get_field_schema(ftype=fo.VectorField).keys())
         else:
-            schema = target_view.get_field_schema(ftype=fo.VectorField)
+            fields = _get_sample_fields(target_view, fo.VectorField)
 
         embeddings_field_choices = types.AutocompleteView()
-        for field in sorted(schema.keys()):
+        for field in sorted(fields):
             embeddings_field_choices.add_choice(field, label=field)
 
         inputs.str(
@@ -960,7 +958,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
                     inputs.add_property("remote_params", prop)
 
         label_field_choices = types.AutocompleteView()
-        for field in _get_fields_with_type(target_view, fo.Label):
+        for field in _get_label_fields(target_view, fo.Label):
             label_field_choices.add_choice(field, label=field)
 
         inputs.str(
@@ -1043,11 +1041,32 @@ def _apply_zoo_model_inputs(ctx, inputs):
     return True
 
 
-def _get_fields_with_type(view, type):
-    if issubclass(type, fo.Field):
-        return list(view.get_field_schema(ftype=type).keys())
+def _get_sample_fields(sample_collection, field_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if isinstance(field, field_types) and not path.startswith(bad_roots)
+    ]
 
-    return list(view.get_field_schema(embedded_doc_type=type).keys())
+
+def _get_label_fields(sample_collection, label_types):
+    schema = sample_collection.get_field_schema(flat=True)
+    bad_roots = tuple(
+        k + "." for k, v in schema.items() if isinstance(v, fo.ListField)
+    )
+    return [
+        path
+        for path, field in schema.items()
+        if (
+            isinstance(field, fo.EmbeddedDocumentField)
+            and issubclass(field.document_type, label_types)
+            and not path.startswith(bad_roots)
+        )
+    ]
 
 
 def _parse_path(ctx, key):
