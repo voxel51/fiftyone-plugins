@@ -907,11 +907,18 @@ class LoadAnnotations(foo.Operator):
 
         _inject_annotation_secrets(ctx)
 
+        kwargs = {}
+
+        if ctx.delegated:
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         ctx.dataset.load_annotations(
             anno_key,
             unexpected=unexpected,
             cleanup=cleanup,
             dest_field=dest_field,
+            **kwargs,
         )
 
         if not ctx.delegated:
