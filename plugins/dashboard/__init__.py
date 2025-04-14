@@ -39,6 +39,7 @@ CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
+ONE_DAY = 24 * 60 * 60
 
 
 class DashboardPanel(foo.Panel):
@@ -619,6 +620,11 @@ def desearialize(data):
     return data
 
 
+def dataset_key_fn(ctx, item):
+    last_updated = ctx.dataset.last_updated_at.isoformat()
+    return (item, last_updated)
+
+
 class DashboardPlotItem(object):
     def __init__(
         self,
@@ -789,7 +795,12 @@ class DashboardState(object):
 
         return {}
 
-    @foo.execution_cache(serialize=serialize, deserialize=desearialize)
+    @foo.execution_cache(
+        ttl=ONE_DAY,
+        serialize=serialize,
+        deserialize=desearialize,
+        key_fn=dataset_key_fn,
+    )
     def load_plot_data_for_item(self, ctx, item):
         fo_orange = "rgb(255, 109, 5)"
         bar_color = {"marker": {"color": fo_orange}}
