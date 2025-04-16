@@ -175,10 +175,12 @@ class DashboardPanel(foo.Panel):
             if range:
                 min_val, max_val = range
                 if _check_for_isoformat(min_val):
-                    x_data = dashboard_state.load_plot_data(item.name)['x']
+                    x_data = dashboard_state.load_plot_data(item.name)["x"]
                     x_datetime = [datetime.fromisoformat(x) for x in x_data]
                     curr_val = datetime.fromisoformat(min_val)
-                    min_val, max_val = find_datetime_max_val(x_datetime, curr_val)  
+                    min_val, max_val = find_datetime_max_val(
+                        x_datetime, curr_val
+                    )
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -461,6 +463,17 @@ class ConfigurePlot(foo.Operator):
                     )
 
             if plot_type == "numeric_histogram" and not use_code:
+                inputs.bool(
+                    "use_numpy",
+                    default=False,
+                    label="Use numpy for histogram calculations",
+                )
+                inputs.int(
+                    "subsample",
+                    default=1000,
+                    label="Preview sample size",
+                    description="Number of samples to use for histogram preview",
+                )
                 inputs.int(
                     "bins",
                     default=10,
@@ -538,12 +551,16 @@ class ConfigurePlot(foo.Operator):
                     "order": ctx.params.get("order", "alphabetical"),
                     "reverse": ctx.params.get("reverse", False),
                     "limit": ctx.params.get("limit", None),
+                    "use_numpy": ctx.params.get("use_numpy", False),
+                    "subsample": ctx.params.get("subsample", 1000),
                 }
             )
 
             dashboard_state = DashboardState(ctx)
             if dashboard_state.can_load_data(item):
-                preview_data = dashboard_state.load_plot_data_for_item(item)
+                preview_data = dashboard_state.load_plot_data_for_item(
+                    item, preview=True
+                )
                 preview_container = inputs.grid(
                     "grid", height="400px", width="100%"
                 )
@@ -617,6 +634,8 @@ class DashboardPlotItem(object):
         order="alphabetical",
         reverse=False,
         limit=None,
+        use_numpy=False,
+        subsample=1000,
     ):
         self.name = name
         self.type = PlotType(type)
@@ -633,6 +652,8 @@ class DashboardPlotItem(object):
         self.order = order
         self.reverse = reverse
         self.limit = limit
+        self.use_numpy = use_numpy
+        self.subsample = subsample
 
     @staticmethod
     def from_dict(data):
@@ -652,6 +673,8 @@ class DashboardPlotItem(object):
             data.get("order", "alphabetical"),
             data.get("reverse", False),
             data.get("limit", None),
+            data.get("use_numpy", False),
+            data.get("subsample", 1000),
         )
 
     @property
@@ -679,6 +702,8 @@ class DashboardPlotItem(object):
             "order": self.order,
             "reverse": self.reverse,
             "limit": self.limit,
+            "use_numpy": self.use_numpy,
+            "subsample": self.subsample,
         }
 
 
@@ -769,7 +794,7 @@ class DashboardState(object):
 
         return {}
 
-    def load_plot_data_for_item(self, item):
+    def load_plot_data_for_item(self, item, preview=False):
         fo_orange = "rgb(255, 109, 5)"
         bar_color = {"marker": {"color": fo_orange}}
         pie_color = {
@@ -787,7 +812,7 @@ class DashboardState(object):
         elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
             data = self.load_categorical_histogram_data(item)
         elif item.type == PlotType.NUMERIC_HISTOGRAM:
-            data = self.load_numeric_histogram_data(item)
+            data = self.load_numeric_histogram_data(item, preview=preview)
         elif item.type == PlotType.SCATTER:
             data = self.load_scatter_data(item)
         elif item.type == PlotType.LINE:
@@ -852,18 +877,52 @@ class DashboardState(object):
 
         return histogram_data
 
-    def load_numeric_histogram_data(self, item):
+    def load_numeric_histogram_data(self, item, preview=False):
         x = item.x_field
         if not x:
             return {}
 
         bins = item.bins
-        x_values = self.view.distinct(x)
-        if len(x_values) == 1 and isinstance(x_values[0], datetime):
-            counts = [len(self.view)] + [0] * (bins - 1)
-            edges = [x_values[0]+timedelta(milliseconds=i) for i in range(bins)]
-        else: 
-            counts, edges, _ = self.view.histogram_values(x, bins=bins)
+        view = self.view
+        if preview:
+            view = view.take(item.subsample)
+
+        if item.use_numpy:
+            x_values = view.values(x)
+            is_datetime = x_values and isinstance(x_values[0], datetime)
+            if is_datetime:
+                x_values = [
+                    x.timestamp() if isinstance(x, datetime) else x
+                    for x in x_values
+                ]
+            if len(x_values) == 0:
+                return {}
+
+            x_min = np.min(x_values)
+            x_max = np.max(x_values)
+            counts, edges = np.histogram(
+                x_values,
+                bins=bins,
+                range=(x_min, x_max),
+                density=False,
+            )
+            # convert back to original datetime format
+            if is_datetime:
+                edges = [
+                    datetime.fromtimestamp(edge) if edge else edge
+                    for edge in edges
+                ]
+        else:
+            try:
+                counts, edges, _ = view.histogram_values(x, bins=bins)
+            except Exception:
+                x_values = view.distinct(x)
+                if len(x_values) == 1 and isinstance(x_values[0], datetime):
+                    counts = [len(view)] + [0] * (bins - 1)
+                    edges = [
+                        x_values[0] + timedelta(milliseconds=i)
+                        for i in range(bins)
+                    ]
 
         counts = np.asarray(counts)
         edges = np.asarray(edges)
@@ -871,10 +930,10 @@ class DashboardState(object):
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
-        if len(left_edges) > 0 :
+        if len(left_edges) > 0:
             if isinstance(left_edges[0], datetime):
                 left_edges = [edge.isoformat() for edge in left_edges]
-                widths = None # widths set to None to avoid thin unclickable bars with datetime field
+                widths = None  # widths set to None to avoid thin unclickable bars with datetime field
         else:
             left_edges = left_edges.tolist()
             widths = widths.tolist()
@@ -1079,13 +1138,15 @@ def _parse_path(sample_collection, path):
 
     return root, leaf
 
+
 def _check_for_isoformat(value):
     try:
         datetime.fromisoformat(str(value))
         return True
     except ValueError:
         return False
-    
+
+
 def find_datetime_max_val(x_datetime, min_val):
     if min_val < x_datetime[0]:
         return min_val, x_datetime[0]
@@ -1094,7 +1155,7 @@ def find_datetime_max_val(x_datetime, min_val):
     for i in range(len(x_datetime) - 1):
         if x_datetime[i] <= min_val < x_datetime[i + 1]:
             return x_datetime[i], x_datetime[i + 1]
-            
+
 
 def register(p):
     p.register(DashboardPanel)
