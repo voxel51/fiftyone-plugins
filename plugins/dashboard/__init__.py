@@ -552,6 +552,10 @@ class ConfigurePlot(foo.Operator):
                         dashboard_state, ctx, item
                     )
                 )
+                # pylint: disable=no-member
+                dashboard_state.load_plot_data_for_item.set_cache(
+                    dashboard_state, ctx, item, preview_data
+                )
                 preview_container = inputs.grid(
                     "grid", height="400px", width="100%"
                 )
@@ -607,22 +611,11 @@ class DashboardPlotProperty(types.Property):
         )
 
 
-#
-# NOTE: these are not strictly needed... they work around
-# a bug in fiftyone.operators.cache.serialization
-# that converts chars to dates incorrectly
-#
-def serialize(data):
-    return data
-
-
-def desearialize(data):
-    return data
-
-
-def dataset_key_fn(ctx, item):
-    last_updated = ctx.dataset.last_updated_at.isoformat()
-    return (item, last_updated)
+def dataset_key_fn(dashboard_state, ctx, item):
+    item_without_raw_params = item.to_dict()
+    # exclude raw_params, since they have no impact on the cached value
+    item_without_raw_params.pop("raw_params")
+    return (item_without_raw_params, ctx.dataset.last_modified_at)
 
 
 class DashboardPlotItem(object):
@@ -797,8 +790,6 @@ class DashboardState(object):
 
     @foo.execution_cache(
         ttl=ONE_DAY,
-        serialize=serialize,
-        deserialize=desearialize,
         key_fn=dataset_key_fn,
     )
     def load_plot_data_for_item(self, ctx, item):
