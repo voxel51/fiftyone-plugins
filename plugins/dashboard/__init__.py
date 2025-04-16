@@ -39,6 +39,7 @@ CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
+ONE_DAY = 24 * 60 * 60
 
 
 class DashboardPanel(foo.Panel):
@@ -175,10 +176,12 @@ class DashboardPanel(foo.Panel):
             if range:
                 min_val, max_val = range
                 if _check_for_isoformat(min_val):
-                    x_data = dashboard_state.load_plot_data(item.name)['x']
+                    x_data = dashboard_state.load_plot_data(item.name)["x"]
                     x_datetime = [datetime.fromisoformat(x) for x in x_data]
                     curr_val = datetime.fromisoformat(min_val)
-                    min_val, max_val = find_datetime_max_val(x_datetime, curr_val)  
+                    min_val, max_val = find_datetime_max_val(
+                        x_datetime, curr_val
+                    )
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -543,7 +546,16 @@ class ConfigurePlot(foo.Operator):
 
             dashboard_state = DashboardState(ctx)
             if dashboard_state.can_load_data(item):
-                preview_data = dashboard_state.load_plot_data_for_item(item)
+                preview_data = (
+                    # pylint: disable=no-member
+                    dashboard_state.load_plot_data_for_item.uncached(
+                        dashboard_state, ctx, item
+                    )
+                )
+                # pylint: disable=no-member
+                dashboard_state.load_plot_data_for_item.set_cache(
+                    dashboard_state, ctx, item, preview_data
+                )
                 preview_container = inputs.grid(
                     "grid", height="400px", width="100%"
                 )
@@ -597,6 +609,13 @@ class DashboardPlotProperty(types.Property):
         return DashboardPlotProperty(
             item, on_click_plot=on_click_plot, on_plot_select=on_plot_select
         )
+
+
+def dataset_key_fn(dashboard_state, ctx, item):
+    item_without_raw_params = item.to_dict()
+    # exclude raw_params, since they have no impact on the cached value
+    item_without_raw_params.pop("raw_params")
+    return (item_without_raw_params, ctx.dataset.last_modified_at)
 
 
 class DashboardPlotItem(object):
@@ -745,7 +764,7 @@ class DashboardState(object):
     def add_plot(self, item):
         self._items[item.name] = item
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
 
         self._data[item.name] = data
         self.apply_data()
@@ -753,7 +772,7 @@ class DashboardState(object):
     def edit_plot(self, item):
         self._items[item.name] = item
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
 
         self._data[item.name] = data
         self.apply_data()
@@ -763,13 +782,17 @@ class DashboardState(object):
         if item is None:
             return {}
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
         if isinstance(data, dict):
             return data
 
         return {}
 
-    def load_plot_data_for_item(self, item):
+    @foo.execution_cache(
+        ttl=ONE_DAY,
+        key_fn=dataset_key_fn,
+    )
+    def load_plot_data_for_item(self, ctx, item):
         fo_orange = "rgb(255, 109, 5)"
         bar_color = {"marker": {"color": fo_orange}}
         pie_color = {
@@ -861,8 +884,10 @@ class DashboardState(object):
         x_values = self.view.distinct(x)
         if len(x_values) == 1 and isinstance(x_values[0], datetime):
             counts = [len(self.view)] + [0] * (bins - 1)
-            edges = [x_values[0]+timedelta(milliseconds=i) for i in range(bins)]
-        else: 
+            edges = [
+                x_values[0] + timedelta(milliseconds=i) for i in range(bins)
+            ]
+        else:
             counts, edges, _ = self.view.histogram_values(x, bins=bins)
 
         counts = np.asarray(counts)
@@ -871,10 +896,10 @@ class DashboardState(object):
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
-        if len(left_edges) > 0 :
+        if len(left_edges) > 0:
             if isinstance(left_edges[0], datetime):
                 left_edges = [edge.isoformat() for edge in left_edges]
-                widths = None # widths set to None to avoid thin unclickable bars with datetime field
+                widths = None  # widths set to None to avoid thin unclickable bars with datetime field
         else:
             left_edges = left_edges.tolist()
             widths = widths.tolist()
@@ -1079,13 +1104,15 @@ def _parse_path(sample_collection, path):
 
     return root, leaf
 
+
 def _check_for_isoformat(value):
     try:
         datetime.fromisoformat(str(value))
         return True
     except ValueError:
         return False
-    
+
+
 def find_datetime_max_val(x_datetime, min_val):
     if min_val < x_datetime[0]:
         return min_val, x_datetime[0]
@@ -1094,7 +1121,7 @@ def find_datetime_max_val(x_datetime, min_val):
     for i in range(len(x_datetime) - 1):
         if x_datetime[i] <= min_val < x_datetime[i + 1]:
             return x_datetime[i], x_datetime[i + 1]
-            
+
 
 def register(p):
     p.register(DashboardPanel)
