@@ -41,6 +41,17 @@ REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
 ONE_DAY = 24 * 60 * 60
 
+#### execution cache fallback ####
+try:
+    from fiftyone.operators.cache import execution_cache
+except ImportError:
+
+    def execution_cache(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 class DashboardPanel(foo.Panel):
     @property
@@ -788,7 +799,7 @@ class DashboardState(object):
 
         return {}
 
-    @foo.execution_cache(
+    @execution_cache(
         ttl=ONE_DAY,
         key_fn=dataset_key_fn,
     )
