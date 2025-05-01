@@ -48,6 +48,7 @@ except ImportError:
 
     def execution_cache(*args, **kwargs):
         def decorator(func):
+            func.uncached = func
             return func
 
         return decorator
@@ -284,6 +285,20 @@ class DashboardPanel(foo.Panel):
             ),
         )
         return types.Property(panel, view=types.GridView(padding=0, gap=0))
+
+
+class ClearDashboardCache(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="clear_dashboard_cache",
+            label="Clear dashboard cache",
+        )
+
+    def execute(self, ctx):
+        load_plot_data_for_item.clear_all_caches(
+            dataset_id=ctx.dataset._doc.id
+        )
 
 
 class ConfigurePlot(foo.Operator):
@@ -557,15 +572,8 @@ class ConfigurePlot(foo.Operator):
 
             dashboard_state = DashboardState(ctx)
             if dashboard_state.can_load_data(item):
-                preview_data = (
-                    # pylint: disable=no-member
-                    dashboard_state.load_plot_data_for_item.uncached(
-                        dashboard_state, ctx, item
-                    )
-                )
-                # pylint: disable=no-member
-                dashboard_state.load_plot_data_for_item.set_cache(
-                    dashboard_state, ctx, item, preview_data
+                preview_data = dashboard_state.load_plot_data_for_item(
+                    ctx, item
                 )
                 preview_container = inputs.grid(
                     "grid", height="400px", width="100%"
@@ -622,7 +630,7 @@ class DashboardPlotProperty(types.Property):
         )
 
 
-def dataset_key_fn(dashboard_state, ctx, item):
+def dataset_key_fn(ctx, dashboard_state, item):
     item_without_raw_params = item.to_dict()
     # exclude raw_params, since they have no impact on the cached value
     item_without_raw_params.pop("raw_params")
@@ -712,6 +720,40 @@ class DashboardPlotItem(object):
         }
 
 
+@execution_cache(
+    ttl=ONE_DAY,
+    key_fn=dataset_key_fn,
+)
+def load_plot_data_for_item(ctx, dashboard, item):
+    import time
+
+    time.sleep(10)
+
+    fo_orange = "rgb(255, 109, 5)"
+    bar_color = {"marker": {"color": fo_orange}}
+
+    if item.use_code:
+        data = dashboard.load_data_from_code(item.code, item.type)
+    elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
+        data = dashboard.load_categorical_histogram_data(item)
+    elif item.type == PlotType.NUMERIC_HISTOGRAM:
+        data = dashboard.load_numeric_histogram_data(item)
+    elif item.type == PlotType.SCATTER:
+        data = dashboard.load_scatter_data(item)
+    elif item.type == PlotType.LINE:
+        data = dashboard.load_line_data(item)
+    elif item.type == PlotType.PIE:
+        data = dashboard.load_pie_data(item)
+
+    if isinstance(data, dict):
+        plot_data_type = data.get("type", None)
+        if plot_data_type != "pie":
+            data.update(bar_color)
+
+        return {"name": item.label, **data}
+    return {}
+
+
 class DashboardState(object):
     def __init__(self, ctx):
         self.ctx = ctx
@@ -799,51 +841,8 @@ class DashboardState(object):
 
         return {}
 
-    @execution_cache(
-        ttl=ONE_DAY,
-        key_fn=dataset_key_fn,
-    )
     def load_plot_data_for_item(self, ctx, item):
-        fo_orange = "rgb(255, 109, 5)"
-        bar_color = {"marker": {"color": fo_orange}}
-        pie_color = {
-            "marker": {
-                "colors": [
-                    "rgb(255, 109, 5)",
-                    "rgb(255, 109, 5)",
-                    "rgb(255, 109, 5)",
-                ]
-            }
-        }
-
-        if item.use_code:
-            data = self.load_data_from_code(item.code, item.type)
-        elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
-            data = self.load_categorical_histogram_data(item)
-        elif item.type == PlotType.NUMERIC_HISTOGRAM:
-            data = self.load_numeric_histogram_data(item)
-        elif item.type == PlotType.SCATTER:
-            data = self.load_scatter_data(item)
-        elif item.type == PlotType.LINE:
-            data = self.load_line_data(item)
-        elif item.type == PlotType.PIE:
-            data = self.load_pie_data(item)
-
-        if isinstance(data, dict):
-            plot_data_type = data.get("type", None)
-            if plot_data_type == "pie":
-                # pie_color = {
-                #     "marker": {
-                #         "colors": fo.app_config.color_pool[:len(data['labels'])]
-                #     }
-                # }
-                # data.update(pie_color)
-                pass
-            else:
-                data.update(bar_color)
-
-            return {"name": item.label, **data}
-        return {}
+        return load_plot_data_for_item(ctx, self, item)
 
     def load_all_plot_data(self):
         for item in self.items:
@@ -1137,3 +1136,4 @@ def find_datetime_max_val(x_datetime, min_val):
 def register(p):
     p.register(DashboardPanel)
     p.register(ConfigurePlot)
+    p.register(ClearDashboardCache)
