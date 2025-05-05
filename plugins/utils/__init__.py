@@ -1526,7 +1526,7 @@ def _get_reload_saved_view_inputs(ctx, inputs):
 
     if not saved_views:
         warning = types.Warning(
-            label="This dataset has no saved views that need reloading"
+            label="This dataset has no saved views that may need reloading"
         )
         prop = inputs.view("warning", warning)
         prop.invalid = True
@@ -1555,15 +1555,18 @@ def _get_reload_saved_view_inputs(ctx, inputs):
     if name not in saved_views:
         return
 
-    # @todo can remove this if we require `fiftyone>=1.0`
-    if not ctx.dataset.has_field("last_modified_at"):
+    # @todo can remove this if we require `fiftyone>=1.1.0`
+    if not hasattr(ctx.dataset, "_max"):
         return
 
-    last_modified_at = ctx.dataset._get_last_modified_at()
+    last_modified_at = _none_max(
+        getattr(ctx.dataset, "last_deletion_at", None),
+        ctx.dataset._max("last_modified_at"),
+    )
     if ctx.dataset._contains_videos(any_slice=True):
-        last_modified_at = max(
+        last_modified_at = _none_max(
             last_modified_at,
-            ctx.dataset._get_last_modified_at(frames=True),
+            ctx.dataset._max("frames.last_modified_at"),
         )
 
     view_doc = ctx.dataset._get_saved_view_doc(name)
@@ -1574,8 +1577,8 @@ def _get_reload_saved_view_inputs(ctx, inputs):
         view = types.Notice(
             label=(
                 f"Saved view '{name}' may need to be reloaded.\n\n"
-                f"The dataset's samples were last modified {dt_str} after the "
-                "view was generated."
+                f"The dataset was last modified {dt_str} after the view was "
+                "generated."
             )
         )
         inputs.view("notice", view)
@@ -1584,9 +1587,9 @@ def _get_reload_saved_view_inputs(ctx, inputs):
         dt_str = humanize.naturaldelta(dt)
         view = types.Notice(
             label=(
-                f"Saved view '{name}' may not need to be reloaded.\n\n"
-                f"It was generated {dt_str} after the last known modification "
-                "to the dataset's current samples."
+                f"Saved view '{name}' is up-to-date.\n\n"
+                f"It was generated {dt_str} after the dataset was last "
+                "modified."
             )
         )
         inputs.view("notice", view)
@@ -1601,6 +1604,10 @@ def _get_generated_saved_views(dataset):
                 generated_views.add(view_doc.name)
 
     return sorted(generated_views)
+
+
+def _none_max(*args, default=None):
+    return max((a for a in args if a is not None), default=default)
 
 
 class ComputeMetadata(foo.Operator):

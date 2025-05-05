@@ -189,7 +189,7 @@ apply.
 ### reload_saved_view
 
 You can use this operator to reload saved views on a dataset that are
-_generated_ (patches, frames, or clips).
+_generated_ (materialized, patches, frames, or clips).
 
 This operator is essentially a wrapper around the following pattern:
 
