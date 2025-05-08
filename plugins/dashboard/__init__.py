@@ -101,7 +101,7 @@ class DashboardPanel(foo.Panel):
             item = DashboardPlotItem(
                 name=name,
                 type=plot_type,
-                config={**plot_config, "scrollZoom": False},
+                config={**plot_config},
                 layout=plot_layout,
                 raw_params=result,
                 use_code=result.get("use_code", False),
@@ -309,6 +309,7 @@ class ConfigurePlot(foo.Operator):
             label="Configure plot",
             dynamic=True,
             unlisted=True,
+            resolve_execution_options_on_change=False,
         )
 
     def get_number_field_choices(self, ctx):
@@ -630,11 +631,17 @@ class DashboardPlotProperty(types.Property):
         )
 
 
+_last_cache_key = None
+
+
 def dataset_key_fn(ctx, dashboard_state, item):
-    item_without_raw_params = item.to_dict()
-    # exclude raw_params, since they have no impact on the cached value
-    item_without_raw_params.pop("raw_params")
-    return (item_without_raw_params, ctx.dataset.last_modified_at)
+    global _last_cache_key
+
+    item_dict = item.to_dict()
+    item_dict.pop("raw_params", None)
+    timestamp = ctx.dataset.last_modified_at
+
+    return (item_dict, timestamp)
 
 
 class DashboardPlotItem(object):
@@ -725,10 +732,6 @@ class DashboardPlotItem(object):
     key_fn=dataset_key_fn,
 )
 def load_plot_data_for_item(ctx, dashboard, item):
-    import time
-
-    time.sleep(10)
-
     fo_orange = "rgb(255, 109, 5)"
     bar_color = {"marker": {"color": fo_orange}}
 
@@ -1035,7 +1038,7 @@ def _get_plotly_config_and_layout(plot_config):
         layout["bargap"] = 0
         layout["bargroupgap"] = 0
 
-    return {"config": {}, "layout": layout, "title": title}
+    return {"config": {"scrollZoom": False}, "layout": layout, "title": title}
 
 
 def _get_fields_with_type(dataset, field_types, root=None):
