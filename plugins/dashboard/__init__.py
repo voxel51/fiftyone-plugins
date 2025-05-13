@@ -631,17 +631,12 @@ class DashboardPlotProperty(types.Property):
         )
 
 
-_last_cache_key = None
-
-
 def dataset_key_fn(ctx, dashboard_state, item):
-    global _last_cache_key
-
     item_dict = item.to_dict()
     item_dict.pop("raw_params", None)
     timestamp = ctx.dataset.last_modified_at
-
-    return (item_dict, timestamp)
+    serialized_view = ctx.view._serialize()
+    return (item_dict, timestamp, serialized_view)
 
 
 class DashboardPlotItem(object):
