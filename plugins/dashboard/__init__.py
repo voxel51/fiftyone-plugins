@@ -55,7 +55,7 @@ class DashboardPanel(foo.Panel):
         # There are several places where we are clearing state.items
         # this is a workaround to a core issue that once fixed this can be removed
         # See https://github.com/voxel51/fiftyone-plugins/pull/153 for more details
-        ctx.panel.state.items = None
+        # ctx.panel.state.items = None
         dashboard_state = DashboardState(ctx)
         dashboard_state.load_all_plot_data()
 
@@ -175,10 +175,12 @@ class DashboardPanel(foo.Panel):
             if range:
                 min_val, max_val = range
                 if _check_for_isoformat(min_val):
-                    x_data = dashboard_state.load_plot_data(item.name)['x']
+                    x_data = dashboard_state.load_plot_data(item.name)["x"]
                     x_datetime = [datetime.fromisoformat(x) for x in x_data]
                     curr_val = datetime.fromisoformat(min_val)
-                    min_val, max_val = find_datetime_max_val(x_datetime, curr_val)  
+                    min_val, max_val = find_datetime_max_val(
+                        x_datetime, curr_val
+                    )
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -257,6 +259,7 @@ class DashboardPanel(foo.Panel):
             cta_title="Add a plot",
             cta_body="Add a new plot to the dashboard",
             cta_button_label="Add plot",
+            composite_view=True,  # Bypass initialization of "items" property
             **(ctx.panel.state.dashboard_config or {}),
         )
         return types.Property(dashboard, view=dashboard_view)
@@ -720,12 +723,12 @@ class DashboardState(object):
         return {k: v.to_dict() for k, v in self._items.items()}
 
     def apply_state(self):
-        self.ctx.panel.state.items = None
+        # self.ctx.panel.state.items = None
         items_dict = self.items_as_dict()
         self.panel.set_state("items_config", items_dict)
 
     def apply_data(self):
-        self.ctx.panel.state.items = None
+        # self.ctx.panel.state.items = None
         data_paths_dict = {f"items.{k}": v for k, v in self._data.items()}
         self.panel.set_data(data_paths_dict)
 
@@ -782,6 +785,7 @@ class DashboardState(object):
             }
         }
 
+        data = None
         if item.use_code:
             data = self.load_data_from_code(item.code, item.type)
         elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
@@ -861,8 +865,10 @@ class DashboardState(object):
         x_values = self.view.distinct(x)
         if len(x_values) == 1 and isinstance(x_values[0], datetime):
             counts = [len(self.view)] + [0] * (bins - 1)
-            edges = [x_values[0]+timedelta(milliseconds=i) for i in range(bins)]
-        else: 
+            edges = [
+                x_values[0] + timedelta(milliseconds=i) for i in range(bins)
+            ]
+        else:
             counts, edges, _ = self.view.histogram_values(x, bins=bins)
 
         counts = np.asarray(counts)
@@ -871,10 +877,10 @@ class DashboardState(object):
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
-        if len(left_edges) > 0 :
+        if len(left_edges) > 0:
             if isinstance(left_edges[0], datetime):
                 left_edges = [edge.isoformat() for edge in left_edges]
-                widths = None # widths set to None to avoid thin unclickable bars with datetime field
+                widths = None  # widths set to None to avoid thin unclickable bars with datetime field
         else:
             left_edges = left_edges.tolist()
             widths = widths.tolist()
@@ -999,6 +1005,12 @@ def _get_plotly_config_and_layout(plot_config):
     if plot_config.get("plot_type") == "numeric_histogram":
         layout["bargap"] = 0
         layout["bargroupgap"] = 0
+    if plot_config.get("plot_type") == "categorical_histogram":
+        xaxis = plot_config.get("xaxis", {})
+        layout["xaxis"] = {
+            "type": "category",
+            **xaxis,
+        }
 
     return {"config": {}, "layout": layout, "title": title}
 
@@ -1079,13 +1091,15 @@ def _parse_path(sample_collection, path):
 
     return root, leaf
 
+
 def _check_for_isoformat(value):
     try:
         datetime.fromisoformat(str(value))
         return True
     except ValueError:
         return False
-    
+
+
 def find_datetime_max_val(x_datetime, min_val):
     if min_val < x_datetime[0]:
         return min_val, x_datetime[0]
@@ -1094,7 +1108,7 @@ def find_datetime_max_val(x_datetime, min_val):
     for i in range(len(x_datetime) - 1):
         if x_datetime[i] <= min_val < x_datetime[i + 1]:
             return x_datetime[i], x_datetime[i + 1]
-            
+
 
 def register(p):
     p.register(DashboardPanel)
