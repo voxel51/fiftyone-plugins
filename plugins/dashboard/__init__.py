@@ -175,10 +175,12 @@ class DashboardPanel(foo.Panel):
             if range:
                 min_val, max_val = range
                 if _check_for_isoformat(min_val):
-                    x_data = dashboard_state.load_plot_data(item.name)['x']
+                    x_data = dashboard_state.load_plot_data(item.name)["x"]
                     x_datetime = [datetime.fromisoformat(x) for x in x_data]
                     curr_val = datetime.fromisoformat(min_val)
-                    min_val, max_val = find_datetime_max_val(x_datetime, curr_val)  
+                    min_val, max_val = find_datetime_max_val(
+                        x_datetime, curr_val
+                    )
                 view = _make_view_for_range(
                     dashboard_state.view, x_field, min_val, max_val
                 )
@@ -861,8 +863,10 @@ class DashboardState(object):
         x_values = self.view.distinct(x)
         if len(x_values) == 1 and isinstance(x_values[0], datetime):
             counts = [len(self.view)] + [0] * (bins - 1)
-            edges = [x_values[0]+timedelta(milliseconds=i) for i in range(bins)]
-        else: 
+            edges = [
+                x_values[0] + timedelta(milliseconds=i) for i in range(bins)
+            ]
+        else:
             counts, edges, _ = self.view.histogram_values(x, bins=bins)
 
         counts = np.asarray(counts)
@@ -871,10 +875,10 @@ class DashboardState(object):
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
-        if len(left_edges) > 0 :
+        if len(left_edges) > 0:
             if isinstance(left_edges[0], datetime):
                 left_edges = [edge.isoformat() for edge in left_edges]
-                widths = None # widths set to None to avoid thin unclickable bars with datetime field
+                widths = None  # widths set to None to avoid thin unclickable bars with datetime field
         else:
             left_edges = left_edges.tolist()
             widths = widths.tolist()
@@ -999,6 +1003,12 @@ def _get_plotly_config_and_layout(plot_config):
     if plot_config.get("plot_type") == "numeric_histogram":
         layout["bargap"] = 0
         layout["bargroupgap"] = 0
+    if plot_config.get("plot_type") == "categorical_histogram":
+        xaxis = plot_config.get("xaxis", {})
+        layout["xaxis"] = {
+            "type": "category",
+            **xaxis,
+        }
 
     return {"config": {}, "layout": layout, "title": title}
 
@@ -1079,13 +1089,15 @@ def _parse_path(sample_collection, path):
 
     return root, leaf
 
+
 def _check_for_isoformat(value):
     try:
         datetime.fromisoformat(str(value))
         return True
     except ValueError:
         return False
-    
+
+
 def find_datetime_max_val(x_datetime, min_val):
     if min_val < x_datetime[0]:
         return min_val, x_datetime[0]
@@ -1094,7 +1106,7 @@ def find_datetime_max_val(x_datetime, min_val):
     for i in range(len(x_datetime) - 1):
         if x_datetime[i] <= min_val < x_datetime[i + 1]:
             return x_datetime[i], x_datetime[i + 1]
-            
+
 
 def register(p):
     p.register(DashboardPanel)
