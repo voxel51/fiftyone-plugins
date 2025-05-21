@@ -287,20 +287,6 @@ class DashboardPanel(foo.Panel):
         return types.Property(panel, view=types.GridView(padding=0, gap=0))
 
 
-class ClearDashboardCache(foo.Operator):
-    @property
-    def config(self):
-        return foo.OperatorConfig(
-            name="clear_dashboard_cache",
-            label="Clear dashboard cache",
-        )
-
-    def execute(self, ctx):
-        load_plot_data_for_item.clear_all_caches(
-            dataset_id=ctx.dataset._doc.id
-        )
-
-
 class ConfigurePlot(foo.Operator):
     @property
     def config(self):
@@ -1134,4 +1120,3 @@ def find_datetime_max_val(x_datetime, min_val):
 def register(p):
     p.register(DashboardPanel)
     p.register(ConfigurePlot)
-    p.register(ClearDashboardCache)
