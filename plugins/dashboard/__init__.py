@@ -39,7 +39,7 @@ CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
-ONE_DAY = 24 * 60 * 60
+PLOT_DATA_CACHE_TTL = 60 * 60  # 1 hour
 
 #### execution cache fallback ####
 try:
@@ -48,7 +48,6 @@ except ImportError:
 
     def execution_cache(*args, **kwargs):
         def decorator(func):
-            func.uncached = func
             return func
 
         return decorator
@@ -620,9 +619,8 @@ class DashboardPlotProperty(types.Property):
 def dataset_key_fn(ctx, dashboard_state, item):
     item_dict = item.to_dict()
     item_dict.pop("raw_params", None)
-    timestamp = ctx.dataset.last_modified_at
     serialized_view = ctx.view._serialize()
-    return (item_dict, timestamp, serialized_view)
+    return (item_dict, serialized_view)
 
 
 class DashboardPlotItem(object):
@@ -709,7 +707,8 @@ class DashboardPlotItem(object):
 
 
 @execution_cache(
-    ttl=ONE_DAY,
+    ttl=PLOT_DATA_CACHE_TTL,
+    prompt_scope=True,
     key_fn=dataset_key_fn,
 )
 def load_plot_data_for_item(ctx, dashboard, item):
