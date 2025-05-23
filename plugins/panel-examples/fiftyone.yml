@@ -18,3 +18,4 @@ panels:
   - example_dropdown_menu
   - example_walkthrough
   - example_timer
+  - example_active_fields
