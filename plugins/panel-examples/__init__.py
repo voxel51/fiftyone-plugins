@@ -830,6 +830,53 @@ class TimerExample(foo.Panel):
         )
 
 
+class ActiveFieldsExample(foo.Panel):
+    @property
+    def config(self):
+        return foo.PanelConfig(
+            name="example_active_fields",
+            label="Examples: Active Fields",
+        )
+
+    def on_load(self, ctx):
+        ctx.panel.state.active_fields = ctx.active_fields
+
+    def on_change_active_fields(self, ctx):
+        ctx.panel.state.active_fields = ctx.active_fields
+
+    def set_active_fields(self, ctx):
+        ctx.ops.set_active_fields(["ground_truth"])
+
+    def clear_active_fields(self, ctx):
+        ctx.ops.clear_active_fields()
+
+    def render(self, ctx):
+        panel = types.Object()
+
+        markdown_list = [
+            f" - {field}" for field in ctx.panel.state.active_fields
+        ]
+        md = [
+            "##### Active Fields",
+            "",
+            "The active fields in the current view are:",
+            "",
+            *markdown_list,
+        ]
+        panel.md("\n".join(md))
+        panel.btn(
+            "set_active_fields",
+            label="Set Active Fields",
+            on_click=self.set_active_fields,
+        )
+        panel.btn(
+            "clear_active_fields",
+            label="Clear Active Fields",
+            on_click=self.clear_active_fields,
+        )
+        return types.Property(panel)
+
+
 def register(p):
     p.register(CounterExample)
     p.register(PlotExample)
@@ -843,3 +890,4 @@ def register(p):
     p.register(DropdownMenuExample)
     p.register(WalkthroughExample)
     p.register(TimerExample)
+    p.register(ActiveFieldsExample)
