@@ -18,6 +18,16 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone import ViewField as F
 
+try:
+    from fiftyone.operators.cache import execution_cache
+except ImportError:
+    # @todo can remove this if we require `fiftyone>=1.5.0`
+    def execution_cache(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 class PlotlyPlotType(Enum):
     BAR = "bar"
@@ -39,6 +49,7 @@ CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
+PLOT_DATA_CACHE_TTL = 60 * 60  # 1 hour
 
 
 class DashboardPanel(foo.Panel):
@@ -88,7 +99,7 @@ class DashboardPanel(foo.Panel):
             item = DashboardPlotItem(
                 name=name,
                 type=plot_type,
-                config={**plot_config, "scrollZoom": False},
+                config={**plot_config},
                 layout=plot_layout,
                 raw_params=result,
                 use_code=result.get("use_code", False),
@@ -282,6 +293,7 @@ class ConfigurePlot(foo.Operator):
             label="Configure plot",
             dynamic=True,
             unlisted=True,
+            resolve_execution_options_on_change=False,
         )
 
     def get_number_field_choices(self, ctx):
@@ -545,7 +557,9 @@ class ConfigurePlot(foo.Operator):
 
             dashboard_state = DashboardState(ctx)
             if dashboard_state.can_load_data(item):
-                preview_data = dashboard_state.load_plot_data_for_item(item)
+                preview_data = dashboard_state.load_plot_data_for_item(
+                    ctx, item
+                )
                 preview_container = inputs.grid(
                     "grid", height="400px", width="100%"
                 )
@@ -684,6 +698,43 @@ class DashboardPlotItem(object):
         }
 
 
+def plot_data_key_fn(ctx, dashboard, item):
+    item_dict = item.to_dict()
+    item_dict.pop("raw_params", None)
+    return (item_dict,)
+
+
+@execution_cache(
+    ttl=PLOT_DATA_CACHE_TTL,
+    prompt_scoped=True,
+    key_fn=plot_data_key_fn,
+)
+def load_plot_data_for_item(ctx, dashboard, item):
+    fo_orange = "rgb(255, 109, 5)"
+    bar_color = {"marker": {"color": fo_orange}}
+
+    if item.use_code:
+        data = dashboard.load_data_from_code(item.code, item.type)
+    elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
+        data = dashboard.load_categorical_histogram_data(item)
+    elif item.type == PlotType.NUMERIC_HISTOGRAM:
+        data = dashboard.load_numeric_histogram_data(item)
+    elif item.type == PlotType.SCATTER:
+        data = dashboard.load_scatter_data(item)
+    elif item.type == PlotType.LINE:
+        data = dashboard.load_line_data(item)
+    elif item.type == PlotType.PIE:
+        data = dashboard.load_pie_data(item)
+
+    if isinstance(data, dict):
+        plot_data_type = data.get("type", None)
+        if plot_data_type != "pie":
+            data.update(bar_color)
+
+        return {"name": item.label, **data}
+    return {}
+
+
 class DashboardState(object):
     def __init__(self, ctx):
         self.ctx = ctx
@@ -747,7 +798,7 @@ class DashboardState(object):
     def add_plot(self, item):
         self._items[item.name] = item
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
 
         self._data[item.name] = data
         self.apply_data()
@@ -755,7 +806,7 @@ class DashboardState(object):
     def edit_plot(self, item):
         self._items[item.name] = item
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
 
         self._data[item.name] = data
         self.apply_data()
@@ -765,53 +816,14 @@ class DashboardState(object):
         if item is None:
             return {}
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
         if isinstance(data, dict):
             return data
 
         return {}
 
-    def load_plot_data_for_item(self, item):
-        fo_orange = "rgb(255, 109, 5)"
-        bar_color = {"marker": {"color": fo_orange}}
-        pie_color = {
-            "marker": {
-                "colors": [
-                    "rgb(255, 109, 5)",
-                    "rgb(255, 109, 5)",
-                    "rgb(255, 109, 5)",
-                ]
-            }
-        }
-
-        if item.use_code:
-            data = self.load_data_from_code(item.code, item.type)
-        elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
-            data = self.load_categorical_histogram_data(item)
-        elif item.type == PlotType.NUMERIC_HISTOGRAM:
-            data = self.load_numeric_histogram_data(item)
-        elif item.type == PlotType.SCATTER:
-            data = self.load_scatter_data(item)
-        elif item.type == PlotType.LINE:
-            data = self.load_line_data(item)
-        elif item.type == PlotType.PIE:
-            data = self.load_pie_data(item)
-
-        if isinstance(data, dict):
-            plot_data_type = data.get("type", None)
-            if plot_data_type == "pie":
-                # pie_color = {
-                #     "marker": {
-                #         "colors": fo.app_config.color_pool[:len(data['labels'])]
-                #     }
-                # }
-                # data.update(pie_color)
-                pass
-            else:
-                data.update(bar_color)
-
-            return {"name": item.label, **data}
-        return {}
+    def load_plot_data_for_item(self, ctx, item):
+        return load_plot_data_for_item(ctx, self, item)
 
     def load_all_plot_data(self):
         for item in self.items:
@@ -1010,7 +1022,7 @@ def _get_plotly_config_and_layout(plot_config):
             **xaxis,
         }
 
-    return {"config": {}, "layout": layout, "title": title}
+    return {"config": {"scrollZoom": False}, "layout": layout, "title": title}
 
 
 def _get_fields_with_type(dataset, field_types, root=None):
