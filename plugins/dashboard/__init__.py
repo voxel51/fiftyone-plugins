@@ -18,6 +18,16 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone import ViewField as F
 
+try:
+    from fiftyone.operators.cache import execution_cache
+except ImportError:
+    # @todo can remove this if we require `fiftyone>=1.5.0`
+    def execution_cache(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 class PlotlyPlotType(Enum):
     BAR = "bar"
@@ -40,17 +50,6 @@ REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
 PLOT_DATA_CACHE_TTL = 60 * 60  # 1 hour
-
-#### execution cache fallback ####
-try:
-    from fiftyone.operators.cache import execution_cache
-except ImportError:
-
-    def execution_cache(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
 
 
 class DashboardPanel(foo.Panel):
@@ -616,13 +615,6 @@ class DashboardPlotProperty(types.Property):
         )
 
 
-def dataset_key_fn(ctx, dashboard_state, item):
-    item_dict = item.to_dict()
-    item_dict.pop("raw_params", None)
-    serialized_view = ctx.view._serialize()
-    return (item_dict, serialized_view)
-
-
 class DashboardPlotItem(object):
     def __init__(
         self,
@@ -706,10 +698,16 @@ class DashboardPlotItem(object):
         }
 
 
+def plot_data_key_fn(ctx, dashboard, item):
+    item_dict = item.to_dict()
+    item_dict.pop("raw_params", None)
+    return (item_dict,)
+
+
 @execution_cache(
     ttl=PLOT_DATA_CACHE_TTL,
-    prompt_scope=True,
-    key_fn=dataset_key_fn,
+    prompt_scoped=True,
+    key_fn=plot_data_key_fn,
 )
 def load_plot_data_for_item(ctx, dashboard, item):
     fo_orange = "rgb(255, 109, 5)"
