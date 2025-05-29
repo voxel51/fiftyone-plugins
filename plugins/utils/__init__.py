@@ -1203,7 +1203,7 @@ def _get_clone_dataset_inputs(ctx, inputs):
     target_choices.add_choice(
         "DATASET_VIEW",
         label="Dataset",
-        description="Clone the dataset (excluding views, workspaces, and runs)",
+        description="Clone the dataset (excluding indexes, views, workspaces, and runs)",
     )
 
     default_target = "DATASET"
