@@ -862,14 +862,17 @@ class DashboardState(object):
             return {}
 
         bins = item.bins
-        x_values = self.view.distinct(x)
-        if len(x_values) == 1 and isinstance(x_values[0], datetime):
-            counts = [len(self.view)] + [0] * (bins - 1)
-            edges = [
-                x_values[0] + timedelta(milliseconds=i) for i in range(bins)
-            ]
-        else:
+
+        try:
             counts, edges, _ = self.view.histogram_values(x, bins=bins)
+        except:
+            # @todo can remove this if we require `fiftyone>=1.6.0`
+            count, edge = self.view.aggregate([fo.Count(x), fo.Min(x)])
+            if isinstance(edge, datetime):
+                counts = [count] + [0] * (bins - 1)
+                edges = [edge + timedelta(milliseconds=i) for i in range(bins)]
+            else:
+                raise
 
         counts = np.asarray(counts)
         edges = np.asarray(edges)
