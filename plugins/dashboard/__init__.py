@@ -165,7 +165,9 @@ class DashboardPanel(foo.Panel):
                 x_field = item.field
                 x = ctx.params.get("x")
 
-                view = _make_view_for_value(dashboard_state.view, x_field, x)
+                view = _make_view_for_value(
+                    dashboard_state.view, x_field, value=x
+                )
                 if view is not None:
                     ctx.ops.set_view(view=view)
 
@@ -181,8 +183,11 @@ class DashboardPanel(foo.Panel):
                     min_val, max_val = find_datetime_max_val(
                         x_datetime, curr_val
                     )
-                view = _make_view_for_range(
-                    dashboard_state.view, x_field, min_val, max_val
+                view = _make_view_for_value(
+                    dashboard_state.view,
+                    item.x_field,
+                    min_val=min_val,
+                    max_val=max_val,
                 )
                 ctx.ops.set_view(view=view)
 
@@ -1029,34 +1034,51 @@ def _get_fields_with_type(dataset, field_types, root=None):
     return paths
 
 
-def _make_view_for_value(sample_collection, path, value):
-    """Returns a view into the given `sample_collection` that matches the given
-    `value` within the given `path`.
+def _make_view_for_value(
+    sample_collection, path, value=None, min_val=None, max_val=None
+):
+    """Returns a view into the given `sample_collection` that matches a specific
+    `value` or a range (`min_val`, `max_val`) within the given `path`.
 
     Supports label fields, list fields, and a combination of both.
     """
+    if path is None:
+        return None
+
     root, leaf = _parse_path(sample_collection, path)
     is_label_field = _is_field_type(sample_collection, root, fo.Label)
     is_list_field = _is_field_type(sample_collection, path, fo.ListField)
 
+    use_range = min_val is not None and max_val is not None
+
     if is_label_field:
         if is_list_field:
-            expr = F(leaf).exists() & F(leaf).contains(value)
+            if use_range:
+                expr = (
+                    F(leaf).exists()
+                    & (F(leaf) >= min_val)
+                    & (F(leaf) <= max_val)
+                )
+            else:
+                expr = F(leaf).exists() & F(leaf).contains(value)
         else:
-            expr = F(leaf) == value
+            expr = (
+                (F(leaf) >= min_val) & (F(leaf) <= max_val)
+                if use_range
+                else (F(leaf) == value)
+            )
 
         return sample_collection.filter_labels(root, expr)
 
     if is_list_field:
         expr = F(path).exists() & F(path).contains(value)
     else:
-        expr = F(path) == value
+        expr = (
+            (F(path) >= min_val) & (F(path) <= max_val)
+            if use_range
+            else (F(path) == value)
+        )
 
-    return sample_collection.match(expr)
-
-
-def _make_view_for_range(sample_collection, path, min_val, max_val):
-    expr = (F(path) >= min_val) & (F(path) <= max_val)
     return sample_collection.match(expr)
 
 
