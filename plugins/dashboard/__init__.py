@@ -691,7 +691,9 @@ class DashboardPlotItem(object):
 def plot_data_key_fn(ctx, dashboard, item):
     item_dict = item.to_dict()
     item_dict.pop("raw_params", None)
-    return (item_dict,)
+    dataset_name = ctx.dataset.name
+    view = ctx.view._serialize()
+    return (item_dict, dataset_name, view)
 
 
 @execution_cache(
