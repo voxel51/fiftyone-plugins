@@ -202,20 +202,10 @@ class DashboardPanel(foo.Panel):
             if range:
                 x = ctx.params.get("x")
                 y = ctx.params.get("y")
-                filter = {}
-                filter[x_field] = x
-                filter[y_field] = y
-                ctx.trigger(
-                    "set_view",
-                    dict(
-                        view=[
-                            {
-                                "_cls": "fiftyone.core.stages.Match",
-                                "kwargs": [["filter", filter]],
-                            }
-                        ]
-                    ),
+                view = _make_view_for_point(
+                    dashboard_state.view, x_field, x, y_field, y
                 )
+                ctx.ops.set_view(view=view)
 
         if item.type == PlotType.PIE:
             category = ctx.params.get("label")
@@ -701,7 +691,9 @@ class DashboardPlotItem(object):
 def plot_data_key_fn(ctx, dashboard, item):
     item_dict = item.to_dict()
     item_dict.pop("raw_params", None)
-    return (item_dict,)
+    dataset_name = ctx.dataset.name
+    view = ctx.view._serialize()
+    return (item_dict, dataset_name, view)
 
 
 @execution_cache(
@@ -872,14 +864,17 @@ class DashboardState(object):
             return {}
 
         bins = item.bins
-        x_values = self.view.distinct(x)
-        if len(x_values) == 1 and isinstance(x_values[0], datetime):
-            counts = [len(self.view)] + [0] * (bins - 1)
-            edges = [
-                x_values[0] + timedelta(milliseconds=i) for i in range(bins)
-            ]
-        else:
+
+        try:
             counts, edges, _ = self.view.histogram_values(x, bins=bins)
+        except:
+            # @todo can remove this if we require `fiftyone>=1.6.0`
+            count, edge = self.view.aggregate([fo.Count(x), fo.Min(x)])
+            if isinstance(edge, datetime):
+                counts = [count] + [0] * (bins - 1)
+                edges = [edge + timedelta(milliseconds=i) for i in range(bins)]
+            else:
+                raise
 
         counts = np.asarray(counts)
         edges = np.asarray(edges)
@@ -908,12 +903,14 @@ class DashboardState(object):
         return histogram_data
 
     def load_scatter_data(self, item):
-        x = self.view.values(F(item.x_field))
-        y = self.view.values(F(item.y_field))
+        # @todo must use label IDs here when extracting label attributes in
+        # order for lassoing to work properly
+        ids, x, y = self.view.values(
+            ["id", item.x_field, item.y_field], unwind=True
+        )
+
         if not x or not y:
             return {}
-
-        ids = self.view.values("id")
 
         scatter_data = {
             "x": x,
@@ -929,8 +926,7 @@ class DashboardState(object):
         if item.x_field is None or item.y_field is None:
             return {}
 
-        x = self.view.values(F(item.x_field))
-        y = self.view.values(F(item.y_field))
+        x, y = self.view.values([item.x_field, item.y_field], unwind=True)
 
         line_data = {"x": x, "y": y, "type": "line"}
 
@@ -1042,11 +1038,6 @@ def _get_fields_with_type(dataset, field_types, root=None):
 
 
 def _make_view_for_value(sample_collection, path, value):
-    """Returns a view into the given `sample_collection` that matches the given
-    `value` within the given `path`.
-
-    Supports label fields, list fields, and a combination of both.
-    """
     root, leaf = _parse_path(sample_collection, path)
     is_label_field = _is_field_type(sample_collection, root, fo.Label)
     is_list_field = _is_field_type(sample_collection, path, fo.ListField)
@@ -1068,7 +1059,38 @@ def _make_view_for_value(sample_collection, path, value):
 
 
 def _make_view_for_range(sample_collection, path, min_val, max_val):
-    expr = (F(path) >= min_val) & (F(path) <= max_val)
+    root, leaf = _parse_path(sample_collection, path)
+    is_label_field = _is_field_type(sample_collection, root, fo.Label)
+    is_list_field = _is_field_type(sample_collection, path, fo.ListField)
+
+    if is_label_field:
+        if is_list_field:
+            _expr = (F() >= min_val) & (F() <= max_val)
+            expr = F(leaf).exists() & F(leaf).filter(_expr).length() > 0
+        else:
+            expr = (F(leaf) >= min_val) & (F(leaf) <= max_val)
+
+        return sample_collection.filter_labels(root, expr)
+
+    if is_list_field:
+        _expr = (F() >= min_val) & (F() <= max_val)
+        expr = F(path).exists() & F(path).filter(_expr).length() > 0
+    else:
+        expr = (F(path) >= min_val) & (F(path) <= max_val)
+
+    return sample_collection.match(expr)
+
+
+def _make_view_for_point(sample_collection, path_x, x, path_y, y):
+    root, leaf_x = _parse_path(sample_collection, path_x)
+    _, leaf_y = _parse_path(sample_collection, path_y)
+    is_label_field = _is_field_type(sample_collection, root, fo.Label)
+
+    if is_label_field:
+        expr = (F(leaf_x) == x) & (F(leaf_y) == y)
+        return sample_collection.filter_labels(root, expr)
+
+    expr = (F(path_x) == x) & (F(path_y) == y)
     return sample_collection.match(expr)
 
 
