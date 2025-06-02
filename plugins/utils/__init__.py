@@ -9,6 +9,7 @@ import contextlib
 from datetime import datetime
 import json
 import multiprocessing.dummy
+from packaging.version import Version
 
 from bson import json_util
 import humanize
@@ -16,6 +17,7 @@ import humanize
 import eta.core.utils as etau
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.core.fields as fof
 import fiftyone.core.media as fom
 import fiftyone.core.metadata as fomm
@@ -1194,16 +1196,28 @@ def _get_clone_dataset_inputs(ctx, inputs):
         return
 
     target_choices = types.RadioGroup()
+
     target_choices.add_choice(
         "DATASET",
         label="Entire dataset",
         description="Clone the entire dataset",
     )
 
+    # @todo can remove this if we require `fiftyone>=1.6.0`
+    if Version(foc.VERSION) >= Version("1.6.0"):
+        description = (
+            "Clone the dataset (excluding indexes, views, workspaces, and "
+            "runs)"
+        )
+    else:
+        description = (
+            "Clone the dataset (excluding views, workspaces, and runs)"
+        )
+
     target_choices.add_choice(
         "DATASET_VIEW",
         label="Dataset",
-        description="Clone the dataset (excluding views, workspaces, and runs)",
+        description=description,
     )
 
     default_target = "DATASET"
