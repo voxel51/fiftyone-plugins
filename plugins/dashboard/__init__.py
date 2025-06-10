@@ -52,10 +52,6 @@ class DashboardPanel(foo.Panel):
         )
 
     def on_load(self, ctx):
-        # There are several places where we are clearing state.items
-        # this is a workaround to a core issue that once fixed this can be removed
-        # See https://github.com/voxel51/fiftyone-plugins/pull/153 for more details
-        ctx.panel.state.items = None
         dashboard_state = DashboardState(ctx)
         dashboard_state.load_all_plot_data()
 
@@ -722,12 +718,10 @@ class DashboardState(object):
         return {k: v.to_dict() for k, v in self._items.items()}
 
     def apply_state(self):
-        self.ctx.panel.state.items = None
         items_dict = self.items_as_dict()
         self.panel.set_state("items_config", items_dict)
 
     def apply_data(self):
-        self.ctx.panel.state.items = None
         data_paths_dict = {f"items.{k}": v for k, v in self._data.items()}
         self.panel.set_data(data_paths_dict)
 
@@ -784,6 +778,7 @@ class DashboardState(object):
             }
         }
 
+        data = None
         if item.use_code:
             data = self.load_data_from_code(item.code, item.type)
         elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
