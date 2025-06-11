@@ -18,6 +18,16 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone import ViewField as F
 
+try:
+    from fiftyone.operators.cache import execution_cache
+except ImportError:
+    # @todo can remove this if we require `fiftyone>=1.5.0`
+    def execution_cache(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 class PlotlyPlotType(Enum):
     BAR = "bar"
@@ -39,6 +49,7 @@ CATEGORICAL_TYPES = (fo.StringField, fo.BooleanField)
 REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
+PLOT_DATA_CACHE_TTL = 60 * 60  # 1 hour
 
 
 class DashboardPanel(foo.Panel):
@@ -84,7 +95,7 @@ class DashboardPanel(foo.Panel):
             item = DashboardPlotItem(
                 name=name,
                 type=plot_type,
-                config={**plot_config, "scrollZoom": False},
+                config={**plot_config},
                 layout=plot_layout,
                 raw_params=result,
                 use_code=result.get("use_code", False),
@@ -187,20 +198,10 @@ class DashboardPanel(foo.Panel):
             if range:
                 x = ctx.params.get("x")
                 y = ctx.params.get("y")
-                filter = {}
-                filter[x_field] = x
-                filter[y_field] = y
-                ctx.trigger(
-                    "set_view",
-                    dict(
-                        view=[
-                            {
-                                "_cls": "fiftyone.core.stages.Match",
-                                "kwargs": [["filter", filter]],
-                            }
-                        ]
-                    ),
+                view = _make_view_for_point(
+                    dashboard_state.view, x_field, x, y_field, y
                 )
+                ctx.ops.set_view(view=view)
 
         if item.type == PlotType.PIE:
             category = ctx.params.get("label")
@@ -278,6 +279,7 @@ class ConfigurePlot(foo.Operator):
             label="Configure plot",
             dynamic=True,
             unlisted=True,
+            resolve_execution_options_on_change=False,
         )
 
     def get_number_field_choices(self, ctx):
@@ -541,7 +543,9 @@ class ConfigurePlot(foo.Operator):
 
             dashboard_state = DashboardState(ctx)
             if dashboard_state.can_load_data(item):
-                preview_data = dashboard_state.load_plot_data_for_item(item)
+                preview_data = dashboard_state.load_plot_data_for_item(
+                    ctx, item
+                )
                 preview_container = inputs.grid(
                     "grid", height="400px", width="100%"
                 )
@@ -680,6 +684,46 @@ class DashboardPlotItem(object):
         }
 
 
+def plot_data_key_fn(ctx, dashboard, item):
+    item_dict = item.to_dict()
+    item_dict.pop("raw_params", None)
+    dataset_name = ctx.dataset.name
+    view = ctx.view._serialize()
+    return (item_dict, dataset_name, view)
+
+
+@execution_cache(
+    ttl=PLOT_DATA_CACHE_TTL,
+    prompt_scoped=True,
+    key_fn=plot_data_key_fn,
+)
+def load_plot_data_for_item(ctx, dashboard, item):
+    fo_orange = "rgb(255, 109, 5)"
+    bar_color = {"marker": {"color": fo_orange}}
+    
+    data = None
+    if item.use_code:
+        data = dashboard.load_data_from_code(item.code, item.type)
+    elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
+        data = dashboard.load_categorical_histogram_data(item)
+    elif item.type == PlotType.NUMERIC_HISTOGRAM:
+        data = dashboard.load_numeric_histogram_data(item)
+    elif item.type == PlotType.SCATTER:
+        data = dashboard.load_scatter_data(item)
+    elif item.type == PlotType.LINE:
+        data = dashboard.load_line_data(item)
+    elif item.type == PlotType.PIE:
+        data = dashboard.load_pie_data(item)
+
+    if isinstance(data, dict):
+        plot_data_type = data.get("type", None)
+        if plot_data_type != "pie":
+            data.update(bar_color)
+
+        return {"name": item.label, **data}
+    return {}
+
+
 class DashboardState(object):
     def __init__(self, ctx):
         self.ctx = ctx
@@ -741,7 +785,7 @@ class DashboardState(object):
     def add_plot(self, item):
         self._items[item.name] = item
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
 
         self._data[item.name] = data
         self.apply_data()
@@ -749,7 +793,7 @@ class DashboardState(object):
     def edit_plot(self, item):
         self._items[item.name] = item
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
 
         self._data[item.name] = data
         self.apply_data()
@@ -759,54 +803,14 @@ class DashboardState(object):
         if item is None:
             return {}
 
-        data = self.load_plot_data_for_item(item)
+        data = self.load_plot_data_for_item(self.ctx, item)
         if isinstance(data, dict):
             return data
 
         return {}
 
-    def load_plot_data_for_item(self, item):
-        fo_orange = "rgb(255, 109, 5)"
-        bar_color = {"marker": {"color": fo_orange}}
-        pie_color = {
-            "marker": {
-                "colors": [
-                    "rgb(255, 109, 5)",
-                    "rgb(255, 109, 5)",
-                    "rgb(255, 109, 5)",
-                ]
-            }
-        }
-
-        data = None
-        if item.use_code:
-            data = self.load_data_from_code(item.code, item.type)
-        elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
-            data = self.load_categorical_histogram_data(item)
-        elif item.type == PlotType.NUMERIC_HISTOGRAM:
-            data = self.load_numeric_histogram_data(item)
-        elif item.type == PlotType.SCATTER:
-            data = self.load_scatter_data(item)
-        elif item.type == PlotType.LINE:
-            data = self.load_line_data(item)
-        elif item.type == PlotType.PIE:
-            data = self.load_pie_data(item)
-
-        if isinstance(data, dict):
-            plot_data_type = data.get("type", None)
-            if plot_data_type == "pie":
-                # pie_color = {
-                #     "marker": {
-                #         "colors": fo.app_config.color_pool[:len(data['labels'])]
-                #     }
-                # }
-                # data.update(pie_color)
-                pass
-            else:
-                data.update(bar_color)
-
-            return {"name": item.label, **data}
-        return {}
+    def load_plot_data_for_item(self, ctx, item):
+        return load_plot_data_for_item(ctx, self, item)
 
     def load_all_plot_data(self):
         for item in self.items:
@@ -855,14 +859,17 @@ class DashboardState(object):
             return {}
 
         bins = item.bins
-        x_values = self.view.distinct(x)
-        if len(x_values) == 1 and isinstance(x_values[0], datetime):
-            counts = [len(self.view)] + [0] * (bins - 1)
-            edges = [
-                x_values[0] + timedelta(milliseconds=i) for i in range(bins)
-            ]
-        else:
+
+        try:
             counts, edges, _ = self.view.histogram_values(x, bins=bins)
+        except:
+            # @todo can remove this if we require `fiftyone>=1.6.0`
+            count, edge = self.view.aggregate([fo.Count(x), fo.Min(x)])
+            if isinstance(edge, datetime):
+                counts = [count] + [0] * (bins - 1)
+                edges = [edge + timedelta(milliseconds=i) for i in range(bins)]
+            else:
+                raise
 
         counts = np.asarray(counts)
         edges = np.asarray(edges)
@@ -891,12 +898,14 @@ class DashboardState(object):
         return histogram_data
 
     def load_scatter_data(self, item):
-        x = self.view.values(F(item.x_field))
-        y = self.view.values(F(item.y_field))
+        # @todo must use label IDs here when extracting label attributes in
+        # order for lassoing to work properly
+        ids, x, y = self.view.values(
+            ["id", item.x_field, item.y_field], unwind=True
+        )
+
         if not x or not y:
             return {}
-
-        ids = self.view.values("id")
 
         scatter_data = {
             "x": x,
@@ -912,8 +921,7 @@ class DashboardState(object):
         if item.x_field is None or item.y_field is None:
             return {}
 
-        x = self.view.values(F(item.x_field))
-        y = self.view.values(F(item.y_field))
+        x, y = self.view.values([item.x_field, item.y_field], unwind=True)
 
         line_data = {"x": x, "y": y, "type": "line"}
 
@@ -1005,7 +1013,7 @@ def _get_plotly_config_and_layout(plot_config):
             **xaxis,
         }
 
-    return {"config": {}, "layout": layout, "title": title}
+    return {"config": {"scrollZoom": False}, "layout": layout, "title": title}
 
 
 def _get_fields_with_type(dataset, field_types, root=None):
@@ -1025,11 +1033,6 @@ def _get_fields_with_type(dataset, field_types, root=None):
 
 
 def _make_view_for_value(sample_collection, path, value):
-    """Returns a view into the given `sample_collection` that matches the given
-    `value` within the given `path`.
-
-    Supports label fields, list fields, and a combination of both.
-    """
     root, leaf = _parse_path(sample_collection, path)
     is_label_field = _is_field_type(sample_collection, root, fo.Label)
     is_list_field = _is_field_type(sample_collection, path, fo.ListField)
@@ -1051,7 +1054,38 @@ def _make_view_for_value(sample_collection, path, value):
 
 
 def _make_view_for_range(sample_collection, path, min_val, max_val):
-    expr = (F(path) >= min_val) & (F(path) <= max_val)
+    root, leaf = _parse_path(sample_collection, path)
+    is_label_field = _is_field_type(sample_collection, root, fo.Label)
+    is_list_field = _is_field_type(sample_collection, path, fo.ListField)
+
+    if is_label_field:
+        if is_list_field:
+            _expr = (F() >= min_val) & (F() <= max_val)
+            expr = F(leaf).exists() & F(leaf).filter(_expr).length() > 0
+        else:
+            expr = (F(leaf) >= min_val) & (F(leaf) <= max_val)
+
+        return sample_collection.filter_labels(root, expr)
+
+    if is_list_field:
+        _expr = (F() >= min_val) & (F() <= max_val)
+        expr = F(path).exists() & F(path).filter(_expr).length() > 0
+    else:
+        expr = (F(path) >= min_val) & (F(path) <= max_val)
+
+    return sample_collection.match(expr)
+
+
+def _make_view_for_point(sample_collection, path_x, x, path_y, y):
+    root, leaf_x = _parse_path(sample_collection, path_x)
+    _, leaf_y = _parse_path(sample_collection, path_y)
+    is_label_field = _is_field_type(sample_collection, root, fo.Label)
+
+    if is_label_field:
+        expr = (F(leaf_x) == x) & (F(leaf_y) == y)
+        return sample_collection.filter_labels(root, expr)
+
+    expr = (F(path_x) == x) & (F(path_y) == y)
     return sample_collection.match(expr)
 
 
