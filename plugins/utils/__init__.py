@@ -1708,7 +1708,16 @@ class ComputeMetadata(foo.Operator):
         view = _get_target_view(ctx, target)
 
         if ctx.delegated:
-            view.compute_metadata(overwrite=overwrite, num_workers=num_workers)
+            kwargs = {}
+
+            # @todo can remove version check if we require `fiftyone>=1.6.0`
+            if Version(foc.VERSION) >= Version("1.6.0"):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
+            view.compute_metadata(
+                overwrite=overwrite, num_workers=num_workers, **kwargs
+            )
         else:
             for update in _compute_metadata_generator(
                 ctx, view, overwrite=overwrite, num_workers=num_workers
@@ -2014,6 +2023,13 @@ class GenerateThumbnails(foo.Operator):
         if not ctx.delegated:
             num_workers = 0
 
+        kwargs = {}
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         foui.transform_images(
             view,
             size=size,
@@ -2021,6 +2037,7 @@ class GenerateThumbnails(foo.Operator):
             output_dir=output_dir,
             num_workers=num_workers,
             skip_failures=True,
+            **kwargs,
         )
 
         if thumbnail_path not in ctx.dataset.app_config.media_fields:
@@ -2319,6 +2336,14 @@ class Delegate(foo.Operator):
             view (None): a :class:`fiftyone.core.view.DatasetView`
             delegation_target (None): an optional orchestrator on which to
                 schedule the operation, if it is delegated
+            progress (None): if ``fcn`` supports a ``progress`` parameter, then
+                you can use this parameter to report the progress of the
+                delegated operation as follows:
+
+                -   pass a float value to report progress every ``progress``
+                    seconds
+                -   pass an int value to report progress in ``progress``
+                    equally-spaced increments
             *args: JSON-serializable positional arguments for the function
             **kwargs: JSON-serializable keyword arguments for the function
         """
@@ -2351,6 +2376,17 @@ class Delegate(foo.Operator):
         has_view = ctx.params["has_view"]
         args = ctx.params["args"]
         kwargs = ctx.params["kwargs"]
+
+        # Special handling if we find a `progress` kwarg that is float/int
+        progress = kwargs.get("progress", None)
+        if isinstance(progress, float):
+            # Report progress every `progress` seconds
+            set_progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(set_progress, dt=progress)
+        elif isinstance(progress, int):
+            # Report progress every in `progress` equally-spaced increments
+            set_progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(set_progress, n=progress)
 
         if has_view:
             sample_collection = ctx.view
