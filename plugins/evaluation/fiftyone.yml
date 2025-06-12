@@ -2,7 +2,7 @@ name: "@voxel51/evaluation"
 description: Utilities for evaluating models with FiftyOne
 version: 1.0.3
 fiftyone:
-  version: ">=0.23.3"
+  version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/evaluation
 license: Apache 2.0
 operators:

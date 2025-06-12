@@ -8,10 +8,12 @@ Annotation operators.
 import contextlib
 import json
 import threading
+from packaging.version import Version
 
 from bson import json_util
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -941,7 +943,8 @@ class LoadAnnotations(foo.Operator):
 
         kwargs = {}
 
-        if ctx.delegated:
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
             kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 

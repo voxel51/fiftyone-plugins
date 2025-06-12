@@ -1716,8 +1716,10 @@ class ComputeMetadata(foo.Operator):
         if ctx.delegated:
             kwargs = {}
 
-            progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+            # @todo can remove version check if we require `fiftyone>=1.6.0`
+            if Version(foc.VERSION) >= Version("1.6.0"):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
             view.compute_metadata(
                 overwrite=overwrite,
@@ -2087,7 +2089,8 @@ class GenerateThumbnails(foo.Operator):
 
         kwargs = {}
 
-        if ctx.delegated:
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
             kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
