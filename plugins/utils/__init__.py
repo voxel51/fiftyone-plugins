@@ -9,6 +9,7 @@ import contextlib
 from datetime import datetime
 import json
 import multiprocessing.dummy
+from packaging.version import Version
 
 from bson import json_util
 import humanize
@@ -16,6 +17,7 @@ import humanize
 import eta.core.utils as etau
 
 import fiftyone as fo
+import fiftyone.constants as foc
 import fiftyone.core.fields as fof
 import fiftyone.core.media as fom
 import fiftyone.core.metadata as fomm
@@ -1696,8 +1698,10 @@ class ComputeMetadata(foo.Operator):
         if ctx.delegated:
             kwargs = {}
 
-            progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+            # @todo can remove version check if we require `fiftyone>=1.6.0`
+            if Version(foc.VERSION) >= Version("1.6.0"):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
             view.compute_metadata(
                 overwrite=overwrite, num_workers=num_workers, **kwargs
@@ -2009,7 +2013,8 @@ class GenerateThumbnails(foo.Operator):
 
         kwargs = {}
 
-        if ctx.delegated:
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
             progress = lambda pb: ctx.set_progress(progress=pb.progress)
             kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
