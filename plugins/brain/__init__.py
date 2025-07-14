@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 import json
 from packaging.version import Version
+import itertools
 
 from bson import json_util
 
@@ -18,9 +19,12 @@ import eta.core.image as etai
 import fiftyone as fo
 import fiftyone.constants as foc
 import fiftyone.core.patches as fop
+import fiftyone.core.collections as focc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.zoo.models as fozm
+
+from fiftyone import ViewField as F
 
 # pylint:disable=import-error,no-name-in-module
 import fiftyone.brain as fob
@@ -2221,6 +2225,314 @@ def _inject_brain_secrets(ctx):
             fob.brain_config.similarity_backends[_backend][_key] = value
 
 
+class FindExactDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="find_exact_duplicate_images",
+            label="Find exact duplicates",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            description="Find exact duplicate images in the dataset",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx: foo.ExecutionContext) -> types.Property:
+        inputs = types.Object()
+        form_view = types.View(
+            label="Find exact duplicates",
+            description="Find exact duplicates in the dataset",
+        )
+        return types.Property(inputs, view=form_view)
+
+    def execute(self, ctx: foo.ExecutionContext) -> dict[str, int]:
+
+        response = find_exact_duplicates(ctx.dataset)
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+        return response
+
+    def resolve_output(self, ctx: foo.ExecutionContext) -> types.Property:
+        outputs = types.Object()
+        outputs.str(
+            "num_unique_imgs_with_dups",
+            label="Number of unique images with at least one exact duplicate",
+        )
+        outputs.str("num_total_dups", label="Total number of exact duplicates")
+        header = "Exact Duplicate Results"
+        return types.Property(outputs, view=types.View(label=header))
+
+
+def find_exact_duplicates(
+    sample_collection: focc.SampleCollection,
+) -> dict[str, int]:
+    """
+    Find exact duplicate images in the given sample collection.
+
+    Args:
+        sample_collection: The FiftyOne sample collection to search for
+            exact duplicates.
+
+    Returns:
+        A dictionary containing the number of unique images with at least one
+        exact duplicate and the total number of exact duplicates found.
+    """
+
+    duplicates_dict = fob.compute_exact_duplicates(sample_collection)
+
+    # Create duplicate views on the underlying dataset; used for displaying duplicates and later for
+    # deleting duplicates
+    flat_duplicates = list(duplicates_dict.keys()) + list(
+        itertools.chain.from_iterable(duplicates_dict.values())
+    )
+    exact_duplicates_view = sample_collection.select(flat_duplicates).sort_by(
+        "filepath"
+    )
+    representatives_of_exact_duplicates_view = sample_collection.select(
+        list(duplicates_dict.keys())
+    )
+    dataset = sample_collection._dataset
+    dataset.save_view(
+        "exact_duplicates_view", exact_duplicates_view, overwrite=True
+    )
+    dataset.save_view(
+        "representatives_of_exact_duplicates_view",
+        representatives_of_exact_duplicates_view,
+        overwrite=True,
+    )
+
+    return {
+        "num_unique_imgs_with_dups": len(duplicates_dict),
+        "num_total_dups": len(flat_duplicates),
+    }
+
+
+class DeduplicateExactDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="deduplicate_exact_duplicates",
+            label="Deduplicate exact duplicates",
+            description="Remove all but one copy from each group of exact duplicates in the dataset",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx: foo.ExecutionContext) -> types.Property:
+        inputs = types.Object()
+        form_view = types.View(
+            label="Deduplicate exact duplicates",
+            description="Deduplicate exact duplicates in the dataset",
+        )
+        return types.Property(inputs, view=form_view)
+
+    def execute(self, ctx: foo.ExecutionContext) -> None:
+
+        sample_collection = ctx.dataset
+        dataset = sample_collection._dataset
+
+        if "exact_duplicates_view" not in dataset.list_saved_views():
+            find_exact_duplicates(sample_collection)
+
+        exact_duplicates_view = dataset.load_saved_view(
+            "exact_duplicates_view"
+        )
+        representatives_of_exact_duplicates_view = dataset.load_saved_view(
+            "representatives_of_exact_duplicates_view"
+        )
+
+        remove_sample_ids = [
+            _id
+            for _id in exact_duplicates_view.values("id")
+            if not _id in representatives_of_exact_duplicates_view.values("id")
+        ]
+
+        dataset.delete_samples(remove_sample_ids)
+
+        dataset.delete_saved_view("exact_duplicates_view")
+        dataset.delete_saved_view("representatives_of_exact_duplicates_view")
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+
+def find_approximate_duplicates(
+    sample_collection: focc.SampleCollection, threshold: float = None
+) -> dict[str, int]:
+    """
+    Find approximate duplicate images in the given sample collection using
+    embeddings.
+    Args:
+        sample_collection: The FiftyOne sample collection to search for
+            approximate duplicates.
+        threshold: The distance threshold for determining approximate duplicates.
+    Returns:
+        A dictionary containing the number of unique images with at least one
+        approximate duplicate and the total number of approximate duplicates found.
+    """
+
+    dataset = sample_collection._dataset
+    index = fob.compute_near_duplicates(dataset, threshold=threshold)
+
+    # View of all approximate duplicates
+    approx_dups_view = index.duplicates_view()
+    dataset.save_view(
+        "approximate_duplicates_view", approx_dups_view, overwrite=True
+    )
+
+    # View of unique images without approximate duplicates
+    dataset.save_view(
+        "unique_with_no_approximate_duplicate_view",
+        index.unique_view(),
+        overwrite=True,
+    )
+
+    # View of representatives of approximate duplicates (one image for each approximate duplicate group)
+    repr_ids = list(index.neighbors_map.keys())
+    representatives_of_approximate_duplicates_view = sample_collection.select(
+        repr_ids
+    )
+    dataset.save_view(
+        "representatives_of_approximate_duplicates_view",
+        representatives_of_approximate_duplicates_view,
+        overwrite=True,
+    )
+
+    return {
+        "num_unique_imgs_with_dups": len(index.neighbors_map),
+        "num_total_dups": len(approx_dups_view),
+    }
+
+
+def _let_user_select_approx_dups_threshold(inputs: types.Object) -> None:
+    """
+    Let the user select the distance threshold for determining approximate duplicates.
+    """
+    inputs.float(
+        "threshold_value",
+        default=0.5,
+        label="Distance Threshold",
+        description="Select the distance threshold for determining approximate duplicates",
+    )
+
+
+class FindApproximateDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="find_approximate_duplicate_images",
+            label="Find approximate duplicates",
+            description="Find approximate duplicates in the dataset",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx: foo.ExecutionContext) -> types.Property:
+        inputs = types.Object()
+        form_view = types.View(
+            label="Find Approximate Duplicates",
+            description="Find approximate duplicates in the dataset using embeddings",
+        )
+
+        _let_user_select_approx_dups_threshold(inputs)
+
+        return types.Property(inputs, view=form_view)
+
+    def execute(self, ctx: foo.ExecutionContext) -> dict[str, int]:
+
+        dataset = ctx.dataset
+
+        response = find_approximate_duplicates(
+            dataset, ctx.params.get("threshold_value", 0.5)
+        )
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        return response
+
+    def resolve_output(self, ctx: foo.ExecutionContext) -> types.Property:
+
+        outputs = types.Object()
+        outputs.str(
+            "num_unique_imgs_with_dups",
+            label="Number of unique images with at least one approximate duplicate",
+        )
+        outputs.str(
+            "num_total_dups", label="Total number of approximate duplicates"
+        )
+        header = "Exact Duplicate Results"
+        return types.Property(outputs, view=types.View(label=header))
+
+
+class DeduplicateApproximateDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="deduplicate_approximate_duplicates",
+            label="Deduplicate approximate duplicates",
+            description="Remove all but one copy from each group of approximate duplicates in the dataset",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx: foo.ExecutionContext) -> types.Property:
+        inputs = types.Object()
+        form_view = types.View(
+            label="Deduplicate approximate duplicates",
+            description="Deduplicate approximate duplicates in the dataset",
+        )
+
+        if (
+            "approximate_duplicates_view"
+            not in ctx.dataset._dataset.list_saved_views()
+        ):
+            _let_user_select_approx_dups_threshold(inputs)
+
+        return types.Property(inputs, view=form_view)
+
+    def execute(self, ctx: foo.ExecutionContext) -> None:
+
+        sample_collection = ctx.dataset
+        dataset = sample_collection._dataset
+
+        if "approximate_duplicates_view" not in dataset.list_saved_views():
+            find_approximate_duplicates(
+                sample_collection, ctx.params.get("threshold_value", 0.5)
+            )
+
+        approximate_duplicates_view = dataset.load_saved_view(
+            "approximate_duplicates_view"
+        )
+        representatives_of_approximate_duplicates_view = (
+            dataset.load_saved_view(
+                "representatives_of_approximate_duplicates_view"
+            )
+        )
+
+        remove_sample_ids = [
+            _id
+            for _id in approximate_duplicates_view.values("id")
+            if not _id
+            in representatives_of_approximate_duplicates_view.values("id")
+        ]
+
+        dataset.delete_samples(remove_sample_ids)
+
+        dataset.delete_saved_view("approximate_duplicates_view")
+        dataset.delete_saved_view(
+            "representatives_of_approximate_duplicates_view"
+        )
+        dataset.delete_saved_view("unique_with_no_approximate_duplicate_view")
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+
 def register(p):
     p.register(ComputeVisualization)
     # This operator is builtin to Teams
@@ -2236,3 +2548,7 @@ def register(p):
     p.register(LoadBrainView)
     p.register(RenameBrainRun)
     p.register(DeleteBrainRun)
+    p.register(FindExactDuplicates)
+    p.register(DeduplicateExactDuplicates)
+    p.register(FindApproximateDuplicates)
+    p.register(DeduplicateApproximateDuplicates)
