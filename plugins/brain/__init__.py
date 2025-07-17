@@ -19,12 +19,9 @@ import eta.core.image as etai
 import fiftyone as fo
 import fiftyone.constants as foc
 import fiftyone.core.patches as fop
-import fiftyone.core.collections as focc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.zoo.models as fozm
-
-from fiftyone import ViewField as F
 
 # pylint:disable=import-error,no-name-in-module
 import fiftyone.brain as fob
