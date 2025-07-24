@@ -14,14 +14,14 @@ operators:
   - compute_uniqueness
   - compute_mistakenness
   - compute_hardness
+  - find_exact_duplicates
+  - deduplicate_exact_duplicates
+  - find_near_duplicates
+  - deduplicate_near_duplicates
   - get_brain_info
   - load_brain_view
   - rename_brain_run
   - delete_brain_run
-  - find_exact_duplicate_images
-  - deduplicate_exact_duplicates
-  - find_approximate_duplicate_images
-  - deduplicate_approximate_duplicates
 secrets:
   - FIFTYONE_BRAIN_SIMILARITY_QDRANT_URL
   - FIFTYONE_BRAIN_SIMILARITY_QDRANT_API_KEY
