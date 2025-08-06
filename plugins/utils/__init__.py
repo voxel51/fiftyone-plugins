@@ -1637,6 +1637,7 @@ class ComputeMetadata(foo.Operator):
             default_choice_to_delegated=True,
             dynamic=True,
             execute_as_generator=True,
+            allow_distributed_execution=True,
         )
 
     def __call__(
