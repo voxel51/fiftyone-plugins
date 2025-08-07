@@ -50,6 +50,23 @@ REQUIRES_X = [PlotType.SCATTER, PlotType.LINE, PlotType.NUMERIC_HISTOGRAM]
 REQUIRES_Y = [PlotType.SCATTER, PlotType.LINE]
 CONFIGURE_PLOT_URI = "@voxel51/dashboard/configure_plot"
 PLOT_DATA_CACHE_TTL = 60 * 60  # 1 hour
+LIST_DATASETS_CACHE_TTL = 60 * 60  # 1 hour
+
+
+def list_datasets_cache_key_fn(ctx):
+    """Cache key function for list_datasets - no parameters needed."""
+    return ["list_datasets"]
+
+
+@execution_cache(
+    ttl=LIST_DATASETS_CACHE_TTL,
+    key_fn=list_datasets_cache_key_fn,
+    jwt_scoped=True,
+    residency="ephemeral",
+)
+def list_datasets_cached(ctx):
+    """Cached version of fo.list_datasets to improve performance."""
+    return fo.list_datasets()
 
 
 class DashboardPanel(foo.Panel):
@@ -306,7 +323,7 @@ class ConfigurePlot(foo.Operator):
         """Get list of available datasets for multi-dataset selection."""
         try:
             # Get all available datasets
-            datasets = fo.list_datasets()
+            datasets = list_datasets_cached(ctx)
             return datasets
         except:
             # Fallback to current dataset only
@@ -872,7 +889,7 @@ class DashboardState(object):
         """Get list of available datasets for multi-dataset selection."""
         try:
             # Get all available datasets
-            datasets = fo.list_datasets()
+            datasets = list_datasets_cached(ctx)
             return datasets
         except:
             # Fallback to current dataset only
