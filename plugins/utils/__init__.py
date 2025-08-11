@@ -1726,7 +1726,7 @@ class ComputeMetadata(foo.Operator):
 def _compute_metadata_inputs(ctx, inputs):
     # @todo can remove this if we require `fiftyone>=1.8.0`
     if Version(foc.VERSION) >= Version("1.8.0"):
-        target = input_utils.resolve_target_view_inputs(
+        target = input_utils.resolve_target_view_input(
             ctx, inputs, action_description="Compute metadata for"
         )
         target_view = ctx.target_view()
