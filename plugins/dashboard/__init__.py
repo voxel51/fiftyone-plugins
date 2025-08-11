@@ -109,6 +109,17 @@ class DashboardPanel(foo.Panel):
         update_on_change = result.get("update_on_change", None)
         with DashboardState(ctx) as dashboard_state:
             name = result.get("name", dashboard_state.get_next_item_id())
+            # Convert dataset_mode to use_multiple_datasets and selected_datasets
+            dataset_mode = result.get("dataset_mode", "this_dataset")
+            use_multiple_datasets = dataset_mode in [
+                "multiple_datasets",
+                "all_datasets",
+            ]
+            selected_datasets = result.get("selected_datasets", [])
+
+            if dataset_mode == "all_datasets":
+                selected_datasets = ["all"]
+
             item = DashboardPlotItem(
                 name=name,
                 type=plot_type,
@@ -125,10 +136,8 @@ class DashboardPanel(foo.Panel):
                 order=result.get("order", "alphabetical"),
                 reverse=result.get("reverse", False),
                 limit=result.get("limit", None),
-                use_multiple_datasets=result.get(
-                    "use_multiple_datasets", False
-                ),
-                selected_datasets=result.get("selected_datasets", []),
+                use_multiple_datasets=use_multiple_datasets,
+                selected_datasets=selected_datasets,
             )
 
             if edit:
@@ -178,7 +187,7 @@ class DashboardPanel(foo.Panel):
         plot_id = ctx.params.get("relative_path")
         dashboard_state = DashboardState(ctx)
         item = dashboard_state.get_item(plot_id)
-        if item.use_code:
+        if not item.is_interactive:
             return
 
         x_field = item.x_field
@@ -202,6 +211,7 @@ class DashboardPanel(foo.Panel):
             range = ctx.params.get("range")
             if range:
                 min_val, max_val = range
+                print(min_val, max_val)
                 if _check_for_isoformat(min_val):
                     x_data = dashboard_state.load_plot_data(item.name)["x"]
                     x_datetime = [datetime.fromisoformat(x) for x in x_data]
@@ -236,7 +246,7 @@ class DashboardPanel(foo.Panel):
         plot_id = ctx.params.get("relative_path")
         dashboard_state = DashboardState(ctx)
         item = dashboard_state.get_item(plot_id)
-        if item.use_code or item.type == PlotType.PIE:
+        if not item.is_interactive or item.type == PlotType.PIE:
             return
 
         if item.type == PlotType.SCATTER or item.type == PlotType.LINE:
@@ -398,16 +408,35 @@ class ConfigurePlot(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        # Multi-dataset support controls
-        inputs.bool(
-            "use_multiple_datasets",
-            default=False,
-            label="Query multiple datasets",
-            description="Enable to query data from multiple datasets",
+        # Dataset selection tabs
+        dataset_mode_choices = types.TabsView()
+        dataset_mode_choices.add_choice(
+            "this_dataset",
+            label="This Dataset",
+            description="Query data from the current dataset only",
+        )
+        dataset_mode_choices.add_choice(
+            "multiple_datasets",
+            label="Multiple Datasets",
+            description="Query data from specific datasets",
+        )
+        dataset_mode_choices.add_choice(
+            "all_datasets",
+            label="All Datasets",
+            description="Query data from all available datasets",
         )
 
-        use_multiple_datasets = ctx.params.get("use_multiple_datasets", False)
-        if use_multiple_datasets:
+        inputs.enum(
+            "dataset_mode",
+            values=dataset_mode_choices.values(),
+            view=dataset_mode_choices,
+            default="this_dataset",
+            required=True,
+        )
+
+        dataset_mode = ctx.params.get("dataset_mode", "this_dataset")
+
+        if dataset_mode == "multiple_datasets":
             available_datasets = self.get_available_datasets(ctx)
             dataset_choices = types.AutocompleteView(
                 label="Datasets",
@@ -415,13 +444,6 @@ class ConfigurePlot(foo.Operator):
                 space=6,
                 allow_user_input=False,
                 allow_duplicates=False,
-            )
-
-            # Add "All datasets" option
-            dataset_choices.add_choice(
-                "all",
-                label="All datasets",
-                description="Query all available datasets",
             )
 
             # Add individual datasets
@@ -438,7 +460,7 @@ class ConfigurePlot(foo.Operator):
                 view=dataset_choices,
                 required=True,
                 label="Select datasets",
-                description="Choose which datasets to query (select 'All datasets' to query all)",
+                description="Choose which datasets to query",
             )
 
         plot_choices = types.Choices(label="Plot type")
@@ -486,7 +508,7 @@ class ConfigurePlot(foo.Operator):
                 label="Plot title",
                 description="A title to display above the plot",
             )
-            if not use_multiple_datasets:
+            if dataset_mode == "this_dataset":
                 inputs.bool(
                     "use_code",
                     default=False,
@@ -600,6 +622,17 @@ class ConfigurePlot(foo.Operator):
             )
             preview_config = plotly_layout_and_config.get("config", {})
             preview_layout = plotly_layout_and_config.get("layout", {})
+            # Convert dataset_mode to use_multiple_datasets and selected_datasets for preview
+            dataset_mode = ctx.params.get("dataset_mode", "this_dataset")
+            use_multiple_datasets = dataset_mode in [
+                "multiple_datasets",
+                "all_datasets",
+            ]
+            selected_datasets = ctx.params.get("selected_datasets", [])
+
+            if dataset_mode == "all_datasets":
+                selected_datasets = ["all"]
+
             item = DashboardPlotItem.from_dict(
                 {
                     "name": "plot_preview",
@@ -615,12 +648,8 @@ class ConfigurePlot(foo.Operator):
                     "order": ctx.params.get("order", "alphabetical"),
                     "reverse": ctx.params.get("reverse", False),
                     "limit": ctx.params.get("limit", None),
-                    "use_multiple_datasets": ctx.params.get(
-                        "use_multiple_datasets", False
-                    ),
-                    "selected_datasets": ctx.params.get(
-                        "selected_datasets", []
-                    ),
+                    "use_multiple_datasets": use_multiple_datasets,
+                    "selected_datasets": selected_datasets,
                 }
             )
 
@@ -645,7 +674,9 @@ class ConfigurePlot(foo.Operator):
 
         is_edit = ctx.params.get("name", None) is not None
         submit_button_label = "Update plot" if is_edit else "Create plot"
-        prompt = types.PromptView(submit_button_label=submit_button_label)
+        prompt = types.PromptView(
+            submit_button_label=submit_button_label, label="Configure plot"
+        )
 
         return types.Property(inputs, view=prompt)
 
@@ -661,18 +692,54 @@ class DashboardPlotProperty(types.Property):
         name = item.name
         label = item.label
         plot_config = item.config
-        plot_layout = item.layout
+        plot_layout = item.layout.copy() if item.layout else {}
         x_field = item.x_field
         y_field = item.y_field
         type = types.Object()
-        view = types.PlotlyView(
-            config=plot_config,
-            layout=plot_layout,
-            on_click=on_click_plot,
-            on_selected=on_plot_select,
-            x_data_source=x_field,
-            y_data_source=y_field,
-        )
+
+        # Add visual indicator for non-interactive plots
+        if not item.is_interactive:
+            # Add a subtle annotation to indicate the plot is read-only
+            if "annotations" not in plot_layout:
+                plot_layout["annotations"] = []
+
+            plot_layout["annotations"].append(
+                {
+                    "text": "Read-only (multi-dataset)",
+                    "showarrow": False,
+                    "xref": "paper",
+                    "yref": "paper",
+                    "x": 0.02,
+                    "y": 0.98,
+                    "xanchor": "left",
+                    "yanchor": "top",
+                    "font": {"size": 10, "color": "gray"},
+                    "bgcolor": "rgba(255, 255, 255, 0.8)",
+                    "bordercolor": "gray",
+                    "borderwidth": 1,
+                    "borderpad": 4,
+                }
+            )
+
+        # Only enable interactivity if the plot is interactive
+        if item.is_interactive:
+            view = types.PlotlyView(
+                config=plot_config,
+                layout=plot_layout,
+                on_click=on_click_plot,
+                on_selected=on_plot_select,
+                x_data_source=x_field,
+                y_data_source=y_field,
+            )
+        else:
+            # Disable interactivity for multi-dataset and custom code plots
+            view = types.PlotlyView(
+                config=plot_config,
+                layout=plot_layout,
+                x_data_source=x_field,
+                y_data_source=y_field,
+            )
+
         super().__init__(type, view=view)
         self.name = name
         self.label = label
@@ -750,8 +817,29 @@ class DashboardPlotItem(object):
         raw_params = self.raw_params or {}
         return raw_params.get("plot_title", self.name)
 
+    @property
+    def is_interactive(self):
+        """Determine if the plot should be interactive."""
+        # Disable interactivity for multi-dataset plots and custom code plots
+        return not self.use_multiple_datasets and not self.use_code
+
     def to_configure_plot_params(self):
-        return {**self.raw_params, "name": self.name}
+        params = {**self.raw_params, "name": self.name}
+
+        # Convert old format to new format for editing
+        if "use_multiple_datasets" in params:
+            if params["use_multiple_datasets"]:
+                if "all" in self.selected_datasets:
+                    params["dataset_mode"] = "all_datasets"
+                else:
+                    params["dataset_mode"] = "multiple_datasets"
+            else:
+                params["dataset_mode"] = "this_dataset"
+
+            # Remove old parameter
+            params.pop("use_multiple_datasets", None)
+
+        return params
 
     def to_dict(self):
         return {
@@ -924,17 +1012,28 @@ class DashboardState(object):
 
     def get_union_view(self, dataset_names):
         dataset_unions = []
+        current_dataset_name = self.ctx.dataset.name
         for dataset_name in dataset_names:
-            dataset_collection = fo.load_dataset(
-                dataset_name
-            )._sample_collection_name
-            dataset_unions.append(
-                {
-                    "$unionWith": {
-                        "coll": dataset_collection,
+            if dataset_name == current_dataset_name:
+                continue
+            try:
+                dataset_collection = fo.load_dataset(
+                    dataset_name
+                )._sample_collection_name
+                dataset_unions.append(
+                    {
+                        "$unionWith": {
+                            "coll": dataset_collection,
+                        }
                     }
-                }
-            )
+                )
+            except Exception:
+                # Skip datasets that fail to load (e.g., deleted datasets)
+                continue
+
+        # If no datasets could be loaded, return the original view
+        if not dataset_unions:
+            return self.view
 
         return self.view.add_stage(fo.Mongo(pipeline=dataset_unions))
 
@@ -1013,6 +1112,10 @@ class DashboardState(object):
         counts = np.asarray(counts)
         edges = np.asarray(edges)
 
+        # Handle case where no data is available
+        if len(counts) == 0 or np.sum(counts) == 0:
+            return {"x": [], "y": [], "type": "bar"}
+
         left_edges = edges[:-1]
         widths = edges[1:] - edges[:-1]
 
@@ -1088,6 +1191,11 @@ class DashboardState(object):
 
         values = list(counts.values())
         keys = list(counts.keys())
+
+        # Handle case where no data is available
+        if not values or np.sum(values) == 0:
+            return {"values": [], "labels": [], "type": "pie"}
+
         total = np.sum(values)
         factor = 100.0 / total
         factored_values = [v * factor for v in values]
@@ -1144,8 +1252,9 @@ class DashboardState(object):
         for name in dataset_names:
             try:
                 datasets.append(fo.load_dataset(name))
-            except:
-                pass
+            except Exception:
+                # Skip datasets that fail to load (e.g., deleted datasets)
+                continue
         return datasets
 
     def aggregate_data_from_datasets(self, datasets, aggregation_func):
