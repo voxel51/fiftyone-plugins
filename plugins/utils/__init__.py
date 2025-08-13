@@ -23,7 +23,6 @@ import fiftyone.core.media as fom
 import fiftyone.core.metadata as fomm
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
-from fiftyone.operators import input_utils
 import fiftyone.operators.types as types
 import fiftyone.utils.image as foui
 
@@ -1726,9 +1725,12 @@ class ComputeMetadata(foo.Operator):
 def _compute_metadata_inputs(ctx, inputs):
     # @todo can remove this if we require `fiftyone>=1.8.0`
     if Version(foc.VERSION) >= Version("1.8.0"):
-        target = input_utils.resolve_target_view_input(
-            ctx, inputs, action_description="Compute metadata for"
+        target_prop = inputs.view_target(
+            ctx,
+            action_description="Compute metadata for",
+            allow_selected_labels=True,
         )
+        target = ctx.params.get("target", target_prop.default)
         target_view = ctx.target_view()
     else:
         has_view = ctx.view != ctx.dataset.view()
@@ -1764,13 +1766,12 @@ def _compute_metadata_inputs(ctx, inputs):
                 default=default_target,
                 view=target_choices,
             )
-
         target = ctx.params.get("target", default_target)
         target_view = _get_target_view(ctx, target)
 
-    if target == "SELECTED_SAMPLES":
+    if target == foo.constants.ViewTarget.SELECTED_SAMPLES:
         target_str = "selection"
-    elif target == "CURRENT_VIEW":
+    elif target == foo.constants.ViewTarget.SELECTED_LABELS:
         target_str = "current view"
     else:
         target_str = "dataset"
