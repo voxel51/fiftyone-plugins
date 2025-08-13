@@ -180,6 +180,64 @@ fob.compute_hardness(dataset_or_view, label_field, ...)
 
 where the operator's form allows you to configure all relevant parameters.
 
+### find_exact_duplicates + deduplicate_exact_duplicates
+
+You can use these operators to detect and delete samples with exact duplicate
+media in a dataset.
+
+The `find_exact_duplicates` operator is essentially a wrapper around
+[compute_exact_duplicates()](https://docs.voxel51.com/api/fiftyone.brain.html#fiftyone.brain.compute_exact_duplicates):
+
+```py
+import fiftyone.brain as fob
+
+results = fob.compute_exact_duplicates(dataset_or_view)
+print(results)
+```
+
+Executing this operator will create two saved views on your dataset:
+
+-   `exact duplicates`: a view that contains all samples whose media is an
+    exact duplicate of one or more other samples
+-   `representatives of exact duplicates`: a view that contains one
+    representative sample from each group of exact duplicates
+
+Executing the `deduplicate_exact_duplicates` operator will delete all of the
+exact duplicate samples from the `exact duplicates` view **except** the one
+representiatve from each group in the `representatives of exact duplicates`
+view.
+
+### find_near_duplicates + deduplicate_near_duplicates
+
+You can use these operators to detect and delete near duplicate samples in a
+dataset.
+
+The `find_near_duplicates` operator is essentially a wrapper around
+[compute_near_duplicates()](https://docs.voxel51.com/api/fiftyone.brain.html#fiftyone.brain.compute_near_duplicates):
+
+```py
+import fiftyone.brain as fob
+
+results = fob.compute_near_duplicates(dataset_or_view, threshold=threshold, ...)
+print(results)
+```
+
+where the operator's form allows you to configure the embeddings to use to
+compute near duplicates along with an appropriate distance threshold to use to
+detect duplicates in embeddings space.
+
+Executing this operator will create two saved views on your dataset:
+
+-   `near duplicates`: a view that contains all samples that are near
+    duplicates of one or more other samples
+-   `representatives of near duplicates`: a view that contains one
+    representative sample from each group of near duplicates
+
+Executing the `deduplicate_near_duplicates` operator will delete all of the
+near duplicate samples from the `near duplicates` view **except** the one
+representiatve from each group in the `representatives of near duplicates`
+view.
+
 ### get_brain_info
 
 You can use this operator to get information about brain runs.

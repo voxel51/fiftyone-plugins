@@ -1784,6 +1784,417 @@ def _get_target_view(ctx, target):
     return ctx.view
 
 
+class FindExactDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="find_exact_duplicates",
+            label="Find exact duplicates",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            description="Find exact duplicate media",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        find_exact_duplicates_inputs(ctx, inputs)
+
+        notice = types.Notice(
+            label=(
+                "Executing this method will create two saved views:\n\n"
+                "`exact duplicates`: all samples whose media is an exact duplicate of one or more other samples\n\n"
+                "`representatives of exact duplicates`: one representative sample from each group of exact duplicates"
+            )
+        )
+        inputs.view("notice", notice)
+
+        view = types.View(label="Find exact duplicates")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        response = find_exact_duplicates(ctx)
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        return response
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str(
+            "num_total_dups",
+            label="Number of samples with exact duplicates",
+        )
+        outputs.str(
+            "num_unique_dups",
+            label="Number of exact duplicate groupings",
+        )
+        view = types.View(label="Exact duplicate results")
+        return types.Property(outputs, view=view)
+
+
+def find_exact_duplicates_inputs(ctx, inputs):
+    get_target_view(ctx, inputs)
+
+
+def find_exact_duplicates(ctx):
+    target = ctx.params.get("target", None)
+
+    dataset = ctx.dataset
+    target_view = _get_target_view(ctx, target)
+
+    duplicates_dict = fob.compute_exact_duplicates(target_view)
+
+    rep_ids = []
+    dup_ids = []
+    for rep_id, neighbor_ids in duplicates_dict.items():
+        rep_ids.append(rep_id)
+        dup_ids.append(rep_id)
+        dup_ids.extend(neighbor_ids)
+
+    dups_view = dataset.select(dup_ids, ordered=True)
+    reps_view = dataset.select(rep_ids)
+
+    dataset.save_view("exact duplicates", dups_view, overwrite=True)
+    dataset.save_view(
+        "representatives of exact duplicates", reps_view, overwrite=True
+    )
+
+    return {
+        "num_total_dups": len(dup_ids),
+        "num_unique_dups": len(rep_ids),
+    }
+
+
+class DeduplicateExactDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="deduplicate_exact_duplicates",
+            label="Deduplicate exact duplicates",
+            description=(
+                "Delete all but one copy from each group of exact duplicates"
+            ),
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        dataset = ctx.dataset
+        if dataset.has_saved_view("exact duplicates"):
+            dups_view = dataset.load_saved_view("exact duplicates")
+            reps_view = dataset.load_saved_view(
+                "representatives of exact duplicates"
+            )
+
+            warning = types.Warning(
+                label=(
+                    f"Your last exact duplicates scan detected {len(dups_view)} "
+                    f"exact duplicates across {len(reps_view)} groupings. "
+                    "Executing this operator will delete all but one sample "
+                    "from each group."
+                )
+            )
+            inputs.view("warning", warning)
+        else:
+            deduplicate_exact_duplicates_inputs(ctx, inputs)
+
+            warning = types.Warning(
+                label=(
+                    "Executing this operator will detect exact duplicate "
+                    "samples and then delete all but one copy from each group."
+                    "\n\n"
+                    "If you wish to detect exact duplicates without deleting "
+                    "them, use the `find_exact_duplicates` operator instead."
+                )
+            )
+            inputs.view("warning", warning)
+
+        view = types.View(label="Deduplicate exact duplicates")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        deduplicate_exact_duplicates(ctx)
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+
+def deduplicate_exact_duplicates_inputs(ctx, inputs):
+    get_target_view(ctx, inputs)
+
+
+def deduplicate_exact_duplicates(ctx):
+    dataset = ctx.dataset
+
+    if not dataset.has_saved_view("exact duplicates"):
+        find_exact_duplicates(ctx)
+
+    dups_view = dataset.load_saved_view("exact duplicates")
+    reps_view = dataset.load_saved_view("representatives of exact duplicates")
+
+    repr_ids = set(reps_view.values("id"))
+    del_sample_ids = [
+        _id for _id in dups_view.values("id") if not _id in repr_ids
+    ]
+
+    dataset.delete_samples(del_sample_ids)
+
+    dataset.delete_saved_view("exact duplicates")
+    dataset.delete_saved_view("representatives of exact duplicates")
+
+
+class FindNearDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="find_near_duplicates",
+            label="Find near duplicates",
+            description="Find near duplicates",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        find_near_duplicates_inputs(ctx, inputs)
+
+        notice = types.Notice(
+            label=(
+                "Executing this method will create two saved views:\n\n"
+                "`near duplicates`: all samples who are near duplicate of one or more other samples\n\n"
+                "`representatives of near duplicates`: one representative sample from each group of near duplicates"
+            )
+        )
+        inputs.view("notice", notice)
+
+        view = types.View(label="Find near duplicates")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        response = find_near_duplicates(ctx)
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        return response
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.str(
+            "num_total_dups",
+            label="Number of samples with near duplicates",
+        )
+        outputs.str(
+            "num_unique_dups",
+            label="Number of near duplicate groupings",
+        )
+        view = types.View(label="Near duplicate results")
+        return types.Property(outputs, view=view)
+
+
+def find_near_duplicates_inputs(ctx, inputs):
+    target_view = get_target_view(ctx, inputs)
+
+    similarity_runs = ctx.dataset.list_brain_runs(type="similarity")
+    if similarity_runs:
+        sim_choices = types.Dropdown(label="Similarity index")
+        for sim_key in similarity_runs:
+            sim_choices.add_choice(sim_key, label=sim_key)
+
+        inputs.enum(
+            "similarity_index",
+            sim_choices.values(),
+            label="Similarity index",
+            description=(
+                "An optional existing similarity index to use to detect near "
+                "duplicates"
+            ),
+            default=None,
+            required=False,
+            view=sim_choices,
+        )
+
+    similarity_index = ctx.params.get("similarity_index", None)
+
+    if similarity_index is None:
+        roi_fields = _get_label_fields(
+            target_view,
+            (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines),
+        )
+
+        roi_field_choices = types.DropdownView()
+        for field_name in sorted(roi_fields):
+            roi_field_choices.add_choice(field_name, label=field_name)
+
+        inputs.str(
+            "roi_field",
+            label="ROI field",
+            description=(
+                "An optional sample field defining a region of interest "
+                "within each image to use to compute embeddings"
+            ),
+            view=roi_field_choices,
+        )
+
+        roi_field = ctx.params.get("roi_field", None)
+
+        get_embeddings(ctx, inputs, target_view, roi_field)
+
+    inputs.float(
+        "threshold",
+        default=0.3,
+        label="Distance threshold",
+        description=(
+            "A distance threshold for determining near duplicates in "
+            "embedding space"
+        ),
+    )
+
+
+def find_near_duplicates(ctx):
+    target = ctx.params.get("target", None)
+    threshold = ctx.params.get("threshold", 0.3)
+    similarity_index = ctx.params.get("similarity_index", None)
+    roi_field = ctx.params.get("roi_field", None)
+    embeddings = ctx.params.get("embeddings", None) or None
+    model = ctx.params.get("model", None) or None
+    batch_size = ctx.params.get("batch_size", None)
+    num_workers = ctx.params.get("num_workers", None)
+    skip_failures = ctx.params.get("skip_failures", True)
+
+    # No multiprocessing allowed when running synchronously
+    if not ctx.delegated:
+        num_workers = 0
+
+    dataset = ctx.dataset
+    target_view = _get_target_view(ctx, target)
+
+    index = fob.compute_near_duplicates(
+        samples=target_view,
+        threshold=threshold,
+        similarity_index=similarity_index,
+        roi_field=roi_field,
+        embeddings=embeddings,
+        model=model,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        skip_failures=skip_failures,
+    )
+
+    dups_view = index.duplicates_view()
+
+    repr_ids = list(index.neighbors_map.keys())
+    reps_view = dataset.select(repr_ids)
+
+    dataset.save_view("near duplicates", dups_view, overwrite=True)
+    dataset.save_view(
+        "representatives of near duplicates", reps_view, overwrite=True
+    )
+
+    return {
+        "num_total_dups": len(dups_view),
+        "num_unique_dups": len(repr_ids),
+    }
+
+
+class DeduplicateNearDuplicates(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="deduplicate_near_duplicates",
+            label="Deduplicate near duplicates",
+            description=(
+                "Delete all but one copy from each group of near duplicates"
+            ),
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        dataset = ctx.dataset
+        if dataset.has_saved_view("near duplicates"):
+            dups_view = dataset.load_saved_view("near duplicates")
+            reps_view = dataset.load_saved_view(
+                "representatives of near duplicates"
+            )
+
+            warning = types.Warning(
+                label=(
+                    f"Your last near duplicates scan detected {len(dups_view)} "
+                    f"near duplicates across {len(reps_view)} groupings. "
+                    "Executing this operator will delete all but one sample "
+                    "from each group."
+                )
+            )
+            inputs.view("warning", warning)
+        else:
+            find_near_duplicates_inputs(ctx, inputs)
+
+            warning = types.Warning(
+                label=(
+                    "Executing this operator will detect near duplicate "
+                    "samples and then delete all but one copy from each group "
+                    "from your dataset."
+                    "\n\n"
+                    "If you wish to detect near duplicates without deleting "
+                    "them, use the `find_near_duplicates` operator instead."
+                )
+            )
+            inputs.view("warning", warning)
+
+        view = types.View(label="Deduplicate near duplicates")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        deduplicate_near_duplicates(ctx)
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+
+def deduplicate_near_duplicates(ctx):
+    dataset = ctx.dataset
+
+    if not dataset.has_saved_view("near duplicates"):
+        find_near_duplicates(ctx)
+
+    dups_view = dataset.load_saved_view("near duplicates")
+    reps_view = dataset.load_saved_view("representatives of near duplicates")
+
+    repr_ids = set(reps_view.values("id"))
+    del_sample_ids = [
+        _id for _id in dups_view.values("id") if not _id in repr_ids
+    ]
+
+    dataset.delete_samples(del_sample_ids)
+
+    dataset.delete_saved_view("near duplicates")
+    dataset.delete_saved_view("representatives of near duplicates")
+
+
 class GetBrainInfo(foo.Operator):
     @property
     def config(self):
@@ -2232,6 +2643,10 @@ def register(p):
     p.register(ComputeUniqueness)
     p.register(ComputeMistakenness)
     p.register(ComputeHardness)
+    p.register(FindExactDuplicates)
+    p.register(DeduplicateExactDuplicates)
+    p.register(FindNearDuplicates)
+    p.register(DeduplicateNearDuplicates)
     p.register(GetBrainInfo)
     p.register(LoadBrainView)
     p.register(RenameBrainRun)
