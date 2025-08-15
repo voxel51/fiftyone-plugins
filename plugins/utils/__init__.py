@@ -1635,6 +1635,7 @@ class ComputeMetadata(foo.Operator):
             allow_delegated_execution=True,
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
+            allow_distributed_execution=True,
             dynamic=True,
             execute_as_generator=True,
         )
@@ -1769,9 +1770,9 @@ def _compute_metadata_inputs(ctx, inputs):
         target = ctx.params.get("target", default_target)
         target_view = _get_target_view(ctx, target)
 
-    if target == foo.constants.ViewTarget.SELECTED_SAMPLES:
+    if target == "SELECTED_SAMPLES":
         target_str = "selection"
-    elif target == foo.constants.ViewTarget.SELECTED_LABELS:
+    elif target == "CURRENT_VIEW":
         target_str = "current view"
     else:
         target_str = "dataset"
