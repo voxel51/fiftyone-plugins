@@ -1635,6 +1635,7 @@ class ComputeMetadata(foo.Operator):
             allow_delegated_execution=True,
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
+            allow_distributed_execution=True,
             dynamic=True,
             execute_as_generator=True,
         )
@@ -1701,11 +1702,14 @@ class ComputeMetadata(foo.Operator):
         )
 
     def execute(self, ctx):
-        target = ctx.params.get("target", None)
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
 
-        view = _get_target_view(ctx, target)
+        # @todo can remove this if we require `fiftyone>=1.8.0`
+        if Version(foc.VERSION) >= Version("1.8.0"):
+            view = ctx.target_view()
+        else:
+            view = _get_target_view(ctx, ctx.params.get("target", None))
 
         if ctx.delegated:
             view.compute_metadata(overwrite=overwrite, num_workers=num_workers)
@@ -1720,42 +1724,51 @@ class ComputeMetadata(foo.Operator):
 
 
 def _compute_metadata_inputs(ctx, inputs):
-    has_view = ctx.view != ctx.dataset.view()
-    has_selected = bool(ctx.selected)
-    default_target = None
-    if has_view or has_selected:
-        target_choices = types.RadioGroup()
-        target_choices.add_choice(
-            "DATASET",
-            label="Entire dataset",
-            description="Compute metadata for the entire dataset",
+    # @todo can remove this if we require `fiftyone>=1.8.0`
+    if Version(foc.VERSION) >= Version("1.8.0"):
+        target_prop = inputs.view_target(
+            ctx,
+            action_description="Compute metadata for",
+            allow_selected_labels=True,
         )
-
-        if has_view:
+        target = ctx.params.get("target", target_prop.default)
+        target_view = ctx.target_view()
+    else:
+        has_view = ctx.view != ctx.dataset.view()
+        has_selected = bool(ctx.selected)
+        default_target = None
+        if has_view or has_selected:
+            target_choices = types.RadioGroup()
             target_choices.add_choice(
-                "CURRENT_VIEW",
-                label="Current view",
-                description="Compute metadata for the current view",
+                "DATASET",
+                label="Entire dataset",
+                description="Compute metadata for the entire dataset",
             )
-            default_target = "CURRENT_VIEW"
 
-        if has_selected:
-            target_choices.add_choice(
-                "SELECTED_SAMPLES",
-                label="Selected samples",
-                description="Compute metadata for the selected samples",
+            if has_view:
+                target_choices.add_choice(
+                    "CURRENT_VIEW",
+                    label="Current view",
+                    description="Compute metadata for the current view",
+                )
+                default_target = "CURRENT_VIEW"
+
+            if has_selected:
+                target_choices.add_choice(
+                    "SELECTED_SAMPLES",
+                    label="Selected samples",
+                    description="Compute metadata for the selected samples",
+                )
+                default_target = "SELECTED_SAMPLES"
+
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                default=default_target,
+                view=target_choices,
             )
-            default_target = "SELECTED_SAMPLES"
-
-        inputs.enum(
-            "target",
-            target_choices.values(),
-            default=default_target,
-            view=target_choices,
-        )
-
-    target = ctx.params.get("target", default_target)
-    target_view = _get_target_view(ctx, target)
+        target = ctx.params.get("target", default_target)
+        target_view = _get_target_view(ctx, target)
 
     if target == "SELECTED_SAMPLES":
         target_str = "selection"
