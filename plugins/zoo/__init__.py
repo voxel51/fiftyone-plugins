@@ -610,7 +610,11 @@ class ApplyZooModel(foo.Operator):
         output_dir = ctx.params.get("output_dir", None)
         rel_dir = ctx.params.get("rel_dir", None)
 
-        target_view = _get_target_view(ctx, target)
+        # @todo can remove this if we require `fiftyone>=1.8.0`
+        if Version(foc.VERSION) >= Version("1.8.0"):
+            target_view = ctx.target_view()
+        else:
+            target_view = _get_target_view(ctx, target)
 
         # @todo can remove this if we require `fiftyone>=1.4.0`
         kwargs = {}
@@ -730,42 +734,51 @@ the model from, which can be:
 
 
 def _apply_zoo_model_inputs(ctx, inputs):
-    has_view = ctx.view != ctx.dataset.view()
-    has_selected = bool(ctx.selected)
-    default_target = None
-    if has_view or has_selected:
-        target_choices = types.RadioGroup()
-        target_choices.add_choice(
-            "DATASET",
-            label="Entire dataset",
-            description="Export the entire dataset",
+    # @todo can remove this if we require `fiftyone>=1.8.0`
+    if Version(foc.VERSION) >= Version("1.8.0"):
+        target_prop = inputs.view_target(
+            ctx,
+            action_description="Apply model to",
+            allow_selected_labels=True,
         )
-
-        if has_view:
+        target_view = ctx.target_view()
+    else:
+        has_view = ctx.view != ctx.dataset.view()
+        has_selected = bool(ctx.selected)
+        default_target = None
+        if has_view or has_selected:
+            target_choices = types.RadioGroup()
             target_choices.add_choice(
-                "CURRENT_VIEW",
-                label="Current view",
-                description="Export the current view",
+                "DATASET",
+                label="Entire dataset",
+                description="Apply model to the entire dataset",
             )
-            default_target = "CURRENT_VIEW"
 
-        if has_selected:
-            target_choices.add_choice(
-                "SELECTED_SAMPLES",
-                label="Selected samples",
-                description="Export only the selected samples",
+            if has_view:
+                target_choices.add_choice(
+                    "CURRENT_VIEW",
+                    label="Current view",
+                    description="Apply model to the current view",
+                )
+                default_target = "CURRENT_VIEW"
+
+            if has_selected:
+                target_choices.add_choice(
+                    "SELECTED_SAMPLES",
+                    label="Selected samples",
+                    description="Apply model to only the selected samples",
+                )
+                default_target = "SELECTED_SAMPLES"
+
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                default=default_target,
+                view=target_choices,
             )
-            default_target = "SELECTED_SAMPLES"
 
-        inputs.enum(
-            "target",
-            target_choices.values(),
-            default=default_target,
-            view=target_choices,
-        )
-
-    target = ctx.params.get("target", default_target)
-    target_view = _get_target_view(ctx, target)
+        target = ctx.params.get("target", default_target)
+        target_view = _get_target_view(ctx, target)
 
     if _supports_remote_models():
         tab_choices = types.TabsView()
