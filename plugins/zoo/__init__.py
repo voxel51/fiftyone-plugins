@@ -584,6 +584,7 @@ class ApplyZooModel(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            allow_distributed_execution=True,
         )
 
     def resolve_input(self, ctx):
