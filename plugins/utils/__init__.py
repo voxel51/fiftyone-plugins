@@ -1704,6 +1704,8 @@ class ComputeMetadata(foo.Operator):
     def execute(self, ctx):
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
+        skip_failures = ctx.params.get("skip_failures", True)
+        warn_failures = ctx.params.get("warn_failures", True)
 
         # @todo can remove this if we require `fiftyone>=1.8.0`
         if Version(foc.VERSION) >= Version("1.8.0"):
@@ -1712,10 +1714,20 @@ class ComputeMetadata(foo.Operator):
             view = _get_target_view(ctx, ctx.params.get("target", None))
 
         if ctx.delegated:
-            view.compute_metadata(overwrite=overwrite, num_workers=num_workers)
+            view.compute_metadata(
+                overwrite=overwrite,
+                num_workers=num_workers,
+                skip_failures=skip_failures,
+                warn_failures=warn_failures,
+            )
         else:
             for update in _compute_metadata_generator(
-                ctx, view, overwrite=overwrite, num_workers=num_workers
+                ctx,
+                view,
+                overwrite=overwrite,
+                num_workers=num_workers,
+                skip_failures=skip_failures,
+                warn_failures=warn_failures,
             ):
                 yield update
 
@@ -1808,6 +1820,25 @@ def _compute_metadata_inputs(ctx, inputs):
         view=types.CheckboxView(),
     )
 
+    inputs.bool(
+        "skip_failures",
+        default=True,
+        label="Skip failures?",
+        description=(
+            "Whether to gracefully continue without raising an error "
+            "if metadata cannot be computed for a sample."
+        ),
+    )
+    inputs.bool(
+        "warn_failures",
+        default=True,
+        label="Warn failures?",
+        description=(
+            "whether to log a warning if metadata cannot be computed "
+            "for a sample"
+        ),
+    )
+
     if n == 0:
         return
 
@@ -1823,7 +1854,12 @@ def _compute_metadata_inputs(ctx, inputs):
 
 
 def _compute_metadata_generator(
-    ctx, sample_collection, overwrite=False, num_workers=None
+    ctx,
+    sample_collection,
+    overwrite=False,
+    num_workers=None,
+    skip_failures=True,
+    warn_failures=True,
 ):
     # @todo can switch to this if we require `fiftyone>=0.22.2`
     # num_workers = fou.recommend_thread_pool_workers(num_workers)
@@ -1873,6 +1909,22 @@ def _compute_metadata_generator(
                     )
     finally:
         sample_collection.set_values("metadata", values, key_field="id")
+
+    if skip_failures and not warn_failures:
+        return
+
+    num_missing = len(sample_collection.exists("metadata", False)) + 1
+    if num_missing > 0:
+        msg = (
+            "Failed to populate metadata on %d samples. "
+            + 'Use `dataset.exists("metadata", False)` to retrieve them'
+        ) % num_missing
+
+        if skip_failures:
+            yield ctx.ops.notify(msg, variant="warning")
+        else:
+            yield ctx.ops.notify(msg, variant="error")
+            raise ValueError(msg)
 
 
 def _do_compute_metadata(args):
