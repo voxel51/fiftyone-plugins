@@ -1635,6 +1635,7 @@ class ComputeMetadata(foo.Operator):
             allow_delegated_execution=True,
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
+            allow_distributed_execution=True,
             dynamic=True,
             execute_as_generator=True,
         )
@@ -1701,17 +1702,32 @@ class ComputeMetadata(foo.Operator):
         )
 
     def execute(self, ctx):
-        target = ctx.params.get("target", None)
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
+        skip_failures = ctx.params.get("skip_failures", True)
+        warn_failures = ctx.params.get("warn_failures", True)
 
-        view = _get_target_view(ctx, target)
+        # @todo can remove this if we require `fiftyone>=1.8.0`
+        if Version(foc.VERSION) >= Version("1.8.0"):
+            view = ctx.target_view()
+        else:
+            view = _get_target_view(ctx, ctx.params.get("target", None))
 
         if ctx.delegated:
-            view.compute_metadata(overwrite=overwrite, num_workers=num_workers)
+            view.compute_metadata(
+                overwrite=overwrite,
+                num_workers=num_workers,
+                skip_failures=skip_failures,
+                warn_failures=warn_failures,
+            )
         else:
             for update in _compute_metadata_generator(
-                ctx, view, overwrite=overwrite, num_workers=num_workers
+                ctx,
+                view,
+                overwrite=overwrite,
+                num_workers=num_workers,
+                skip_failures=skip_failures,
+                warn_failures=warn_failures,
             ):
                 yield update
 
@@ -1720,42 +1736,51 @@ class ComputeMetadata(foo.Operator):
 
 
 def _compute_metadata_inputs(ctx, inputs):
-    has_view = ctx.view != ctx.dataset.view()
-    has_selected = bool(ctx.selected)
-    default_target = None
-    if has_view or has_selected:
-        target_choices = types.RadioGroup()
-        target_choices.add_choice(
-            "DATASET",
-            label="Entire dataset",
-            description="Compute metadata for the entire dataset",
+    # @todo can remove this if we require `fiftyone>=1.8.0`
+    if Version(foc.VERSION) >= Version("1.8.0"):
+        target_prop = inputs.view_target(
+            ctx,
+            action_description="Compute metadata for",
+            allow_selected_labels=True,
         )
-
-        if has_view:
+        target = ctx.params.get("target", target_prop.default)
+        target_view = ctx.target_view()
+    else:
+        has_view = ctx.view != ctx.dataset.view()
+        has_selected = bool(ctx.selected)
+        default_target = None
+        if has_view or has_selected:
+            target_choices = types.RadioGroup()
             target_choices.add_choice(
-                "CURRENT_VIEW",
-                label="Current view",
-                description="Compute metadata for the current view",
+                "DATASET",
+                label="Entire dataset",
+                description="Compute metadata for the entire dataset",
             )
-            default_target = "CURRENT_VIEW"
 
-        if has_selected:
-            target_choices.add_choice(
-                "SELECTED_SAMPLES",
-                label="Selected samples",
-                description="Compute metadata for the selected samples",
+            if has_view:
+                target_choices.add_choice(
+                    "CURRENT_VIEW",
+                    label="Current view",
+                    description="Compute metadata for the current view",
+                )
+                default_target = "CURRENT_VIEW"
+
+            if has_selected:
+                target_choices.add_choice(
+                    "SELECTED_SAMPLES",
+                    label="Selected samples",
+                    description="Compute metadata for the selected samples",
+                )
+                default_target = "SELECTED_SAMPLES"
+
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                default=default_target,
+                view=target_choices,
             )
-            default_target = "SELECTED_SAMPLES"
-
-        inputs.enum(
-            "target",
-            target_choices.values(),
-            default=default_target,
-            view=target_choices,
-        )
-
-    target = ctx.params.get("target", default_target)
-    target_view = _get_target_view(ctx, target)
+        target = ctx.params.get("target", default_target)
+        target_view = _get_target_view(ctx, target)
 
     if target == "SELECTED_SAMPLES":
         target_str = "selection"
@@ -1795,6 +1820,25 @@ def _compute_metadata_inputs(ctx, inputs):
         view=types.CheckboxView(),
     )
 
+    inputs.bool(
+        "skip_failures",
+        default=True,
+        label="Skip failures?",
+        description=(
+            "Whether to gracefully continue without raising an error "
+            "if metadata cannot be computed for a sample"
+        ),
+    )
+    inputs.bool(
+        "warn_failures",
+        default=True,
+        label="Warn failures?",
+        description=(
+            "Whether to log a warning if metadata cannot be computed "
+            "for a sample"
+        ),
+    )
+
     if n == 0:
         return
 
@@ -1810,7 +1854,12 @@ def _compute_metadata_inputs(ctx, inputs):
 
 
 def _compute_metadata_generator(
-    ctx, sample_collection, overwrite=False, num_workers=None
+    ctx,
+    sample_collection,
+    overwrite=False,
+    num_workers=None,
+    skip_failures=True,
+    warn_failures=True,
 ):
     # @todo can switch to this if we require `fiftyone>=0.22.2`
     # num_workers = fou.recommend_thread_pool_workers(num_workers)
@@ -1860,6 +1909,22 @@ def _compute_metadata_generator(
                     )
     finally:
         sample_collection.set_values("metadata", values, key_field="id")
+
+    if skip_failures and not warn_failures:
+        return
+
+    num_missing = len(sample_collection.exists("metadata", False)) + 1
+    if num_missing > 0:
+        msg = (
+            "Failed to populate metadata on %d samples. "
+            + 'Use `dataset.exists("metadata", False)` to retrieve them'
+        ) % num_missing
+
+        if skip_failures:
+            yield ctx.ops.notify(msg, variant="warning")
+        else:
+            yield ctx.ops.notify(msg, variant="error")
+            raise ValueError(msg)
 
 
 def _do_compute_metadata(args):
