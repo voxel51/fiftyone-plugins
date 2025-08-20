@@ -1826,7 +1826,7 @@ def _compute_metadata_inputs(ctx, inputs):
         label="Skip failures?",
         description=(
             "Whether to gracefully continue without raising an error "
-            "if metadata cannot be computed for a sample."
+            "if metadata cannot be computed for a sample"
         ),
     )
     inputs.bool(
@@ -1834,7 +1834,7 @@ def _compute_metadata_inputs(ctx, inputs):
         default=True,
         label="Warn failures?",
         description=(
-            "whether to log a warning if metadata cannot be computed "
+            "Whether to log a warning if metadata cannot be computed "
             "for a sample"
         ),
     )
