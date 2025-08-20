@@ -222,13 +222,20 @@ class DashboardPanel(foo.Panel):
             )
 
     def on_duplicate(self, ctx):
-        plot_id = ctx.params.get("id")
         dashboard_state = DashboardState(ctx)
-        plot_config = ctx.params.get("plot_config")
-        plot_config["name"] = dashboard_state.get_next_item_id()
+        plot_configs = ctx.params.get("plot_configs")
         with DashboardState(ctx) as dashboard_state:
-            item = DashboardPlotItem.from_dict(plot_config)
-            dashboard_state.add_plot(item)
+            for plot_config in plot_configs:
+                plot_config["name"] = dashboard_state.get_next_item_id()
+                item = DashboardPlotItem.from_dict(plot_config)
+                dashboard_state.add_plot(item)
+
+    def on_remove_items(self, ctx):
+        dashboard_state = DashboardState(ctx)
+        ids = ctx.params.get("ids")
+        with DashboardState(ctx) as dashboard_state:
+            for item_id in ids:
+                dashboard_state.remove_item(item_id)
 
     def on_save_layout(self, ctx):
         rows = ctx.params.get("rows")
@@ -343,6 +350,7 @@ class DashboardPanel(foo.Panel):
             on_remove_item=self.on_remove,
             on_edit_item=self.on_edit,
             on_duplicate_item=self.on_duplicate,
+            on_remove_items=self.on_remove_items,
             on_save_layout=self.on_save_layout,
             allow_edit=can_edit,
             allow_remove=can_edit,
