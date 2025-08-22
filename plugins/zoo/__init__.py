@@ -737,7 +737,7 @@ the model from, which can be:
 def _apply_zoo_model_inputs(ctx, inputs):
     # @todo can remove this if we require `fiftyone>=1.8.0`
     if Version(foc.VERSION) >= Version("1.8.0"):
-        target_prop = inputs.view_target(
+        inputs.view_target(
             ctx,
             action_description="Apply model to",
             allow_selected_labels=True,
@@ -1025,13 +1025,14 @@ def _apply_zoo_model_inputs(ctx, inputs):
         ),
     )
 
+    inference_string = ctx.params.get("embeddings", "PREDICTIONS").lower()
     inputs.bool(
         "skip_failures",
         default=True,
         label="Skip failures",
         description=(
             "Whether to gracefully continue without raising an error "
-            "if predictions cannot be generated for a sample"
+            f"if {inference_string} cannot be generated for a sample"
         ),
     )
 
