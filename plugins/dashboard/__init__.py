@@ -224,11 +224,47 @@ class DashboardPanel(foo.Panel):
     def on_duplicate(self, ctx):
         dashboard_state = DashboardState(ctx)
         plot_configs = ctx.params.get("plot_configs")
+        layout_data = ctx.params.get("layout")
+        auto_layout = ctx.params.get("auto_layout", True)
+        id_map = {}
+
         with DashboardState(ctx) as dashboard_state:
             for plot_config in plot_configs:
-                plot_config["name"] = dashboard_state.get_next_item_id()
+                # If the id already exists create a new one
+                original_id = plot_config.get("name")
+                if plot_config.get("name") in dashboard_state.items:
+                    new_id = dashboard_state.get_next_item_id()
+                    plot_config["name"] = new_id
+                    id_map[original_id] = new_id
+
                 item = DashboardPlotItem.from_dict(plot_config)
                 dashboard_state.add_plot(item)
+
+        # Update the dashboard config based on layout and auto_layout settings
+        if layout_data:
+            rows = None
+            cols = None
+
+            for item in layout_data:
+                if item.get("i") in id_map:
+                    item["i"] = id_map.get(item["i"], item["i"])
+
+            # Calculate grid dimensions from layout
+            if not auto_layout:
+                rows = max(
+                    item.get("y", 0) + item.get("h", 1) for item in layout_data
+                )
+                cols = max(
+                    item.get("x", 0) + item.get("w", 1) for item in layout_data
+                )
+
+            # Update the dashboard config with custom layout
+            ctx.panel.state.dashboard_config = {
+                "rows": rows,
+                "cols": cols,
+                "items": layout_data,
+                "auto_layout": auto_layout,
+            }
 
     def on_remove_items(self, ctx):
         dashboard_state = DashboardState(ctx)
