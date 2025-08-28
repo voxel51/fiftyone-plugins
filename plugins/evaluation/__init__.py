@@ -381,7 +381,7 @@ class Classification(EvaluationMethod):
     def get_parameters(self, ctx, inputs):
         _get_classes(ctx, inputs)
 
-        inputs.float(
+        inputs.str(
             "missing",
             label="Missing",
             description=(
@@ -451,7 +451,7 @@ class Detection(EvaluationMethod):
         pred_field = ctx.params["pred_field"]
         label_type, _, _ = _get_evaluation_type(ctx.dataset, pred_field)
 
-        inputs.float(
+        inputs.str(
             "missing",
             label="Missing",
             description=(
