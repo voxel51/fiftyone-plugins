@@ -1,0 +1,54 @@
+{
+    "name": "@voxel51/metageo",
+    "version": "0.1.0",
+    "description": "Metageo Plugin for FiftyOne",
+    "type": "module",
+    "main": "src/index.ts",
+    "fiftyone": {
+        "script": "dist/index.umd.js"
+    },
+    "scripts": {
+        "dev": "nodemon --watch ./src --ext js,jsx,ts,tsx --exec 'yarn build'",
+        "build": "vite build"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "@fiftyone/components": "portal:../fiftyone/app/packages/components",
+        "@fiftyone/looker": "portal:../fiftyone/app/packages/looker",
+        "@fiftyone/operators": "portal:../fiftyone/app/packages/operators",
+        "@fiftyone/plugins": "portal:../fiftyone/app/packages/plugins",
+        "@fiftyone/relay": "portal:../fiftyone/app/packages/relay",
+        "@fiftyone/state": "portal:../fiftyone/app/packages/state",
+        "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "@rollup/plugin-node-resolve": "^15.3.0",
+        "@types/node": "^22.7.6",
+        "@vitejs/plugin-react": "^4.3.2",
+        "@voxel51/fiftyone-js-plugin-build": "^2.0.0",
+        "typescript": "^5.6.3",
+        "vite": "^5.4.9",
+        "vite-plugin-externalize-deps": "^0.8.0"
+    },
+    "resolutions": {
+        "@fiftyone/fiftyone": "portal:../fiftyone/app",
+        "@fiftyone/aggregations": "portal:../fiftyone/app/packages/aggregations",
+        "@fiftyone/app": "portal:../fiftyone/app/packages/app",
+        "@fiftyone/components": "portal:../fiftyone/app/packages/components",
+        "@fiftyone/core": "portal:../fiftyone/app/packages/core",
+        "@fiftyone/dataset": "portal:../fiftyone/app/packages/dataset",
+        "FiftyOne": "portal:../fiftyone/app/packages/desktop",
+        "@fiftyone/embeddings": "portal:../fiftyone/app/packages/embeddings",
+        "@fiftyone/flashlight": "portal:../fiftyone/app/packages/flashlight",
+        "@fiftyone/looker": "portal:../fiftyone/app/packages/looker",
+        "@fiftyone/looker-3d": "portal:../fiftyone/app/packages/looker-3d",
+        "@fiftyone/map": "portal:../fiftyone/app/packages/map",
+        "@fiftyone/plugins": "portal:../fiftyone/app/packages/plugins",
+        "@fiftyone/relay": "portal:../fiftyone/app/packages/relay",
+        "@fiftyone/spaces": "portal:../fiftyone/app/packages/spaces",
+        "@fiftyone/state": "portal:../fiftyone/app/packages/state",
+        "@fiftyone/utilities": "portal:../fiftyone/app/packages/utilities"
+    }
+}

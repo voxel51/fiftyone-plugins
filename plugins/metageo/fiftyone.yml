@@ -1,0 +1,10 @@
+name: "@voxel51/metageo"
+version: "0.1.0"
+fiftyone:
+  version: "*"
+description: "Metageo: enrich geo-tagged samples with OSM/OSM-like metadata."
+panels:
+  - metageo_panel
+operators:
+  - index_grid
+  - watch_indexing
