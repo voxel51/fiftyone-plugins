@@ -8,6 +8,9 @@ import IndexingGrid from "./IndexingGrid";
 import type { CellStatus } from "./IndexingGrid";
 import { useMetageoClient } from "./useMetageoClient";
 import { metageoIndexingState } from "./state";
+import IndexConfigurationStep from "./steps/IndexConfigurationStep";
+import IndexingStep from "./steps/IndexingStep";
+import MappingStep from "./steps/MappingStep";
 import {
   Box,
   Card,
@@ -35,6 +38,11 @@ import {
   Button,
   CircularProgress,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
 } from "@mui/material";
 import {
   Map as MapIcon,
@@ -51,11 +59,15 @@ import {
   Info as InfoIcon,
   Warning as WarningIcon,
   Settings as SettingsIcon,
-  DataUsage as DataUsageIcon,
+  Analytics as DataUsageIcon,
   Refresh as RefreshIcon,
   Pause as PauseIcon,
   Code as CodeIcon,
   Add as AddIcon,
+  Delete as DeleteIcon,
+  PlayArrow as PlayArrowIcon,
+  Stop as StopIcon,
+  Replay as ReplayIcon,
 } from "@mui/icons-material";
 
 type PanelMethod = (args?: any) => Promise<any>;
@@ -509,7 +521,16 @@ export default function MetageoView(props: any) {
   const [indexingState, setIndexingState] =
     useRecoilState(metageoIndexingState);
   const [hasStarted, setHasStarted] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
+  // Step constants for clarity
+  const STEPS = {
+    INDEX_CONFIGURATION: 0,
+    INDEXING: 1,
+    MAPPING: 2,
+    ENRICH: 3,
+    SEARCH_CLEANUP: 4
+  } as const;
+
+  const [activeStep, setActiveStep] = useState<number>(STEPS.INDEX_CONFIGURATION);
   const [loading, setLoading] = useState(false);
   const [geoFieldsData, setGeoFieldsData] = useState<GeoFieldsData | null>(
     null
@@ -592,6 +613,7 @@ export default function MetageoView(props: any) {
   >([]);
   const [sampleDistributionLoading, setSampleDistributionLoading] =
     useState(false);
+  const [dropIndexDialogOpen, setDropIndexDialogOpen] = useState(false);
   const [realSampleDistribution, setRealSampleDistribution] = useState<{
     [cellId: string]: number;
   }>({});
@@ -606,23 +628,28 @@ export default function MetageoView(props: any) {
     setHasStarted(true);
   }, []);
 
-  // Load existing index if available
-  const loadExistingIndex = useCallback(async () => {
-    // Only load if we don't already have an existing index
-    if (hasExistingIndex) {
-      return;
-    }
-
+  // Load current indexing state from backend (single source of truth)
+  const loadCurrentIndexingState = useCallback(async () => {
+    console.log("🔄 loadCurrentIndexingState: Starting...");
     try {
-      const result = await client.get_existing_index();
-      console.log("Existing index check result:", result);
+      const result = await client.get_current_indexing_state();
+      console.log("🔄 loadCurrentIndexingState: Backend result:", result);
+      console.log("🔄 loadCurrentIndexingState: Result status:", result?.status);
+      console.log("🔄 loadCurrentIndexingState: Has grid cells:", result?.grid_cells?.length);
 
-      if (result?.status === "found" && result?.grid_cells?.length > 0) {
+      // Handle FiftyOne OperatorResult wrapper
+      const data = result?.result || result;
+      
+      if (data?.status === "found") {
+        // We have an indexing state - update all UI state from it
+        console.log("🔄 loadCurrentIndexingState: Found existing state, updating UI...");
         setHasExistingIndex(true);
-        setExistingIndexData(result);
+        setExistingIndexData(data);
+        setHasStarted(true); // Skip intro screen, show current state
+        console.log("🔄 loadCurrentIndexingState: Set hasStarted = true");
 
         // Load the grid data into Recoil state
-        const gridCells = result.grid_cells || [];
+        const gridCells = data.grid_cells || [];
         const cells: { [cellId: string]: any } = {};
 
         gridCells.forEach((cell: any) => {
@@ -638,10 +665,10 @@ export default function MetageoView(props: any) {
           }
         });
 
-        // Update Recoil state with existing index data
+        // Update Recoil state with current indexing data
         setIndexingState((prev) => ({
           ...prev,
-          status: "completed",
+          status: result.status || "idle",
           cells: cells,
           total_cells: result.total_cells || 0,
           active_cells: result.active_cells || 0,
@@ -649,10 +676,12 @@ export default function MetageoView(props: any) {
           failed_cells: result.failed_cells || 0,
           rate_limited_cells: result.rate_limited_cells || 0,
           total_features: result.total_features || 0,
-          progress: 100,
+          progress: result.progress || 0,
+          started_at: result.started_at,
+          last_updated: new Date().toISOString(),
         }));
 
-        // Set the bounding box and grid tiles from existing index
+        // Set the bounding box, grid tiles, and geo field from current state
         if (
           result.bbox &&
           Array.isArray(result.bbox) &&
@@ -664,32 +693,63 @@ export default function MetageoView(props: any) {
               ...prev.index,
               bbox: result.bbox,
               gridTiles: result.grid_tiles || 16,
+              indexingStatus: result.status || "idle",
+            },
+            mapping: {
+              ...prev.mapping,
+              geoField: result.geo_field || prev.mapping.geoField,
             },
           }));
         }
 
-        setSuccess(
-          `Loaded existing index: ${result.completed_cells} cells completed, ${result.total_features} features found`
-        );
+        // Update grid cells for display
+        setStepData((prev) => ({
+          ...prev,
+          index: {
+            ...prev.index,
+            gridCells: gridCells,
+          },
+        }));
+
+        // Determine which step to show based on indexing status
+        if (result.indexing_status === "completed") {
+            setActiveStep(STEPS.MAPPING); // Show Mapping step for completed index
+        } else if (result.indexing_status === "running" || result.indexing_status === "paused" || result.indexing_status === "failed") {
+                      setActiveStep(STEPS.INDEXING); // Show Index step for active/incomplete indexing
+          } else {
+            setActiveStep(STEPS.INDEX_CONFIGURATION); // Show Index Configuration step for new/unknown status
+          }
+
+        console.log("✅ Current indexing state loaded from backend");
+      } else {
+        // No indexing state found - clear everything
+        setHasExistingIndex(false);
+        setExistingIndexData(null);
+        setIndexingState((prev) => ({
+          ...prev,
+          status: "idle",
+          cells: {},
+          total_cells: 0,
+          active_cells: 0,
+          completed_cells: 0,
+          failed_cells: 0,
+          rate_limited_cells: 0,
+          total_features: 0,
+          progress: 0,
+        }));
+        console.log("ℹ️ No indexing state found - starting fresh");
       }
     } catch (err) {
-      console.error("Error loading existing index:", err);
+      console.error("Error loading current indexing state:", err);
       // Don't show error - it's normal to not have an existing index
     }
-  }, [client, setIndexingState, hasExistingIndex]);
+  }, [client, setIndexingState]);
 
-  // Check for existing index on mount - only once
+  // Load current indexing state on mount - single source of truth
   useEffect(() => {
-    // Only load on initial mount, not on every render
-    const shouldLoad = !hasExistingIndex && indexingState.status === "idle";
-    if (shouldLoad) {
-      loadExistingIndex();
-    }
+    console.log("🔄 useEffect: Loading current indexing state on mount...");
+    loadCurrentIndexingState();
   }, []); // Empty dependency array - only run once on mount
-
-  const handleNext = useCallback(() => {
-    setActiveStep((prev) => Math.min(prev + 1, 4));
-  }, []);
 
   const handleBack = useCallback(() => {
     setActiveStep((prev) => Math.max(prev - 1, 0));
@@ -699,6 +759,8 @@ export default function MetageoView(props: any) {
     setError(null);
     setSuccess(null);
   }, []);
+
+
 
   // Step 1: Index
   const handleAutoBbox = useCallback(async () => {
@@ -741,9 +803,7 @@ export default function MetageoView(props: any) {
         console.log("Setting bbox to:", actualResult?.bbox);
         return newState;
       });
-      setSuccess(
-        `Auto-detected bounding box with ${actualResult?.sample_count} samples`
-      );
+      // Auto-detection completed successfully
     } catch (err) {
       console.error("Auto-detect error:", err);
       setError(`Failed to auto-detect bounding box: ${err}`);
@@ -765,7 +825,7 @@ export default function MetageoView(props: any) {
     try {
       const result = await client.explore_tags({ bbox: stepData.index.bbox });
       setAvailableTags(result?.keys || []);
-      setSuccess(`Found ${result?.keys?.length || 0} distinct tag types`);
+              // Tags loaded successfully
     } catch (err) {
       setError(`Failed to explore tags: ${err}`);
     } finally {
@@ -783,9 +843,7 @@ export default function MetageoView(props: any) {
 
       if (actualResult?.status === "success" && actualResult?.tags) {
         setOsmTags(actualResult.tags);
-        setSuccess(
-          `Loaded ${actualResult.tags.length} OSM tags from indexed data`
-        );
+        // OSM tags loaded successfully
       } else if (actualResult?.status === "no_index") {
         setError(
           "No completed index found. Please complete the indexing step first."
@@ -890,13 +948,7 @@ export default function MetageoView(props: any) {
         },
       }));
 
-      setSuccess(
-        `Sample distribution calculated: ${
-          actualResult?.total_samples || 0
-        } samples across ${
-          actualResult?.active_cells || 0
-        } active cells. Grid ready for indexing.`
-      );
+      // Sample distribution calculated successfully
     } catch (err) {
       setError(`Failed to calculate sample distribution: ${err}`);
     } finally {
@@ -955,9 +1007,7 @@ export default function MetageoView(props: any) {
         progress: 0,
       }));
 
-      setSuccess(
-        "Created uniform grid for indexing. All cells will be processed."
-      );
+      // Uniform grid created successfully
     }
 
     setLoading(true);
@@ -1006,11 +1056,11 @@ export default function MetageoView(props: any) {
             indexingStatus: "running",
           },
         }));
-        setSuccess(
-          `Indexing started! Processing ${
-            indexingState.active_cells || 0
-          } active cells.`
-        );
+        
+        // Start polling for progress updates
+        startPollingCellStatuses();
+        
+        // Indexing started successfully
       } else {
         // Error starting indexing
         setIndexingState((prev) => ({
@@ -1080,7 +1130,7 @@ export default function MetageoView(props: any) {
                 indexingStatus: "completed",
               },
             }));
-            setSuccess("Indexing completed! All cells processed.");
+            // Indexing completed successfully
           }
         }
       } catch (err) {
@@ -1122,6 +1172,17 @@ export default function MetageoView(props: any) {
 
     const handleIndexingProgress = (data: any) => {
       console.log("Indexing progress:", data);
+      
+      // Update the Recoil state with progress information
+      setIndexingState((prev) => ({
+        ...prev,
+        completed_cells: data.completed_cells || 0,
+        failed_cells: data.failed_cells || 0,
+        rate_limited_cells: data.rate_limited_cells || 0,
+        total_features: data.total_features || 0,
+        progress: data.progress || 0,
+        last_updated: new Date().toISOString(),
+      }));
     };
 
     const handleIndexingCompleted = (data: any) => {
@@ -1133,17 +1194,37 @@ export default function MetageoView(props: any) {
           indexingStatus: "completed",
         },
       }));
-      setSuccess(
-        `Indexing completed! Retrieved ${
-          data.total_features || 0
-        } OSM features.`
-      );
+      // Indexing completed successfully
     };
 
     // Note: In a real implementation, you would register these event listeners
     // with the watchExecutor. For now, we'll rely on the watch operator's
     // ctx.trigger() events being handled by the FiftyOne framework.
   }, []);
+
+  const handleNext = useCallback(async () => {
+    if (activeStep === 0) {
+      // On Index Configuration step, start indexing when Next is clicked
+      try {
+        setLoading(true);
+        clearMessages();
+        
+        // Start the indexing operation
+        await handleStartIndexing();
+        
+        // If successful, move to next step
+        setActiveStep(1);
+      } catch (error) {
+        console.error("Failed to start indexing:", error);
+        setError("Failed to start indexing. Please check your configuration.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // For other steps, just move to next step
+      setActiveStep((prev) => Math.min(prev + 1, 2));
+    }
+  }, [activeStep, handleStartIndexing, clearMessages, setLoading, setError]);
 
   const handlePauseIndexing = useCallback(async () => {
     setLoading(true);
@@ -1159,7 +1240,7 @@ export default function MetageoView(props: any) {
           indexingStatus: "paused",
         },
       }));
-      setSuccess("Indexing paused");
+      // Indexing paused successfully
     } catch (err) {
       setError(`Failed to pause indexing: ${err}`);
     } finally {
@@ -1228,11 +1309,7 @@ export default function MetageoView(props: any) {
       }));
 
       if (result?.status === "started") {
-        setSuccess(
-          `Indexing retried! Processing ${
-            indexingState.active_cells || 0
-          } active cells.`
-        );
+        // Indexing retry started successfully
       } else {
         setIndexingState((prev) => ({
           ...prev,
@@ -1296,7 +1373,7 @@ export default function MetageoView(props: any) {
           indexingStatus: "idle",
         },
       }));
-      setSuccess("Indexing cancelled - all operations stopped and grid reset");
+      // Indexing cancelled successfully
     } catch (err) {
       setError(`Failed to cancel indexing: ${err}`);
     } finally {
@@ -1326,9 +1403,7 @@ export default function MetageoView(props: any) {
           enrichedCount: result?.samples_enriched || 0,
         },
       }));
-      setSuccess(
-        `Enriched ${result?.samples_enriched || 0} samples successfully`
-      );
+      // Sample enrichment completed successfully
     } catch (err) {
       setError(`Failed to enrich samples: ${err}`);
     } finally {
@@ -1351,11 +1426,7 @@ export default function MetageoView(props: any) {
       const result = await client.cleanup_index({
         prefetch_id: stepData.enrich.prefetchId || undefined,
       });
-      setSuccess(
-        `Removed ${result?.removed_indexes || 0} indexes, freed ${
-          result?.freed_space_mb || 0
-        }MB`
-      );
+      // Index cleanup completed successfully
     } catch (err) {
       setError(`Failed to cleanup index: ${err}`);
     } finally {
@@ -1369,11 +1440,7 @@ export default function MetageoView(props: any) {
 
     try {
       const result = await client.cleanup_enriched_data();
-      setSuccess(
-        `Removed ${result?.removed_fields || 0} fields from ${
-          result?.samples_affected || 0
-        } samples`
-      );
+      // Enriched data cleanup completed successfully
     } catch (err) {
       setError(`Failed to cleanup enriched data: ${err}`);
     } finally {
@@ -1381,31 +1448,61 @@ export default function MetageoView(props: any) {
     }
   }, [client, clearMessages]);
 
+  // Drop Index handler
+  const handleDropIndex = useCallback(async () => {
+    setLoading(true);
+    clearMessages();
+
+    try {
+      await client.drop_index();
+      setHasExistingIndex(false);
+      setExistingIndexData(null);
+      setIndexingState((prev) => ({
+        ...prev,
+        status: "idle",
+        cells: {},
+        total_cells: 0,
+        active_cells: 0,
+        completed_cells: 0,
+        failed_cells: 0,
+        rate_limited_cells: 0,
+        total_features: 0,
+        progress: 0,
+      }));
+      setDropIndexDialogOpen(false);
+      // Index dropped successfully
+    } catch (err) {
+      setError(`Failed to drop index: ${err}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [client, clearMessages, setIndexingState]);
+
   const steps = [
     {
-      label: "Index",
-      description: "Define geographic area",
+      label: "Index Configuration", // STEPS.INDEX_CONFIGURATION
+      description: "Set location field, bounds, and sample distribution",
+      icon: <SettingsIcon />,
+    },
+    {
+      label: "Indexing", // STEPS.INDEXING
+      description: "Run indexing operation and monitor progress",
       icon: <LocationIcon />,
     },
     {
-      label: "Mapping",
+      label: "Mapping", // STEPS.MAPPING
       description: "Configure tag mapping",
       icon: <SettingsIcon />,
     },
     {
-      label: "Enrich",
+      label: "Enrich", // STEPS.ENRICH
       description: "Fetch and apply data",
       icon: <DownloadIcon />,
     },
     {
-      label: "Search",
-      description: "Create filters",
+      label: "Search & Cleanup", // STEPS.SEARCH_CLEANUP
+      description: "Create filters and cleanup",
       icon: <SearchIcon />,
-    },
-    {
-      label: "Cleanup",
-      description: "Remove data",
-      icon: <ClearIcon />,
     },
   ];
 
@@ -1892,2132 +1989,53 @@ export default function MetageoView(props: any) {
         >
           <CardContent sx={{ p: 3 }}>
             {/* Step Content */}
-            {activeStep === 0 && (
-              <Box>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    mb: 3,
-                    fontWeight: 600,
-                    color: theme.palette.text.primary,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                  }}
-                >
-                  <LocationIcon color="primary" />
-                  Step 1: Index Geographic Area
-                </Typography>
-
-                <Typography
-                  variant="body2"
-                  sx={{
-                    mb: 3,
-                    color: theme.palette.text.secondary,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Define the geographic boundaries for your dataset and
-                  visualize the indexing grid. Each cell represents a geographic
-                  area that will be indexed for OpenStreetMap data.
-                </Typography>
-
-                {/* Geo Field Selection */}
-                <Paper
-                  elevation={1}
-                  sx={{
-                    p: 3,
-                    mb: 3,
-                    background: alpha(theme.palette.primary.main, 0.02),
-                    border: `1px solid ${alpha(
-                      theme.palette.primary.main,
-                      0.1
-                    )}`,
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      mb: 2,
-                      fontWeight: 600,
-                      color: theme.palette.text.primary,
-                    }}
-                  >
-                    Geographic Field Selection
-                  </Typography>
-
-                  <FormControl fullWidth size="medium" sx={{ mb: 3 }}>
-                    <InputLabel>Select Geographic Field</InputLabel>
-                    <Select
-                      value={stepData.mapping.geoField}
-                      onChange={(e) =>
-                        setStepData((prev) => ({
-                          ...prev,
-                          mapping: {
-                            ...prev.mapping,
-                            geoField: e.target.value,
-                          },
-                        }))
-                      }
-                      label="Select Geographic Field"
-                    >
-                      <MenuItem value="">
-                        Choose a field containing geographic data...
-                      </MenuItem>
-                      {data?.geo_fields?.map((field: string) => (
-                        <MenuItem key={field} value={field}>
-                          {field}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    onClick={handleAutoBbox}
-                    disabled={loading || !stepData.mapping.geoField}
-                    startIcon={<ExploreIcon />}
-                    variant="contained"
-                    size="large"
-                    sx={{
-                      mb: 3,
-                      px: 4,
-                      py: 1.5,
-                      borderRadius: 2,
-                      textTransform: "none",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Auto-Detect Geographic Boundaries
-                  </Button>
-                </Paper>
-
-                {/* Bounding Box Coordinates */}
-                <Paper
-                  elevation={1}
-                  sx={{
-                    p: 3,
-                    mb: 3,
-                    background: `linear-gradient(135deg, ${alpha(
-                      theme.palette.primary.main,
-                      0.03
-                    )} 0%, ${alpha(theme.palette.secondary.main, 0.02)} 100%)`,
-                    border: `1px solid ${alpha(
-                      theme.palette.primary.main,
-                      0.15
-                    )}`,
-                    borderRadius: 2,
-                  }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 600,
-                        color: theme.palette.text.primary,
-                      }}
-                    >
-                      Geographic Boundaries
-                    </Typography>
-                    {stepData.index.bbox &&
-                      stepData.index.bbox.every((coord) => coord !== 0) && (
-                        <CheckCircleIcon
-                          sx={{
-                            ml: 1,
-                            color: theme.palette.success.main,
-                            fontSize: 20,
-                          }}
-                        />
-                      )}
-                  </Box>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 3 }}
-                  >
-                    Define the geographic area for OSM data indexing. You can
-                    auto-detect from your dataset or manually specify
-                    coordinates.
-                  </Typography>
-
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6}>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{
-                          mb: 2,
-                          fontWeight: 600,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        Southwest Corner (Min)
-                      </Typography>
-                      <Stack spacing={2}>
-                        <TextField
-                          fullWidth
-                          size="medium"
-                          label="Longitude"
-                          type="number"
-                          value={stepData.index.bbox?.[0] || ""}
-                          onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            if (!isNaN(value)) {
-                              const newBbox = [
-                                ...(stepData.index.bbox || [0, 0, 0, 0]),
-                              ];
-                              newBbox[0] = value;
-                              setStepData((prev) => ({
-                                ...prev,
-                                index: { ...prev.index, bbox: newBbox },
-                              }));
-                            }
-                          }}
-                          inputProps={{
-                            step: 0.000001,
-                            placeholder: "e.g., -74.432085",
-                          }}
-                          sx={{
-                            "& .MuiInputBase-input": {
-                              fontFamily: "monospace",
-                              fontSize: "0.9rem",
-                            },
-                          }}
-                        />
-                        <TextField
-                          fullWidth
-                          size="medium"
-                          label="Latitude"
-                          type="number"
-                          value={stepData.index.bbox?.[1] || ""}
-                          onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            if (!isNaN(value)) {
-                              const newBbox = [
-                                ...(stepData.index.bbox || [0, 0, 0, 0]),
-                              ];
-                              newBbox[1] = value;
-                              setStepData((prev) => ({
-                                ...prev,
-                                index: { ...prev.index, bbox: newBbox },
-                              }));
-                            }
-                          }}
-                          inputProps={{
-                            step: 0.000001,
-                            placeholder: "e.g., 40.542997",
-                          }}
-                          sx={{
-                            "& .MuiInputBase-input": {
-                              fontFamily: "monospace",
-                              fontSize: "0.9rem",
-                            },
-                          }}
-                        />
-                      </Stack>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6}>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{
-                          mb: 2,
-                          fontWeight: 600,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        Northeast Corner (Max)
-                      </Typography>
-                      <Stack spacing={2}>
-                        <TextField
-                          fullWidth
-                          size="medium"
-                          label="Longitude"
-                          type="number"
-                          value={stepData.index.bbox?.[2] || ""}
-                          onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            if (!isNaN(value)) {
-                              const newBbox = [
-                                ...(stepData.index.bbox || [0, 0, 0, 0]),
-                              ];
-                              newBbox[2] = value;
-                              setStepData((prev) => ({
-                                ...prev,
-                                index: { ...prev.index, bbox: newBbox },
-                              }));
-                            }
-                          }}
-                          inputProps={{
-                            step: 0.000001,
-                            placeholder: "e.g., -73.418955",
-                          }}
-                          sx={{
-                            "& .MuiInputBase-input": {
-                              fontFamily: "monospace",
-                              fontSize: "0.9rem",
-                            },
-                          }}
-                        />
-                        <TextField
-                          fullWidth
-                          size="medium"
-                          label="Latitude"
-                          type="number"
-                          value={stepData.index.bbox?.[3] || ""}
-                          onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            if (!isNaN(value)) {
-                              const newBbox = [
-                                ...(stepData.index.bbox || [0, 0, 0, 0]),
-                              ];
-                              newBbox[3] = value;
-                              setStepData((prev) => ({
-                                ...prev,
-                                index: { ...prev.index, bbox: newBbox },
-                              }));
-                            }
-                          }}
-                          inputProps={{
-                            step: 0.000001,
-                            placeholder: "e.g., 41.041774",
-                          }}
-                          sx={{
-                            "& .MuiInputBase-input": {
-                              fontFamily: "monospace",
-                              fontSize: "0.9rem",
-                            },
-                          }}
-                        />
-                      </Stack>
-                    </Grid>
-                  </Grid>
-                </Paper>
-
-                {/* Indexing Configuration */}
-                <Paper
-                  elevation={1}
-                  sx={{
-                    p: 3,
-                    mb: 3,
-                    background: alpha(theme.palette.info.main, 0.02),
-                    border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      mb: 2,
-                      fontWeight: 600,
-                      color: theme.palette.text.primary,
-                    }}
-                  >
-                    Indexing Configuration
-                  </Typography>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 3 }}
-                  >
-                    Configure the indexing process. Currently only immediate
-                    execution is supported for simplified testing and
-                    development.
-                  </Typography>
-
-                  <Box
-                    sx={{
-                      mt: 3,
-                      p: 2,
-                      bgcolor: alpha(theme.palette.info.main, 0.05),
-                      borderRadius: 1,
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                    >
-                      <InfoIcon fontSize="small" color="info" />
-                      <strong>Immediate Execution:</strong> Indexing runs
-                      synchronously and completes immediately. Perfect for
-                      testing and small datasets.
-                    </Typography>
-                  </Box>
-                </Paper>
-
-                {/* Adaptive Quadtree Grid */}
-                {realSampleDistribution &&
-                  Object.keys(realSampleDistribution).length > 0 &&
-                  stepData.index.bbox && (
-                    <QuadtreeConfiguration
-                      sampleDistribution={realSampleDistribution}
-                      bbox={stepData.index.bbox}
-                      onQuadtreeCellsChange={setQuadtreeCells}
-                    />
-                  )}
-
-                {/* Sample Distribution Calculation */}
-                {stepData.index.bbox && stepData.mapping.geoField && (
-                  <Paper
-                    elevation={1}
-                    sx={{
-                      p: 3,
-                      mb: 3,
-                      background: alpha(theme.palette.success.main, 0.02),
-                      border: `1px solid ${alpha(
-                        theme.palette.success.main,
-                        0.1
-                      )}`,
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        mb: 2,
-                        fontWeight: 600,
-                        color: theme.palette.text.primary,
-                      }}
-                    >
-                      Sample Distribution Analysis (Optional)
-                    </Typography>
-
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 3 }}
-                    >
-                      Calculate the real sample distribution across your grid to
-                      see which geographic regions contain your dataset samples.
-                      This step is optional - you can start indexing directly
-                      without calculating the distribution.
-                    </Typography>
-
-                    {/* Grid Size Controls */}
-                    <Box sx={{ mb: 3 }}>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{
-                          mb: 2,
-                          fontWeight: 600,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        Grid Resolution
-                      </Typography>
-                      <FormControl fullWidth size="medium">
-                        <InputLabel>Grid Size</InputLabel>
-                        <Select
-                          value={stepData.index.gridTiles}
-                          onChange={(e) => {
-                            const newGridTiles = e.target.value as number;
-                            setStepData((prev) => ({
-                              ...prev,
-                              index: { ...prev.index, gridTiles: newGridTiles },
-                            }));
-                            // Clear existing grid when changing resolution
-                            setIndexingState((prev) => ({
-                              ...prev,
-                              cells: {},
-                              total_cells: 0,
-                              active_cells: 0,
-                              completed_cells: 0,
-                              failed_cells: 0,
-                              rate_limited_cells: 0,
-                              total_features: 0,
-                              progress: 0,
-                            }));
-                            setStepData((prev) => ({
-                              ...prev,
-                              index: { ...prev.index, gridCells: [] },
-                            }));
-                            setRealSampleDistribution({});
-                          }}
-                          label="Grid Size"
-                        >
-                          <MenuItem value={3}>3x3 (9 cells)</MenuItem>
-                          <MenuItem value={9}>9x9 (81 cells)</MenuItem>
-                          <MenuItem value={10}>10x10 (100 cells)</MenuItem>
-                          <MenuItem value={16}>16x16 (256 cells)</MenuItem>
-                          <MenuItem value={25}>25x25 (625 cells)</MenuItem>
-                          <MenuItem value={50}>50x50 (2,500 cells)</MenuItem>
-                          <MenuItem value={100}>
-                            100x100 (10,000 cells)
-                          </MenuItem>
-                        </Select>
-                      </FormControl>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ mt: 1, display: "block" }}
-                      >
-                        Higher resolution = smaller geographic regions per cell,
-                        more precise indexing
-                      </Typography>
-                    </Box>
-
-                    <Stack direction="row" spacing={2}>
-                      <Button
-                        onClick={handleCalculateSampleDistribution}
-                        disabled={
-                          sampleDistributionLoading ||
-                          !stepData.index.bbox ||
-                          !stepData.mapping.geoField
-                        }
-                        startIcon={
-                          sampleDistributionLoading ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <DataUsageIcon />
-                          )
-                        }
-                        variant="contained"
-                        size="large"
-                        sx={{
-                          px: 4,
-                          py: 1.5,
-                          borderRadius: 2,
-                          textTransform: "none",
-                          fontWeight: 600,
-                          bgcolor: theme.palette.success.main,
-                          "&:hover": {
-                            bgcolor: theme.palette.success.dark,
-                          },
-                        }}
-                      >
-                        {sampleDistributionLoading
-                          ? "Calculating Sample Distribution..."
-                          : "Calculate Sample Distribution"}
-                      </Button>
-
-                      {stepData.index.gridCells.length > 0 && (
-                        <Button
-                          onClick={() => {
-                            // Clear the calculated distribution
-                            setIndexingState((prev) => ({
-                              ...prev,
-                              cells: {},
-                              total_cells: 0,
-                              active_cells: 0,
-                              completed_cells: 0,
-                              failed_cells: 0,
-                              rate_limited_cells: 0,
-                              total_features: 0,
-                              progress: 0,
-                            }));
-                            setStepData((prev) => ({
-                              ...prev,
-                              index: { ...prev.index, gridCells: [] },
-                            }));
-                            setRealSampleDistribution({});
-                            setSuccess(
-                              "Sample distribution cleared. You can recalculate or start indexing with a uniform grid."
-                            );
-                          }}
-                          startIcon={<ClearIcon />}
-                          variant="outlined"
-                          size="large"
-                          sx={{
-                            px: 4,
-                            py: 1.5,
-                            borderRadius: 2,
-                            textTransform: "none",
-                            fontWeight: 600,
-                            borderColor: theme.palette.warning.main,
-                            color: theme.palette.warning.main,
-                            "&:hover": {
-                              borderColor: theme.palette.warning.dark,
-                              color: theme.palette.warning.dark,
-                            },
-                          }}
-                        >
-                          Clear Distribution
-                        </Button>
-                      )}
-                    </Stack>
-
-                    {stepData.index.gridCells.length > 0 && (
-                      <Box
-                        sx={{
-                          mt: 3,
-                          p: 2,
-                          bgcolor: alpha(theme.palette.success.main, 0.05),
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                        >
-                          <CheckCircleIcon fontSize="small" color="success" />
-                          <strong>Sample distribution calculated!</strong> The
-                          grid now shows real sample counts for each geographic
-                          region.
-                        </Typography>
-                      </Box>
-                    )}
-                  </Paper>
-                )}
-
-                {/* Grid Visualization */}
-                {stepData.index.bbox ? (
-                  <>
-                    <IndexingGrid
-                      bbox={stepData.index.bbox}
-                      isLoading={
-                        sampleDistributionLoading ||
-                        stepData.index.indexingStatus === "running"
-                      }
-                      realSampleCounts={realSampleDistribution}
-                      onCellStatusChange={(cellId, status) => {
-                        // Handle cell status changes
-                        console.log(
-                          `Cell ${cellId} status changed to ${status}`
-                        );
-                      }}
-                      quadtreeCells={quadtreeCells}
-                      useQuadtree={quadtreeCells.length > 0}
-                      indexingStatus={stepData.index.indexingStatus}
-                      gridCells={stepData.index.gridCells}
-                    />
-
-                    {/* Indexing Controls */}
-                    <Paper
-                      elevation={1}
-                      sx={{
-                        p: 3,
-                        mt: 3,
-                        background: alpha(theme.palette.warning.main, 0.02),
-                        border: `1px solid ${alpha(
-                          theme.palette.warning.main,
-                          0.1
-                        )}`,
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          mb: 2,
-                          fontWeight: 600,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        Indexing Controls
-                      </Typography>
-
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 3 }}
-                      >
-                        Control the indexing process. Start indexing to begin
-                        downloading OSM data for each geographic region. You can
-                        start indexing immediately after setting the bounding
-                        box - sample distribution calculation is optional.
-                        {stepData.index.gridCells.length === 0 && (
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              color: theme.palette.info.main,
-                            }}
-                          >
-                            {" "}
-                            Starting without sample distribution will index all
-                            grid cells uniformly.
-                          </span>
-                        )}
-                      </Typography>
-
-                      {hasExistingIndex && (
-                        <Box
-                          sx={{
-                            mb: 3,
-                            p: 2,
-                            bgcolor: alpha(theme.palette.info.main, 0.05),
-                            borderRadius: 1,
-                            border: `1px solid ${alpha(
-                              theme.palette.info.main,
-                              0.2
-                            )}`,
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              mb: 2,
-                            }}
-                          >
-                            <InfoIcon fontSize="small" color="info" />
-                            <strong>Existing index loaded!</strong> You can
-                            continue with this index or drop it to start fresh.
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ display: "block", mb: 2 }}
-                          >
-                            Index ID: {existingIndexData?.indexing_id} |
-                            Completed: {existingIndexData?.completed_cells}{" "}
-                            cells | Features:{" "}
-                            {existingIndexData?.total_features} | Completed:{" "}
-                            {existingIndexData?.completed_at}
-                          </Typography>
-                          <Button
-                            onClick={async () => {
-                              try {
-                                await client.drop_index();
-                                setHasExistingIndex(false);
-                                setExistingIndexData(null);
-                                setIndexingState((prev) => ({
-                                  ...prev,
-                                  status: "idle",
-                                  cells: {},
-                                  total_cells: 0,
-                                  active_cells: 0,
-                                  completed_cells: 0,
-                                  failed_cells: 0,
-                                  rate_limited_cells: 0,
-                                  total_features: 0,
-                                  progress: 0,
-                                }));
-                                setSuccess(
-                                  "Index dropped successfully. You can now start fresh."
-                                );
-                              } catch (err) {
-                                setError(`Failed to drop index: ${err}`);
-                              }
-                            }}
-                            startIcon={<ClearIcon />}
-                            variant="outlined"
-                            size="small"
-                            sx={{
-                              borderColor: theme.palette.error.main,
-                              color: theme.palette.error.main,
-                              "&:hover": {
-                                borderColor: theme.palette.error.dark,
-                                color: theme.palette.error.dark,
-                              },
-                            }}
-                          >
-                            Drop Index
-                          </Button>
-                        </Box>
-                      )}
-
-                      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-                        <Button
-                          onClick={handleStartIndexing}
-                          disabled={
-                            loading ||
-                            !stepData.index.bbox ||
-                            stepData.index.indexingStatus === "running"
-                          }
-                          startIcon={<PlayIcon />}
-                          variant="contained"
-                          color="success"
-                          size="large"
-                          sx={{
-                            px: 4,
-                            py: 1.5,
-                            borderRadius: 2,
-                            textTransform: "none",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {stepData.index.indexingStatus === "running"
-                            ? "Indexing..."
-                            : "Start Indexing"}
-                        </Button>
-
-                        <Button
-                          onClick={handlePauseIndexing}
-                          disabled={
-                            loading ||
-                            stepData.index.indexingStatus !== "running"
-                          }
-                          startIcon={<PauseIcon />}
-                          variant="outlined"
-                          color="warning"
-                          size="large"
-                          sx={{
-                            px: 4,
-                            py: 1.5,
-                            borderRadius: 2,
-                            textTransform: "none",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Pause
-                        </Button>
-
-                        <Button
-                          onClick={handleRetryIndexing}
-                          disabled={
-                            loading ||
-                            stepData.index.indexingStatus !== "failed"
-                          }
-                          startIcon={<RefreshIcon />}
-                          variant="outlined"
-                          color="info"
-                          size="large"
-                          sx={{
-                            px: 4,
-                            py: 1.5,
-                            borderRadius: 2,
-                            textTransform: "none",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Retry
-                        </Button>
-
-                        <Button
-                          onClick={handleCancelIndexing}
-                          disabled={
-                            loading || stepData.index.indexingStatus === "idle"
-                          }
-                          startIcon={<CloseIcon />}
-                          variant="outlined"
-                          color="error"
-                          size="large"
-                          sx={{
-                            px: 4,
-                            py: 1.5,
-                            borderRadius: 2,
-                            textTransform: "none",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Cancel & Clear
-                        </Button>
-                      </Stack>
-
-                      {/* Indexing Status */}
-                      {stepData.index.indexingStatus &&
-                        stepData.index.indexingStatus !== "idle" && (
-                          <Box
-                            sx={{
-                              p: 2,
-                              bgcolor: alpha(theme.palette.info.main, 0.05),
-                              borderRadius: 1,
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
-                              <InfoIcon fontSize="small" color="info" />
-                              <strong>Status:</strong>{" "}
-                              {stepData.index.indexingStatus
-                                .charAt(0)
-                                .toUpperCase() +
-                                stepData.index.indexingStatus.slice(1)}
-                            </Typography>
-                            {stepData.index.indexingStatus === "running" && (
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  mt: 1,
-                                  color: theme.palette.text.secondary,
-                                }}
-                              >
-                                Indexing is in progress. You can pause or cancel
-                                the operation at any time.
-                              </Typography>
-                            )}
-                            {stepData.index.indexingStatus === "failed" && (
-                              <Typography
-                                variant="body2"
-                                sx={{ mt: 1, color: theme.palette.error.main }}
-                              >
-                                Indexing failed. Click "Retry" to attempt again
-                                or "Cancel & Clear" to reset.
-                              </Typography>
-                            )}
-                            {stepData.index.indexingStatus === "completed" && (
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  mt: 1,
-                                  color: theme.palette.success.main,
-                                }}
-                              >
-                                Indexing completed successfully! You can now
-                                proceed to the next step.
-                              </Typography>
-                            )}
-                          </Box>
-                        )}
-
-                      {/* Debug: OSM Results */}
-                      {stepData.index.indexingStatus === "completed" &&
-                        stepData.index.gridCells.length > 0 && (
-                          <Paper
-                            elevation={1}
-                            sx={{
-                              p: 3,
-                              mt: 3,
-                              background: alpha(
-                                theme.palette.success.main,
-                                0.02
-                              ),
-                              border: `1px solid ${alpha(
-                                theme.palette.success.main,
-                                0.1
-                              )}`,
-                              borderRadius: 2,
-                            }}
-                          >
-                            <Typography
-                              variant="h6"
-                              sx={{
-                                mb: 2,
-                                fontWeight: 600,
-                                color: theme.palette.text.primary,
-                              }}
-                            >
-                              🗺️ OSM Indexing Results (Debug)
-                            </Typography>
-
-                            <Box
-                              sx={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 2,
-                                mb: 2,
-                              }}
-                            >
-                              {stepData.index.gridCells
-                                .slice(0, 10)
-                                .map((cell: any) => (
-                                  <Box
-                                    key={cell.id}
-                                    sx={{
-                                      p: 2,
-                                      border: `1px solid ${
-                                        cell.status === "completed"
-                                          ? theme.palette.success.main
-                                          : cell.status === "failed"
-                                          ? theme.palette.error.main
-                                          : theme.palette.grey[300]
-                                      }`,
-                                      borderRadius: 1,
-                                      bgcolor:
-                                        cell.status === "completed"
-                                          ? alpha(
-                                              theme.palette.success.main,
-                                              0.1
-                                            )
-                                          : cell.status === "failed"
-                                          ? alpha(theme.palette.error.main, 0.1)
-                                          : "transparent",
-                                      minWidth: 200,
-                                    }}
-                                  >
-                                    <Typography
-                                      variant="body2"
-                                      sx={{ fontWeight: 600, mb: 1 }}
-                                    >
-                                      Cell {cell.id}
-                                    </Typography>
-                                    <Typography
-                                      variant="body2"
-                                      color="text.secondary"
-                                    >
-                                      Status: {cell.status || "unknown"}
-                                    </Typography>
-                                    {cell.status === "completed" &&
-                                      cell.osm_features && (
-                                        <Typography
-                                          variant="body2"
-                                          color="success.main"
-                                        >
-                                          ✅ {cell.osm_features} OSM features
-                                        </Typography>
-                                      )}
-                                    {cell.status === "failed" && cell.error && (
-                                      <Typography
-                                        variant="body2"
-                                        color="error.main"
-                                      >
-                                        ❌ {cell.error}
-                                      </Typography>
-                                    )}
-                                    {cell.sample_count !== undefined && (
-                                      <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                      >
-                                        Samples: {cell.sample_count}
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                ))}
-                            </Box>
-
-                            <Typography variant="body2" color="text.secondary">
-                              Showing first 10 cells. Total cells:{" "}
-                              {stepData.index.gridCells.length}
-                            </Typography>
-                          </Paper>
-                        )}
-                    </Paper>
-                  </>
-                ) : (
-                  <Paper
-                    elevation={1}
-                    sx={{
-                      p: 4,
-                      textAlign: "center",
-                      background: alpha(theme.palette.grey[100], 0.5),
-                      border: `2px dashed ${theme.palette.grey[300]}`,
-                    }}
-                  >
-                    <LocationIcon
-                      sx={{
-                        fontSize: 48,
-                        color: theme.palette.grey[400],
-                        mb: 2,
-                      }}
-                    />
-                    <Typography
-                      variant="h6"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      No Bounding Box Selected
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Please select a geo field and detect or specify a bounding
-                      box to see the indexing grid.
-                    </Typography>
-                  </Paper>
-                )}
-              </Box>
+            {activeStep === STEPS.INDEX_CONFIGURATION && (
+              <IndexConfigurationStep
+                stepData={stepData}
+                setStepData={setStepData}
+                loading={loading}
+                sampleDistributionLoading={sampleDistributionLoading}
+                realSampleDistribution={realSampleDistribution}
+                quadtreeCells={quadtreeCells}
+                hasExistingIndex={hasExistingIndex}
+                existingIndexData={existingIndexData}
+                onAutoBbox={handleAutoBbox}
+                onCalculateSampleDistribution={handleCalculateSampleDistribution}
+                onStartIndexing={handleStartIndexing}
+                onPauseIndexing={handlePauseIndexing}
+                onRetryIndexing={handleRetryIndexing}
+                onCancelIndexing={handleCancelIndexing}
+                onDropIndex={handleDropIndex}
+                onQuadtreeCellsChange={setQuadtreeCells}
+                geoFields={data?.geo_fields || []}
+              />
             )}
 
-            {activeStep === 1 && (
-              <Box>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    mb: 3,
-                    fontWeight: 600,
-                    color: theme.palette.text.primary,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                  }}
-                >
-                  <SettingsIcon color="primary" />
-                  Step 2: Configure Mapping
-                </Typography>
-
-                <Typography
-                  variant="body2"
-                  sx={{
-                    mb: 3,
-                    color: theme.palette.text.secondary,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Configure how OpenStreetMap data should be mapped to your
-                  dataset. Choose between form-based configuration or YAML
-                  editor.
-                </Typography>
-
-                {/* Configuration Mode Toggle */}
-                <Box sx={{ mb: 3 }}>
-                  <FormControl component="fieldset">
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ mb: 2, fontWeight: 600 }}
-                    >
-                      Configuration Mode
-                    </Typography>
-                    <Stack direction="row" spacing={2}>
-                      <Button
-                        variant={
-                          stepData.mapping.useYamlConfig
-                            ? "outlined"
-                            : "contained"
-                        }
-                        onClick={() =>
-                          setStepData((prev) => ({
-                            ...prev,
-                            mapping: { ...prev.mapping, useYamlConfig: false },
-                          }))
-                        }
-                        startIcon={<SettingsIcon />}
-                      >
-                        Form Configuration
-                      </Button>
-                      <Button
-                        variant={
-                          stepData.mapping.useYamlConfig
-                            ? "contained"
-                            : "outlined"
-                        }
-                        onClick={() =>
-                          setStepData((prev) => ({
-                            ...prev,
-                            mapping: { ...prev.mapping, useYamlConfig: true },
-                          }))
-                        }
-                        startIcon={<CodeIcon />}
-                      >
-                        YAML Editor
-                      </Button>
-                    </Stack>
-                  </FormControl>
-                </Box>
-
-                {/* OSM Tags Loading */}
-                {!stepData.mapping.useYamlConfig && (
-                  <Box sx={{ mb: 3 }}>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ mb: 2, fontWeight: 600 }}
-                    >
-                      Available OSM Tags
-                    </Typography>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Button
-                        onClick={handleLoadOsmTags}
-                        disabled={osmTagsLoading}
-                        startIcon={
-                          osmTagsLoading ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <ExploreIcon />
-                          )
-                        }
-                        variant="outlined"
-                        size="small"
-                      >
-                        {osmTagsLoading
-                          ? "Loading..."
-                          : `Load OSM Tags ${
-                              osmTags.length > 0 ? `(${osmTags.length})` : ""
-                            }`}
-                      </Button>
-                      {osmTags.length > 0 && (
-                        <Chip
-                          label={`${osmTags.length} tags loaded`}
-                          color="success"
-                          variant="outlined"
-                          size="small"
-                        />
-                      )}
-                    </Stack>
-                    {osmTags.length === 0 && !osmTagsLoading && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 1 }}
-                      >
-                        Click "Load OSM Tags" to populate the typeahead
-                        dropdowns with available tags from your indexed data.
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-
-                {stepData.mapping.useYamlConfig ? (
-                  /* YAML Configuration */
-                  <Box>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ mb: 2, fontWeight: 600 }}
-                    >
-                      YAML Configuration
-                    </Typography>
-                    <TextField
-                      multiline
-                      rows={20}
-                      fullWidth
-                      value={stepData.mapping.yamlConfig}
-                      onChange={(e) =>
-                        setStepData((prev) => ({
-                          ...prev,
-                          mapping: {
-                            ...prev.mapping,
-                            yamlConfig: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder={`# Metageo Mapping Configuration
-mapping:
-  radius: 100  # meters
-  geo_field: "location"
-  
-  # 3D Detections
-  enable_3d_detections: false
-  three_d_slice: "3d"
-  detection_field_name: "my_detections"
-  detection_label_tag: "type"
-  
-  # Sample Tagging
-  enable_sample_tagging: false
-  tag_slice: "tags"
-  tag_radius: 100
-  render_on_3d: true
-  render_on_2d: true
-  tag_mappings:
-    - osm_key: "building"
-      field_name: "has_building"
-      field_type: "bool"
-      bool_true_value: "yes"
-      bool_false_value: "no"
-  
-  # Field Mapping
-  enable_field_mapping: false
-  field_mappings:
-    - osm_key: "highway"
-      field_name: "road_type"
-      field_type: "string"`}
-                      sx={{
-                        "& .MuiInputBase-root": {
-                          fontFamily: "monospace",
-                          fontSize: "14px",
-                        },
-                      }}
-                    />
-                  </Box>
-                ) : (
-                  /* Form Configuration */
-                  <Stack spacing={3}>
-                    {/* Basic Configuration */}
-                    <Paper elevation={1} sx={{ p: 3 }}>
-                      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                        Basic Configuration
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            label="Search Radius (meters)"
-                            type="number"
-                            value={stepData.mapping.radius}
-                            onChange={(e) =>
-                              setStepData((prev) => ({
-                                ...prev,
-                                mapping: {
-                                  ...prev.mapping,
-                                  radius: parseInt(e.target.value) || 100,
-                                },
-                              }))
-                            }
-                            inputProps={{ min: 10, max: 1000 }}
-                            helperText="OSM nodes beyond this distance won't be mapped"
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <FormControl fullWidth>
-                            <InputLabel>Geographic Field</InputLabel>
-                            <Select
-                              value={stepData.mapping.geoField}
-                              onChange={(e) =>
-                                setStepData((prev) => ({
-                                  ...prev,
-                                  mapping: {
-                                    ...prev.mapping,
-                                    geoField: e.target.value,
-                                  },
-                                }))
-                              }
-                              label="Geographic Field"
-                            >
-                              {data?.geo_fields?.map((field) => (
-                                <MenuItem key={field} value={field}>
-                                  {field}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        </Grid>
-                      </Grid>
-                    </Paper>
-
-                    {/* 3D Detections Configuration */}
-                    <Paper elevation={1} sx={{ p: 3 }}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          mb: 2,
-                        }}
-                      >
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                          3D Detections
-                        </Typography>
-                        <FormControl>
-                          <Select
-                            value={
-                              stepData.mapping.enable3DDetections
-                                ? "enabled"
-                                : "disabled"
-                            }
-                            onChange={(e) =>
-                              setStepData((prev) => ({
-                                ...prev,
-                                mapping: {
-                                  ...prev.mapping,
-                                  enable3DDetections:
-                                    e.target.value === "enabled",
-                                },
-                              }))
-                            }
-                            size="small"
-                          >
-                            <MenuItem value="disabled">Disabled</MenuItem>
-                            <MenuItem value="enabled">Enabled</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </Box>
-
-                      {stepData.mapping.enable3DDetections && (
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              label="3D Slice"
-                              value={stepData.mapping.threeDSlice}
-                              onChange={(e) =>
-                                setStepData((prev) => ({
-                                  ...prev,
-                                  mapping: {
-                                    ...prev.mapping,
-                                    threeDSlice: e.target.value,
-                                  },
-                                }))
-                              }
-                              placeholder="e.g., 3d, pointcloud"
-                              helperText="Which slice contains 3D data?"
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              label="Detection Field Name"
-                              value={stepData.mapping.detectionFieldName}
-                              onChange={(e) =>
-                                setStepData((prev) => ({
-                                  ...prev,
-                                  mapping: {
-                                    ...prev.mapping,
-                                    detectionFieldName: e.target.value,
-                                  },
-                                }))
-                              }
-                              placeholder="my_detections"
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Autocomplete
-                              fullWidth
-                              options={osmTags}
-                              getOptionLabel={(option) =>
-                                `${option.key} (${option.count})`
-                              }
-                              value={
-                                osmTags.find(
-                                  (tag) =>
-                                    tag.key ===
-                                    stepData.mapping.detectionLabelTag
-                                ) || null
-                              }
-                              onChange={(_, newValue) =>
-                                setStepData((prev) => ({
-                                  ...prev,
-                                  mapping: {
-                                    ...prev.mapping,
-                                    detectionLabelTag: newValue?.key || "",
-                                  },
-                                }))
-                              }
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  label="Label Tag"
-                                  placeholder="Type to search..."
-                                  helperText="OSM tag to use as detection label"
-                                />
-                              )}
-                              loading={osmTagsLoading}
-                              noOptionsText={
-                                osmTagsLoading
-                                  ? "Loading..."
-                                  : "No OSM keys found"
-                              }
-                              filterOptions={(options, { inputValue }) => {
-                                return options.filter((option) =>
-                                  option.key
-                                    .toLowerCase()
-                                    .includes(inputValue.toLowerCase())
-                                );
-                              }}
-                            />
-                          </Grid>
-                        </Grid>
-                      )}
-                    </Paper>
-
-                    {/* Sample Tagging Configuration */}
-                    <Paper elevation={1} sx={{ p: 3 }}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          mb: 2,
-                        }}
-                      >
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                          Sample Tagging
-                        </Typography>
-                        <FormControl>
-                          <Select
-                            value={
-                              stepData.mapping.enableSampleTagging
-                                ? "enabled"
-                                : "disabled"
-                            }
-                            onChange={(e) =>
-                              setStepData((prev) => ({
-                                ...prev,
-                                mapping: {
-                                  ...prev.mapping,
-                                  enableSampleTagging:
-                                    e.target.value === "enabled",
-                                },
-                              }))
-                            }
-                            size="small"
-                          >
-                            <MenuItem value="disabled">Disabled</MenuItem>
-                            <MenuItem value="enabled">Enabled</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </Box>
-
-                      {stepData.mapping.enableSampleTagging && (
-                        <Stack spacing={2}>
-                          <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6}>
-                              <TextField
-                                fullWidth
-                                label="Tag Slice"
-                                value={stepData.mapping.tagSlice}
-                                onChange={(e) =>
-                                  setStepData((prev) => ({
-                                    ...prev,
-                                    mapping: {
-                                      ...prev.mapping,
-                                      tagSlice: e.target.value,
-                                    },
-                                  }))
-                                }
-                                placeholder="e.g., tags, metadata"
-                                helperText="Which slice should tags be added to?"
-                              />
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                              <TextField
-                                fullWidth
-                                label="Tag Radius (meters)"
-                                type="number"
-                                value={stepData.mapping.tagRadius}
-                                onChange={(e) =>
-                                  setStepData((prev) => ({
-                                    ...prev,
-                                    mapping: {
-                                      ...prev.mapping,
-                                      tagRadius:
-                                        parseInt(e.target.value) || 100,
-                                    },
-                                  }))
-                                }
-                                inputProps={{ min: 10, max: 1000 }}
-                              />
-                            </Grid>
-                          </Grid>
-
-                          <Box>
-                            <Typography
-                              variant="subtitle2"
-                              sx={{ mb: 1, fontWeight: 600 }}
-                            >
-                              Render Options
-                            </Typography>
-                            <Stack direction="row" spacing={2}>
-                              <FormControl>
-                                <Select
-                                  value={
-                                    stepData.mapping.renderOn3D ? "3d" : "none"
-                                  }
-                                  onChange={(e) =>
-                                    setStepData((prev) => ({
-                                      ...prev,
-                                      mapping: {
-                                        ...prev.mapping,
-                                        renderOn3D: e.target.value === "3d",
-                                      },
-                                    }))
-                                  }
-                                  size="small"
-                                >
-                                  <MenuItem value="none">No 3D</MenuItem>
-                                  <MenuItem value="3d">Render on 3D</MenuItem>
-                                </Select>
-                              </FormControl>
-                              <FormControl>
-                                <Select
-                                  value={
-                                    stepData.mapping.renderOn2D ? "2d" : "none"
-                                  }
-                                  onChange={(e) =>
-                                    setStepData((prev) => ({
-                                      ...prev,
-                                      mapping: {
-                                        ...prev.mapping,
-                                        renderOn2D: e.target.value === "2d",
-                                      },
-                                    }))
-                                  }
-                                  size="small"
-                                >
-                                  <MenuItem value="none">No 2D</MenuItem>
-                                  <MenuItem value="2d">Render on 2D</MenuItem>
-                                </Select>
-                              </FormControl>
-                            </Stack>
-                          </Box>
-
-                          {/* Tag Mappings */}
-                          <Box>
-                            <Typography
-                              variant="subtitle2"
-                              sx={{ mb: 1, fontWeight: 600 }}
-                            >
-                              Tag Mappings (
-                              {stepData.mapping.tagMappings.length})
-                            </Typography>
-                            <Stack spacing={2}>
-                              {stepData.mapping.tagMappings.map(
-                                (mapping, idx) => (
-                                  <Paper
-                                    key={idx}
-                                    elevation={1}
-                                    sx={{
-                                      p: 2,
-                                      border: `1px solid ${theme.palette.divider}`,
-                                    }}
-                                  >
-                                    <Grid
-                                      container
-                                      spacing={2}
-                                      alignItems="center"
-                                    >
-                                      <Grid item xs={12} sm={3}>
-                                        <Autocomplete
-                                          fullWidth
-                                          size="small"
-                                          options={osmTags}
-                                          getOptionLabel={(option) =>
-                                            `${option.key} (${option.count})`
-                                          }
-                                          value={
-                                            osmTags.find(
-                                              (tag) =>
-                                                tag.key === mapping.osmKey
-                                            ) || null
-                                          }
-                                          onChange={(_, newValue) => {
-                                            const newMappings = [
-                                              ...stepData.mapping.tagMappings,
-                                            ];
-                                            newMappings[idx].osmKey =
-                                              newValue?.key || "";
-                                            setStepData((prev) => ({
-                                              ...prev,
-                                              mapping: {
-                                                ...prev.mapping,
-                                                tagMappings: newMappings,
-                                              },
-                                            }));
-                                          }}
-                                          renderInput={(params) => (
-                                            <TextField
-                                              {...params}
-                                              label="OSM Key"
-                                              placeholder="Type to search..."
-                                            />
-                                          )}
-                                          loading={osmTagsLoading}
-                                          noOptionsText={
-                                            osmTagsLoading
-                                              ? "Loading..."
-                                              : "No OSM keys found"
-                                          }
-                                          filterOptions={(
-                                            options,
-                                            { inputValue }
-                                          ) => {
-                                            return options.filter((option) =>
-                                              option.key
-                                                .toLowerCase()
-                                                .includes(
-                                                  inputValue.toLowerCase()
-                                                )
-                                            );
-                                          }}
-                                        />
-                                      </Grid>
-                                      <Grid item xs={12} sm={3}>
-                                        <TextField
-                                          fullWidth
-                                          size="small"
-                                          label="Field Name"
-                                          value={mapping.fieldName}
-                                          onChange={(e) => {
-                                            const newMappings = [
-                                              ...stepData.mapping.tagMappings,
-                                            ];
-                                            newMappings[idx].fieldName =
-                                              e.target.value;
-                                            setStepData((prev) => ({
-                                              ...prev,
-                                              mapping: {
-                                                ...prev.mapping,
-                                                tagMappings: newMappings,
-                                              },
-                                            }));
-                                          }}
-                                        />
-                                      </Grid>
-                                      <Grid item xs={12} sm={2}>
-                                        <FormControl fullWidth size="small">
-                                          <InputLabel>Type</InputLabel>
-                                          <Select
-                                            value={mapping.fieldType}
-                                            onChange={(e) => {
-                                              const newMappings = [
-                                                ...stepData.mapping.tagMappings,
-                                              ];
-                                              newMappings[idx].fieldType = e
-                                                .target.value as
-                                                | "string"
-                                                | "int"
-                                                | "float"
-                                                | "bool";
-                                              setStepData((prev) => ({
-                                                ...prev,
-                                                mapping: {
-                                                  ...prev.mapping,
-                                                  tagMappings: newMappings,
-                                                },
-                                              }));
-                                            }}
-                                            label="Type"
-                                          >
-                                            <MenuItem value="string">
-                                              String
-                                            </MenuItem>
-                                            <MenuItem value="int">
-                                              Integer
-                                            </MenuItem>
-                                            <MenuItem value="float">
-                                              Float
-                                            </MenuItem>
-                                            <MenuItem value="bool">
-                                              Boolean
-                                            </MenuItem>
-                                          </Select>
-                                        </FormControl>
-                                      </Grid>
-                                      <Grid item xs={12} sm={2}>
-                                        <IconButton
-                                          onClick={() => {
-                                            const newMappings =
-                                              stepData.mapping.tagMappings.filter(
-                                                (_, i) => i !== idx
-                                              );
-                                            setStepData((prev) => ({
-                                              ...prev,
-                                              mapping: {
-                                                ...prev.mapping,
-                                                tagMappings: newMappings,
-                                              },
-                                            }));
-                                          }}
-                                          color="error"
-                                          size="small"
-                                        >
-                                          <CloseIcon />
-                                        </IconButton>
-                                      </Grid>
-                                    </Grid>
-                                    {mapping.fieldType === "bool" && (
-                                      <Grid
-                                        container
-                                        spacing={2}
-                                        sx={{ mt: 1 }}
-                                      >
-                                        <Grid item xs={6}>
-                                          <TextField
-                                            fullWidth
-                                            size="small"
-                                            label="True Value"
-                                            value={mapping.boolTrueValue || ""}
-                                            onChange={(e) => {
-                                              const newMappings = [
-                                                ...stepData.mapping.tagMappings,
-                                              ];
-                                              newMappings[idx].boolTrueValue =
-                                                e.target.value;
-                                              setStepData((prev) => ({
-                                                ...prev,
-                                                mapping: {
-                                                  ...prev.mapping,
-                                                  tagMappings: newMappings,
-                                                },
-                                              }));
-                                            }}
-                                            placeholder="yes"
-                                          />
-                                        </Grid>
-                                        <Grid item xs={6}>
-                                          <TextField
-                                            fullWidth
-                                            size="small"
-                                            label="False Value"
-                                            value={mapping.boolFalseValue || ""}
-                                            onChange={(e) => {
-                                              const newMappings = [
-                                                ...stepData.mapping.tagMappings,
-                                              ];
-                                              newMappings[idx].boolFalseValue =
-                                                e.target.value;
-                                              setStepData((prev) => ({
-                                                ...prev,
-                                                mapping: {
-                                                  ...prev.mapping,
-                                                  tagMappings: newMappings,
-                                                },
-                                              }));
-                                            }}
-                                            placeholder="no"
-                                          />
-                                        </Grid>
-                                      </Grid>
-                                    )}
-                                  </Paper>
-                                )
-                              )}
-                            </Stack>
-                            <Button
-                              onClick={() => {
-                                const newMapping = {
-                                  osmKey: "",
-                                  fieldName: "",
-                                  fieldType: "string" as const,
-                                };
-                                setStepData((prev) => ({
-                                  ...prev,
-                                  mapping: {
-                                    ...prev.mapping,
-                                    tagMappings: [
-                                      ...prev.mapping.tagMappings,
-                                      newMapping,
-                                    ],
-                                  },
-                                }));
-                              }}
-                              startIcon={<AddIcon />}
-                              variant="outlined"
-                              size="small"
-                              sx={{ mt: 1 }}
-                            >
-                              Add Tag Mapping
-                            </Button>
-                          </Box>
-                        </Stack>
-                      )}
-                    </Paper>
-
-                    {/* Field Mapping Configuration */}
-                    <Paper elevation={1} sx={{ p: 3 }}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          mb: 2,
-                        }}
-                      >
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                          Field Mapping
-                        </Typography>
-                        <FormControl>
-                          <Select
-                            value={
-                              stepData.mapping.enableFieldMapping
-                                ? "enabled"
-                                : "disabled"
-                            }
-                            onChange={(e) =>
-                              setStepData((prev) => ({
-                                ...prev,
-                                mapping: {
-                                  ...prev.mapping,
-                                  enableFieldMapping:
-                                    e.target.value === "enabled",
-                                },
-                              }))
-                            }
-                            size="small"
-                          >
-                            <MenuItem value="disabled">Disabled</MenuItem>
-                            <MenuItem value="enabled">Enabled</MenuItem>
-                          </Select>
-                        </FormControl>
-                      </Box>
-
-                      {stepData.mapping.enableFieldMapping && (
-                        <Box>
-                          <Typography
-                            variant="subtitle2"
-                            sx={{ mb: 1, fontWeight: 600 }}
-                          >
-                            Field Mappings (
-                            {stepData.mapping.fieldMappings.length})
-                          </Typography>
-                          <Stack spacing={2}>
-                            {stepData.mapping.fieldMappings.map(
-                              (mapping, idx) => (
-                                <Paper
-                                  key={idx}
-                                  elevation={1}
-                                  sx={{
-                                    p: 2,
-                                    border: `1px solid ${theme.palette.divider}`,
-                                  }}
-                                >
-                                  <Grid
-                                    container
-                                    spacing={2}
-                                    alignItems="center"
-                                  >
-                                    <Grid item xs={12} sm={3}>
-                                      <Autocomplete
-                                        fullWidth
-                                        size="small"
-                                        options={osmTags}
-                                        getOptionLabel={(option) =>
-                                          `${option.key} (${option.count})`
-                                        }
-                                        value={
-                                          osmTags.find(
-                                            (tag) => tag.key === mapping.osmKey
-                                          ) || null
-                                        }
-                                        onChange={(_, newValue) => {
-                                          const newMappings = [
-                                            ...stepData.mapping.fieldMappings,
-                                          ];
-                                          newMappings[idx].osmKey =
-                                            newValue?.key || "";
-                                          setStepData((prev) => ({
-                                            ...prev,
-                                            mapping: {
-                                              ...prev.mapping,
-                                              fieldMappings: newMappings,
-                                            },
-                                          }));
-                                        }}
-                                        renderInput={(params) => (
-                                          <TextField
-                                            {...params}
-                                            label="OSM Key"
-                                            placeholder="Type to search..."
-                                          />
-                                        )}
-                                        loading={osmTagsLoading}
-                                        noOptionsText={
-                                          osmTagsLoading
-                                            ? "Loading..."
-                                            : "No OSM keys found"
-                                        }
-                                        filterOptions={(
-                                          options,
-                                          { inputValue }
-                                        ) => {
-                                          return options.filter((option) =>
-                                            option.key
-                                              .toLowerCase()
-                                              .includes(
-                                                inputValue.toLowerCase()
-                                              )
-                                          );
-                                        }}
-                                      />
-                                    </Grid>
-                                    <Grid item xs={12} sm={3}>
-                                      <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Field Name"
-                                        value={mapping.fieldName}
-                                        onChange={(e) => {
-                                          const newMappings = [
-                                            ...stepData.mapping.fieldMappings,
-                                          ];
-                                          newMappings[idx].fieldName =
-                                            e.target.value;
-                                          setStepData((prev) => ({
-                                            ...prev,
-                                            mapping: {
-                                              ...prev.mapping,
-                                              fieldMappings: newMappings,
-                                            },
-                                          }));
-                                        }}
-                                      />
-                                    </Grid>
-                                    <Grid item xs={12} sm={2}>
-                                      <FormControl fullWidth size="small">
-                                        <InputLabel>Type</InputLabel>
-                                        <Select
-                                          value={mapping.fieldType}
-                                          onChange={(e) => {
-                                            const newMappings = [
-                                              ...stepData.mapping.fieldMappings,
-                                            ];
-                                            newMappings[idx].fieldType = e
-                                              .target.value as
-                                              | "string"
-                                              | "int"
-                                              | "float"
-                                              | "bool";
-                                            setStepData((prev) => ({
-                                              ...prev,
-                                              mapping: {
-                                                ...prev.mapping,
-                                                fieldMappings: newMappings,
-                                              },
-                                            }));
-                                          }}
-                                          label="Type"
-                                        >
-                                          <MenuItem value="string">
-                                            String
-                                          </MenuItem>
-                                          <MenuItem value="int">
-                                            Integer
-                                          </MenuItem>
-                                          <MenuItem value="float">
-                                            Float
-                                          </MenuItem>
-                                          <MenuItem value="bool">
-                                            Boolean
-                                          </MenuItem>
-                                        </Select>
-                                      </FormControl>
-                                    </Grid>
-                                    <Grid item xs={12} sm={2}>
-                                      <IconButton
-                                        onClick={() => {
-                                          const newMappings =
-                                            stepData.mapping.fieldMappings.filter(
-                                              (_, i) => i !== idx
-                                            );
-                                          setStepData((prev) => ({
-                                            ...prev,
-                                            mapping: {
-                                              ...prev.mapping,
-                                              fieldMappings: newMappings,
-                                            },
-                                          }));
-                                        }}
-                                        color="error"
-                                        size="small"
-                                      >
-                                        <CloseIcon />
-                                      </IconButton>
-                                    </Grid>
-                                  </Grid>
-                                  {mapping.fieldType === "bool" && (
-                                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                                      <Grid item xs={6}>
-                                        <TextField
-                                          fullWidth
-                                          size="small"
-                                          label="True Value"
-                                          value={mapping.boolTrueValue || ""}
-                                          onChange={(e) => {
-                                            const newMappings = [
-                                              ...stepData.mapping.fieldMappings,
-                                            ];
-                                            newMappings[idx].boolTrueValue =
-                                              e.target.value;
-                                            setStepData((prev) => ({
-                                              ...prev,
-                                              mapping: {
-                                                ...prev.mapping,
-                                                fieldMappings: newMappings,
-                                              },
-                                            }));
-                                          }}
-                                          placeholder="yes"
-                                        />
-                                      </Grid>
-                                      <Grid item xs={6}>
-                                        <TextField
-                                          fullWidth
-                                          size="small"
-                                          label="False Value"
-                                          value={mapping.boolFalseValue || ""}
-                                          onChange={(e) => {
-                                            const newMappings = [
-                                              ...stepData.mapping.fieldMappings,
-                                            ];
-                                            newMappings[idx].boolFalseValue =
-                                              e.target.value;
-                                            setStepData((prev) => ({
-                                              ...prev,
-                                              mapping: {
-                                                ...prev.mapping,
-                                                fieldMappings: newMappings,
-                                              },
-                                            }));
-                                          }}
-                                          placeholder="no"
-                                        />
-                                      </Grid>
-                                    </Grid>
-                                  )}
-                                </Paper>
-                              )
-                            )}
-                          </Stack>
-                          <Button
-                            onClick={() => {
-                              const newMapping = {
-                                osmKey: "",
-                                fieldName: "",
-                                fieldType: "string" as const,
-                              };
-                              setStepData((prev) => ({
-                                ...prev,
-                                mapping: {
-                                  ...prev.mapping,
-                                  fieldMappings: [
-                                    ...prev.mapping.fieldMappings,
-                                    newMapping,
-                                  ],
-                                },
-                              }));
-                            }}
-                            startIcon={<AddIcon />}
-                            variant="outlined"
-                            size="small"
-                            sx={{ mt: 1 }}
-                          >
-                            Add Field Mapping
-                          </Button>
-                        </Box>
-                      )}
-                    </Paper>
-                  </Stack>
-                )}
-              </Box>
+            {activeStep === STEPS.INDEXING && (
+              <IndexingStep
+                stepData={stepData}
+                onStartIndexing={handleStartIndexing}
+                onPauseIndexing={handlePauseIndexing}
+                onRetryIndexing={handleRetryIndexing}
+                onCancelIndexing={handleCancelIndexing}
+                onDropIndex={handleDropIndex}
+                hasExistingIndex={hasExistingIndex}
+                existingIndexData={existingIndexData}
+                loading={loading}
+              />
             )}
 
-            {activeStep === 2 && (
-              <Box>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    mb: 3,
-                    fontWeight: 600,
-                    color: theme.palette.text.primary,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                  }}
-                >
-                  <DownloadIcon color="primary" />
-                  Step 3: Enrich Samples
-                </Typography>
-
-                <Typography
-                  variant="body2"
-                  sx={{
-                    mb: 3,
-                    color: theme.palette.text.secondary,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Fetch OpenStreetMap data for your area and enrich your samples
-                  with the configured tag mappings.
-                </Typography>
-
-                <Stack spacing={2}>
-                  <Button
-                    onClick={handleStartIndexing}
-                    disabled={
-                      loading ||
-                      (!stepData.mapping.enable3DDetections &&
-                        !stepData.mapping.enableSampleTagging &&
-                        !stepData.mapping.enableFieldMapping)
-                    }
-                    startIcon={<DownloadIcon />}
-                    variant="contained"
-                    size="large"
-                  >
-                    Prefetch OSM Data
-                  </Button>
-
-                  {stepData.enrich.prefetchId && (
-                    <Alert severity="success" icon={<CheckCircleIcon />}>
-                      <AlertTitle>Prefetch Complete</AlertTitle>
-                      Prefetch ID: {stepData.enrich.prefetchId}
-                    </Alert>
-                  )}
-
-                  <Button
-                    onClick={handleEnrich}
-                    disabled={loading || !stepData.enrich.prefetchId}
-                    startIcon={<DataUsageIcon />}
-                    variant="contained"
-                    size="large"
-                  >
-                    Enrich Samples
-                  </Button>
-
-                  {stepData.enrich.enrichedCount > 0 && (
-                    <Alert severity="success" icon={<CheckCircleIcon />}>
-                      <AlertTitle>Enrichment Complete</AlertTitle>
-                      Successfully enriched {stepData.enrich.enrichedCount}{" "}
-                      samples
-                    </Alert>
-                  )}
-                </Stack>
-              </Box>
+            {activeStep === STEPS.MAPPING && (
+              <MappingStep
+                stepData={stepData}
+                setStepData={setStepData}
+                osmTags={osmTags}
+                osmTagsLoading={osmTagsLoading}
+                onLoadOsmTags={handleLoadOsmTags}
+              />
             )}
 
-            {activeStep === 3 && (
+            {activeStep === STEPS.ENRICH && (
               <Box>
                 <Typography
                   variant="h6"
@@ -4055,7 +2073,7 @@ mapping:
               </Box>
             )}
 
-            {activeStep === 4 && (
+            {activeStep === STEPS.SEARCH_CLEANUP && (
               <Box>
                 <Typography
                   variant="h6"
@@ -4144,14 +2162,69 @@ mapping:
           </Button>
           <Button
             onClick={handleNext}
-            disabled={activeStep === steps.length - 1}
+            disabled={
+              activeStep === steps.length - 1 || 
+              (activeStep === 0 && (!stepData.index.bbox || !stepData.mapping.geoField))
+            }
             endIcon={<ArrowForwardIcon />}
             variant="contained"
           >
-            {activeStep === steps.length - 1 ? "Finish" : "Next"}
+            {activeStep === steps.length - 1 ? "Finish" : activeStep === 0 ? "Start Indexing" : "Next"}
           </Button>
         </Box>
       </Paper>
+
+      {/* Drop Index Confirmation Dialog */}
+      <Dialog
+        open={dropIndexDialogOpen}
+        onClose={() => setDropIndexDialogOpen(false)}
+        aria-labelledby="drop-index-dialog-title"
+        aria-describedby="drop-index-dialog-description"
+      >
+        <DialogTitle id="drop-index-dialog-title">
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <ClearIcon color="error" />
+            Drop Index
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="drop-index-dialog-description">
+            Are you sure you want to permanently delete all indexed OSM data? This action cannot be undone and will:
+          </DialogContentText>
+          <Box sx={{ mt: 2, pl: 2 }}>
+            <Typography variant="body2" component="div" sx={{ mb: 1 }}>
+              • Remove all OSM feature data from the index
+            </Typography>
+            <Typography variant="body2" component="div" sx={{ mb: 1 }}>
+              • Clear all cell statuses and progress
+            </Typography>
+            <Typography variant="body2" component="div" sx={{ mb: 1 }}>
+              • Reset the indexing state to idle
+            </Typography>
+            <Typography variant="body2" component="div" sx={{ mb: 1 }}>
+              • Require re-indexing to use OSM data again
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setDropIndexDialogOpen(false)}
+            color="primary"
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDropIndex}
+            color="error"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} /> : <ClearIcon />}
+          >
+            {loading ? "Dropping..." : "Drop Index"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

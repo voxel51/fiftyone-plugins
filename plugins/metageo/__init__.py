@@ -282,23 +282,31 @@ class IndexGridOperator(foo.Operator):
             raise RuntimeError("No grid found in execution store")
 
         grid_cells = indexing_state["grid_cells"]
+        print(f"IndexGridOperator: Retrieved {len(grid_cells)} grid cells from store")
+        print(f"IndexGridOperator: First few cells: {grid_cells[:3]}")
+        
         active_cells = [
             cell for cell in grid_cells if cell.get("sample_count", 0) > 0
         ]
+        print(f"IndexGridOperator: Filtered to {len(active_cells)} active cells")
 
         print(
             f"IndexGridOperator: Found {len(grid_cells)} total cells, {len(active_cells)} active cells"
         )
 
         # Mark empty cells as "empty" in the store
+        print(f"IndexGridOperator: Checking {len(grid_cells)} cells for empty status...")
         for cell in grid_cells:
             cell_id = cell["id"]
             sample_count = cell.get("sample_count", 0)
+            print(f"IndexGridOperator: Cell {cell_id} has sample_count: {sample_count} (type: {type(sample_count)})")
             if sample_count == 0:
                 ctx.store("metageo").set(f"cell_{cell_id}_status", "empty")
                 print(
                     f"IndexGridOperator: Marked cell {cell_id} as empty (0 samples)"
                 )
+            else:
+                print(f"IndexGridOperator: Cell {cell_id} has {sample_count} samples, will process")
 
         # Initialize OSM client
         osm_client = OSMClient()
@@ -862,22 +870,24 @@ class MetageoPanel(Panel):
 
             # Get all cell data from the store
             store = ctx.store("metageo")
-            for key in store.keys():
-                if key.startswith("cell_") and key.endswith("_osm_features"):
-                    cell_id = key.replace("cell_", "").replace(
-                        "_osm_features", ""
-                    )
-                    osm_data = store.get(f"cell_{cell_id}_osm_data")
+            store_keys = list(store.keys())
+            print(f"get_available_osm_tags: Store keys: {store_keys}")
+            
+            for key in store_keys:
+                if key.startswith("cell_") and key.endswith("_osm_data"):
+                    cell_id = key.replace("cell_", "").replace("_osm_data", "")
+                    print(f"get_available_osm_tags: Processing cell {cell_id}")
+                    
+                    osm_data = store.get(key)
+                    print(f"get_available_osm_tags: Cell {cell_id} OSM data: {osm_data}")
+                    
                     if osm_data:
                         for feature in osm_data:
                             if isinstance(feature, dict) and "tags" in feature:
-                                for tag_key, tag_value in feature[
-                                    "tags"
-                                ].items():
+                                print(f"get_available_osm_tags: Feature tags: {feature['tags']}")
+                                for tag_key, tag_value in feature["tags"].items():
                                     all_tags.add(tag_key)
-                                    tag_counts[tag_key] = (
-                                        tag_counts.get(tag_key, 0) + 1
-                                    )
+                                    tag_counts[tag_key] = tag_counts.get(tag_key, 0) + 1
 
             # Convert to list format for frontend
             tags_list = [
@@ -1231,21 +1241,21 @@ class MetageoPanel(Panel):
                 if sample_count > 0:
                     active_cells += 1
 
-                grid_cells.append(
-                    {
-                        "id": cell_id,
-                        "coordinates": [
-                            cell_min_lon,
-                            cell_min_lat,
-                            cell_max_lon,
-                            cell_max_lat,
-                        ],
-                        "sample_count": sample_count,
-                        "status": "idle" if sample_count > 0 else "empty",
-                        "progress": 0,
-                        "error": None,
-                    }
-                )
+                cell_data = {
+                    "id": cell_id,
+                    "coordinates": [
+                        cell_min_lon,
+                        cell_min_lat,
+                        cell_max_lon,
+                        cell_max_lat,
+                    ],
+                    "sample_count": sample_count,
+                    "status": "idle" if sample_count > 0 else "empty",
+                    "progress": 0,
+                    "error": None,
+                }
+                grid_cells.append(cell_data)
+                print(f"get_sample_distribution: Created cell {cell_id} with sample_count: {sample_count} (type: {type(sample_count)})")
 
         # Store the grid in the execution store for later use by start_indexing
         indexing_state = {
@@ -1379,6 +1389,112 @@ class MetageoPanel(Panel):
             "status": "found",
             "cell_statuses": cell_statuses,
             "indexing_state": indexing_state,
+        }
+
+    def get_current_indexing_state(self, ctx: ExecutionContext) -> Dict[str, Any]:
+        """Get current indexing state regardless of completion status"""
+        print(f"🔍 get_current_indexing_state: Checking store...")
+        
+        # Debug: List all keys in the store
+        store = ctx.store("metageo")
+        all_keys = []
+        try:
+            # Try to get all keys (this might not work in all versions)
+            for key in store.list_keys():
+                all_keys.append(key)
+        except:
+            # Fallback: try to get common keys
+            common_keys = ["indexing_state", "grid_cells", "bbox", "geo_field"]
+            for key in common_keys:
+                if store.get(key) is not None:
+                    all_keys.append(key)
+        
+        print(f"🔍 get_current_indexing_state: Store keys: {all_keys}")
+        
+        # Try to get indexing state - it might be stored in different ways
+        indexing_state = store.get("indexing_state")
+        print(f"🔍 get_current_indexing_state: indexing_state: {indexing_state}")
+        
+        # If no indexing_state, check if we have individual pieces
+        if not indexing_state:
+            # Check for old-style data structure
+            bbox = store.get("bbox")
+            grid_cells = store.get("grid_cells")
+            geo_field = store.get("geo_field")
+            
+            print(f"🔍 get_current_indexing_state: Old structure check - bbox: {bbox}, grid_cells: {grid_cells}, geo_field: {geo_field}")
+            
+            if bbox and grid_cells and geo_field:
+                # We have old-style data, create a compatible structure
+                print(f"🔍 get_current_indexing_state: Found old-style data, creating compatible structure")
+                indexing_state = {
+                    "bbox": bbox,
+                    "grid_cells": grid_cells,
+                    "geo_field": geo_field,
+                    "status": "completed",  # Assume completed if we have this data
+                    "total_cells": len(grid_cells) if grid_cells else 0,
+                    "active_cells": len([c for c in grid_cells if c.get("sample_count", 0) > 0]) if grid_cells else 0,
+                    "completed_cells": len([c for c in grid_cells if c.get("status") == "completed"]) if grid_cells else 0,
+                    "failed_cells": len([c for c in grid_cells if c.get("status") == "failed"]) if grid_cells else 0,
+                    "rate_limited_cells": len([c for c in grid_cells if c.get("status") == "rate_limited"]) if grid_cells else 0,
+                    "total_features": sum([c.get("osm_features", 0) for c in grid_cells if c.get("osm_features")]) if grid_cells else 0,
+                    "progress": 100 if grid_cells else 0,
+                }
+                print(f"🔍 get_current_indexing_state: Created compatible structure: {indexing_state}")
+            else:
+                return {
+                    "status": "not_found",
+                    "message": "No indexing state found",
+                }
+
+        # Get all cell data with current statuses
+        grid_cells = indexing_state.get("grid_cells", [])
+        print(f"🔍 get_current_indexing_state: grid_cells from indexing_state: {grid_cells}")
+        
+        cell_data = []
+
+        for cell in grid_cells:
+            cell_id = cell["id"]
+            print(f"🔍 get_current_indexing_state: Processing cell {cell_id}")
+            
+            status = ctx.store("metageo").get(f"cell_{cell_id}_status")
+            error = ctx.store("metageo").get(f"cell_{cell_id}_error")
+            osm_features = ctx.store("metageo").get(
+                f"cell_{cell_id}_osm_features"
+            )
+            osm_data = ctx.store("metageo").get(f"cell_{cell_id}_osm_data")
+            
+            print(f"🔍 get_current_indexing_state: Cell {cell_id} - status: {status}, error: {error}, osm_features: {osm_features}")
+
+            cell_data.append(
+                {
+                    "id": cell_id,
+                    "coordinates": cell.get("coordinates"),
+                    "sample_count": cell.get("sample_count", 0),
+                    "status": status or "idle",
+                    "error": error,
+                    "osm_features": osm_features or 0,
+                    "osm_data": osm_data,
+                }
+            )
+
+        return {
+            "status": "found",
+            "indexing_id": indexing_state.get("indexing_id"),
+            "total_cells": indexing_state.get("total_cells", 0),
+            "active_cells": indexing_state.get("active_cells", 0),
+            "completed_cells": indexing_state.get("completed_cells", 0),
+            "failed_cells": indexing_state.get("failed_cells", 0),
+            "rate_limited_cells": indexing_state.get("rate_limited_cells", 0),
+            "total_features": indexing_state.get("total_features", 0),
+            "progress": indexing_state.get("progress", 0),
+            "indexing_status": indexing_state.get("status", "idle"),  # Use different key to avoid conflict
+            "started_at": indexing_state.get("started_at"),
+            "completed_at": indexing_state.get("completed_at"),
+            "grid_cells": cell_data,
+            "bbox": indexing_state.get("bbox"),
+            "grid_tiles": indexing_state.get("grid_tiles"),
+            "geo_field": indexing_state.get("geo_field"),
         }
 
     def get_existing_index(self, ctx: ExecutionContext) -> Dict[str, Any]:
@@ -1824,6 +1940,7 @@ class MetageoPanel(Panel):
                 get_sample_distribution=self.get_sample_distribution,
                 start_indexing=self.start_indexing,
                 get_indexing_status=self.get_indexing_status,
+                get_current_indexing_state=self.get_current_indexing_state,
                 get_existing_index=self.get_existing_index,
                 drop_index=self.drop_index,
                 cancel_indexing=self.cancel_indexing,
@@ -1841,3 +1958,4 @@ def register(p):
     p.register(MetageoPanel)
     p.register(IndexGridOperator)
     p.register(WatchIndexingOperator)
+ 

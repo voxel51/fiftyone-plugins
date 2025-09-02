@@ -18,6 +18,7 @@ export type MetageoClient = {
   get_indexing_state: () => Promise<any>;
   get_cell_statuses: () => Promise<any>;
   get_indexing_status: (params: {}) => Promise<any>;
+  get_current_indexing_state: () => Promise<any>;
   get_existing_index: () => Promise<any>;
   drop_index: () => Promise<any>;
   get_available_osm_tags: () => Promise<any>;
@@ -181,6 +182,23 @@ export function useMetageoClient(props: any): MetageoClient {
       },
       [handleEvent, props.id]
     ),
+
+    get_current_indexing_state: useCallback(async () => {
+      return new Promise<any>((resolve, reject) => {
+        handleEvent(props.id, {
+          operator: "@voxel51/metageo/metageo_panel#get_current_indexing_state",
+          params: {},
+          panelId: props.id,
+          callback: (result: any) => {
+            if (result?.error) {
+              reject(new Error(result.error));
+            } else {
+              resolve(result);
+            }
+          },
+        });
+      });
+    }, [handleEvent, props.id]),
 
     get_existing_index: useCallback(async () => {
       return new Promise<any>((resolve, reject) => {

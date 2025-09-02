@@ -432,19 +432,24 @@ export default function IndexingGrid({
     ? getQuadtreeGridDimensions()
     : getFixedGridDimensions();
 
-  // Calculate progress information
+  // Calculate progress information from real-time cell data
   const calculateProgress = () => {
-    if (!indexingState || indexingState.status !== "running") {
-      return { progress: 0, completed: 0, total: 0, features: 0 };
+    if (!indexingState || indexingState.status !== "running" || !gridCells || gridCells.length === 0) {
+      return { progress: 0, completed: 0, total: 0, features: 0, processed: 0, failed: 0, rateLimited: 0 };
     }
 
-    const total = indexingState.total_cells || 0;
-    const completed = indexingState.completed_cells || 0;
-    const failed = indexingState.failed_cells || 0;
-    const rateLimited = indexingState.rate_limited_cells || 0;
+    // Count cells by status from the real-time grid data
+    const total = gridCells.length;
+    const completed = gridCells.filter(cell => cell.status === "completed").length;
+    const failed = gridCells.filter(cell => cell.status === "failed").length;
+    const rateLimited = gridCells.filter(cell => cell.status === "rate_limited").length;
     const processed = completed + failed + rateLimited;
     const progress = total > 0 ? (processed / total) * 100 : 0;
-    const features = indexingState.total_features || 0;
+    
+    // Calculate total features from completed cells
+    const features = gridCells
+      .filter(cell => cell.status === "completed")
+      .reduce((sum, cell) => sum + (cell.osm_feature_count || 0), 0);
 
     return {
       progress,
