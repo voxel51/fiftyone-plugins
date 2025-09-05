@@ -17,8 +17,7 @@ import {
   Pause as PauseIcon,
 } from "@mui/icons-material";
 import { CircularProgress } from "@mui/material";
-import { useRecoilValue } from "recoil";
-import { metageoIndexingState } from "./state";
+// Removed direct Recoil usage - this component should receive data via props
 
 export type CellStatus =
   | "idle"
@@ -94,8 +93,7 @@ export default function IndexingGrid({
   const theme = useTheme();
   const [cells, setCells] = useState<GridCell[]>([]);
 
-  // Get the real-time indexing state from Recoil
-  const indexingState = useRecoilValue(metageoIndexingState);
+  // Real-time indexing state is now passed via props
 
   // Generate quadtree cells for display
   const generateQuadtreeDisplayCells = useCallback(() => {
@@ -247,7 +245,7 @@ export default function IndexingGrid({
     return cells;
   }, [bbox, realSampleCounts, isLoading]);
 
-  // Update cells when props change or Recoil state updates
+  // Update cells when props change
   useEffect(() => {
     console.log("useEffect triggered - regenerating cells");
     console.log("realSampleCounts:", realSampleCounts);
@@ -256,35 +254,8 @@ export default function IndexingGrid({
     console.log("quadtreeCells:", quadtreeCells);
     console.log("gridCells from backend:", gridCells);
     console.log("indexingStatus:", indexingStatus);
-    console.log("Recoil indexingState:", indexingState);
 
-    // If we have real-time cell updates from Recoil state, use those
-    if (indexingState.cells && Object.keys(indexingState.cells).length > 0) {
-      console.log("Using Recoil state cells for real-time updates");
-      const recoilCells = Object.values(indexingState.cells).map((cell) => ({
-        id: cell.id,
-        status: cell.status as CellStatus,
-        progress: cell.progress,
-        error: cell.error || undefined, // Convert null to undefined
-        coordinates: [0, 0, 0, 0] as [number, number, number, number], // Will be filled from gridCells
-        sample_count: 0, // Will be filled from gridCells
-      }));
-
-      // Merge with gridCells to get coordinates and sample counts
-      if (gridCells && gridCells.length > 0) {
-        const mergedCells = recoilCells.map((recoilCell) => {
-          const gridCell = gridCells.find((gc) => gc.id === recoilCell.id);
-          return {
-            ...recoilCell,
-            coordinates: gridCell?.coordinates || [0, 0, 0, 0],
-            sample_count: gridCell?.sample_count || 0,
-          };
-        });
-        setCells(mergedCells);
-      } else {
-        setCells(recoilCells);
-      }
-    } else if (gridCells && gridCells.length > 0) {
+    if (gridCells && gridCells.length > 0) {
       console.log("Using gridCells from backend");
       setCells(gridCells);
     } else if (useQuadtree && quadtreeCells.length > 0) {
@@ -301,7 +272,6 @@ export default function IndexingGrid({
     quadtreeCells,
     gridCells,
     indexingStatus,
-    indexingState.cells,
   ]);
 
   const getStatusColor = (status: CellStatus) => {
@@ -434,21 +404,38 @@ export default function IndexingGrid({
 
   // Calculate progress information from real-time cell data
   const calculateProgress = () => {
-    if (!indexingState || indexingState.status !== "running" || !gridCells || gridCells.length === 0) {
-      return { progress: 0, completed: 0, total: 0, features: 0, processed: 0, failed: 0, rateLimited: 0 };
+    if (
+      !indexingStatus ||
+      indexingStatus !== "running" ||
+      !gridCells ||
+      gridCells.length === 0
+    ) {
+      return {
+        progress: 0,
+        completed: 0,
+        total: 0,
+        features: 0,
+        processed: 0,
+        failed: 0,
+        rateLimited: 0,
+      };
     }
 
     // Count cells by status from the real-time grid data
     const total = gridCells.length;
-    const completed = gridCells.filter(cell => cell.status === "completed").length;
-    const failed = gridCells.filter(cell => cell.status === "failed").length;
-    const rateLimited = gridCells.filter(cell => cell.status === "rate_limited").length;
+    const completed = gridCells.filter(
+      (cell) => cell.status === "completed"
+    ).length;
+    const failed = gridCells.filter((cell) => cell.status === "failed").length;
+    const rateLimited = gridCells.filter(
+      (cell) => cell.status === "rate_limited"
+    ).length;
     const processed = completed + failed + rateLimited;
     const progress = total > 0 ? (processed / total) * 100 : 0;
-    
+
     // Calculate total features from completed cells
     const features = gridCells
-      .filter(cell => cell.status === "completed")
+      .filter((cell) => cell.status === "completed")
       .reduce((sum, cell) => sum + (cell.osm_feature_count || 0), 0);
 
     return {
@@ -463,15 +450,14 @@ export default function IndexingGrid({
   };
 
   const progressInfo = calculateProgress();
-  const isIndexing = indexingState?.status === "running";
+  const isIndexing = indexingStatus === "running";
 
   // Calculate time estimate
   const calculateTimeEstimate = () => {
     if (!isIndexing || !progressInfo.processed || progressInfo.processed === 0)
       return null;
 
-    const elapsed =
-      Date.now() - new Date(indexingState.started_at || Date.now()).getTime();
+    const elapsed = Date.now() - new Date(Date.now()).getTime();
     const rate = progressInfo.processed / (elapsed / 1000); // cells per second
     const remaining = progressInfo.total - progressInfo.processed;
     const estimatedSeconds = rate > 0 ? remaining / rate : 0;
