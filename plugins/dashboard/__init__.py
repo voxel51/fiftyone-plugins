@@ -803,10 +803,10 @@ class ConfigurePlot(foo.Operator):
             plot_type = ctx.params.get("plot_type")
             if plot_type in ["line", "scatter", "numeric_histogram"]:
                 x_fields = ctx.params.get("x_fields", [])
-                count = len(x_fields)
+                count = len(x_fields) if x_fields is not None else 0
             elif plot_type in ["categorical_histogram", "pie"]:
                 fields = ctx.params.get("fields", [])
-                count = len(fields)
+                count = len(fields) if fields is not None else 0
             else:
                 count = 0
 
