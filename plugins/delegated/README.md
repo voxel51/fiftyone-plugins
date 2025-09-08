@@ -54,6 +54,9 @@ fiftyone delegated list \
     --sort-by COMPLETED_AT \
     --limit 10
 
+# Get info about the specified operation
+fiftyone delegated info <id>
+
 # Manually mark the specified operation(s) as FAILED
 fiftyone delegated fail <id1> <id2> ...
 
