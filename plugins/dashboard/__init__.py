@@ -700,7 +700,7 @@ def plot_data_key_fn(ctx, dashboard, item):
 def load_plot_data_for_item(ctx, dashboard, item):
     fo_orange = "rgb(255, 109, 5)"
     bar_color = {"marker": {"color": fo_orange}}
-    
+
     data = None
     if item.use_code:
         data = dashboard.load_data_from_code(item.code, item.type)
@@ -1032,23 +1032,58 @@ def _get_fields_with_type(dataset, field_types, root=None):
     return paths
 
 
+def _convert_value_to_proper_type(sample_collection, path, value):
+    """Convert string representations back to proper types based on field type."""
+    if not isinstance(value, str):
+        return value
+
+    try:
+        field = sample_collection.get_field(path)
+        if field is None:
+            return value
+
+        # Handle boolean fields
+        if isinstance(field, fo.BooleanField):
+            if value.lower() == "true":
+                return True
+            elif value.lower() == "false":
+                return False
+
+        # Handle numeric fields
+        elif isinstance(field, fo.IntField):
+            return int(value)
+        elif isinstance(field, fo.FloatField):
+            return float(value)
+
+        # For other field types, return the original value
+        return value
+    except (ValueError, AttributeError):
+        # If conversion fails, return the original value
+        return value
+
+
 def _make_view_for_value(sample_collection, path, value):
+    # Convert the value to the proper type based on the field type
+    converted_value = _convert_value_to_proper_type(
+        sample_collection, path, value
+    )
+
     root, leaf = _parse_path(sample_collection, path)
     is_label_field = _is_field_type(sample_collection, root, fo.Label)
     is_list_field = _is_field_type(sample_collection, path, fo.ListField)
 
     if is_label_field:
         if is_list_field:
-            expr = F(leaf).exists() & F(leaf).contains(value)
+            expr = F(leaf).exists() & F(leaf).contains(converted_value)
         else:
-            expr = F(leaf) == value
+            expr = F(leaf) == converted_value
 
         return sample_collection.filter_labels(root, expr)
 
     if is_list_field:
-        expr = F(path).exists() & F(path).contains(value)
+        expr = F(path).exists() & F(path).contains(converted_value)
     else:
-        expr = F(path) == value
+        expr = F(path) == converted_value
 
     return sample_collection.match(expr)
 
