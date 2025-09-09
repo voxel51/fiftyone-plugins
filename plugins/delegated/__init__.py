@@ -463,7 +463,7 @@ def _handle_info(ctx, inputs, selected_ops):
         elif tab == "ERRORS":
             inputs.str(
                 "op_errors",
-                default=format_code(result["error"]) if result else None,
+                default=result["error"] if result else None,
                 view=code_view,
             )
 
