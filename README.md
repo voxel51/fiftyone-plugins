@@ -155,12 +155,101 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/harpreetsahota204/vitpose-plugin">@harpreetsahota/vitpose</a></b></td>
-        <td>🧘🏽 Run ViTPose Models from Hugging Face on your FiftyOne Dataset</td>
+        <td><b><a href="https://github.com/harpreetsahota204/minicpm-v">@harpreetsahota/minicpm-v</a></b></td>
+        <td>👁️ Integrating MiniCPM-V 4.5 as a Remote Source Zoo Model in FiftyOne</td>
+    </tr>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/harpreetsahota204/moondream2-plugin">@harpreetsahota/moondream2</a></b></td>
-        <td>🌔 Run Moondream2 Models from Hugging Face on your FiftyOne Dataset</td>
+        <td><b><a href="https://github.com/harpreetsahota204/fast_vlm">@harpreetsahota/fast_vlm</a></b></td>
+        <td>💨 Integrating FastVLM as a Remote Source Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/gui_actor">@harpreetsahota/gui_actor</a></b></td>
+        <td>🖥️ Implementing Microsoft's GUI Actor as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/synthetic_gui_samples_plugins">@harpreetsahota/synthetic_gui_samples_plugins</a></b></td>
+        <td>🧪 A FiftyOne plugin for generating synthetic samples for datasets in COCO4GUI format</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/coco4gui_fiftyone">@harpreetsahota/coco4gui_fiftyone</a></b></td>
+        <td>💽 Implementing the COCO4GUI dataset type in FiftyOne with importers and exports</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/fiftyone_lerobot_importer">@harpreetsahota/fiftyone_lerobot_importer</a></b></td>
+        <td>🤖 Import your LeRobot format dataset into FiftyOne format</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/medsiglip">@harpreetsahota/medsiglip</a></b></td>
+        <td>🩻 Implementing MedSigLIP as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/florence2">@harpreetsahota/florence2</a></b></td>
+        <td>🏛️ Implementing Florence2 as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/medgemma">@harpreetsahota/medgemma</a></b></td>
+        <td>🩻 Implementing MedGemma as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/moondream2">@harpreetsahota/moondream2</a></b></td>
+        <td>🌔 Moondream2 implementation as a remotely sourced zoo model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/qwen2_5_vl">@harpreetsahota/qwen2_5_vl</a></b></td>
+        <td>👀 Implementing Qwen2.5-VL as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/paligemma2">@harpreetsahota/paligemma2</a></b></td>
+        <td>💎 Implementing PaliGemma-2-Mix as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/siglip2">@harpreetsahota/siglip2</a></b></td>
+        <td>🔎 A FiftyOne Remotely Sourced Zoo Model integration for Google's SigLIP2 model enabling natural language search across images in your FiftyOne Dataset</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/os_atlas">@harpreetsahota/os_atlas</a></b></td>
+        <td>🖥️ Integrating OS-Atlas Base into FiftyOne as a Remote Source Zoo Model</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/Nemotron_Nano_VL">@harpreetsahota/Nemotron_Nano_VL</a></b></td>
+        <td>👁️ Implementing Llama-3.1-Nemotron-Nano-VL-8B-V1 as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/UI_TARS">@harpreetsahota/UI_TARS</a></b></td>
+        <td>🖥️ Implementing UI-TARS-1.5 as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/MiMo_VL">@harpreetsahota/MiMo_VL</a></b></td>
+        <td>🎨 Implementing MiMo-VL as a Remote Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/Kimi_VL_A3B">@harpreetsahota/Kimi_VL_A3B</a></b></td>
+        <td>👀 FiftyOne Remotely Sourced Zoo Model integration for Moonshot AI's Kimi-VL-A3B models enabling object detection, keypoint localization, and image classification with strong GUI and document understanding capabilities.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/vggt">@harpreetsahota/vggt</a></b></td>
+        <td>🎲 Implemeting Meta AI's VGGT as a FiftyOne Remote Zoo Model</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/NVLabs_CRADIOV3">@harpreetsahota/NVLabs_CRADIOV3</a></b></td>
+        <td>📻 Implementing NVLabs C-RADIOv3 Embeddings Model as Remotely Sourced Zoo Model for FiftyOne</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/nemo_retriever_parse_plugin">@harpreetsahota/nemo_retriever_parse_plugin</a></b></td>
+        <td>📜 Implementing NVIDIA NeMo Retriever Parse as a FiftyOne Plugin</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/visual_document_retrieval">@harpreetsahota/visual_document_retrieval</a></b></td>
+        <td>📄 A FiftyOne Remotely Sourced Zoo Model integration for LlamaIndex's VDR model enabling natural language search across document images, screenshots, and charts in your datasets.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/ShowUI">@harpreetsahota/ShowUI</a></b></td>
+        <td>🖥️ Integrating ShowUI into FiftyOne as a Remote Source Zoo Model</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/vitpose-plugin">@harpreetsahota/vitpose</a></b></td>
+        <td>🧘🏽 Run ViTPose Models from Hugging Face on your FiftyOne Dataset</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/depthpro-plugin">@harpreetsahota/depth_pro_plugin</a></b></td>
@@ -173,10 +262,6 @@ Want to showcase your own plugin here? See the
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/hiera-video-embeddings-plugin">@harpreetsahota/hiera_video_embeddings</a></b></td>
         <td>🎥 Compute embeddings for video using Facebook Hiera Models </td>
-    </tr>
-    <tr>
-        <td><b><a href="https://github.com/harpreetsahota204/aim-embeddings-plugin">@harpreetsahota/aimv2_embeddings</a></b></td>
-        <td>🍎 Compute embeddings using AIMv2 Models</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/segments-ai/segments-voxel51-plugin">@segmentsai/segments-voxel51-plugin</a></b></td>
@@ -325,10 +410,6 @@ Want to showcase your own plugin here? See the
     <tr>
         <td><b><a href="https://github.com/mmoollllee/fiftyone-timestamps">@mmoollllee/fiftyone-timestamps</a></b></td>
         <td>🕒 Compute datetime-related fields (sunrise, dawn, evening, weekday, ...) from your samples' filenames or creation dates</td>
-    </tr>
-    <tr>
-        <td><b><a href="https://github.com/jacobmarks/fiftyone_florence2_plugin">@jacobmarks/florence2</a></b></td>
-        <td>🧙 Connect Microsoft's Florence-2 Vision-Language Model to your data!</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/allenleetc/plotly-map-panel">@allenleetc/plotly-map-panel</a></b></td>
