@@ -5,7 +5,9 @@ FiftyOne delegated operations.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-from bson import ObjectId
+import json
+
+from bson import json_util, ObjectId
 
 import fiftyone as fo
 import fiftyone.operators as foo
@@ -55,34 +57,34 @@ class ManageDelegatedOperations(foo.Operator):
 
 def _manage_delegated_operations_inputs(ctx, inputs):
     tab_choices = types.TabsView()
-    tab_choices.add_choice("OPTIONS", label="Options")
-    tab_choices.add_choice("RUNS", label="Runs")
+    tab_choices.add_choice("SEARCH", label="Search")
+    tab_choices.add_choice("INFO", label="Info")
     tab_choices.add_choice("CLEANUP", label="Cleanup")
     inputs.enum(
         "tab",
         tab_choices.values(),
-        default="OPTIONS",
+        default="SEARCH",
         view=tab_choices,
     )
-    tab = ctx.params.get("tab", "OPTIONS")
+    tab = ctx.params.get("tab", "SEARCH")
 
-    if tab == "OPTIONS":
-        _manage_delegated_operations_options(ctx, inputs)
+    if tab == "SEARCH":
+        _manage_delegated_operations_search(ctx, inputs)
         ready = False
     else:
-        ready = _manage_delegated_operations_runs(ctx, inputs)
+        ready = _manage_delegated_operations_actions(ctx, inputs)
 
     if not ready:
         prop = inputs.str("hidden", view=types.HiddenView())
         prop.invalid = True
 
 
-def _manage_delegated_operations_options(ctx, inputs):
+def _manage_delegated_operations_search(ctx, inputs):
     inputs.message(
-        "options_message",
+        "search_message",
         label=(
             "Use the options below to configure what operations to see, then "
-            "click the other tabs to view them"
+            "click the other tabs to view/act on them"
         ),
     )
 
@@ -107,7 +109,7 @@ def _manage_delegated_operations_options(ctx, inputs):
         "search",
         required=False,
         label="Search",
-        description="Search for operations by operator name",
+        description="Search for operations by operator name or label",
     )
 
     state_choices = types.DropdownView()
@@ -151,20 +153,19 @@ def _manage_delegated_operations_options(ctx, inputs):
     )
 
 
-def _manage_delegated_operations_runs(ctx, inputs):
+def _manage_delegated_operations_actions(ctx, inputs):
     dataset = ctx.params.get("dataset", None) or None
     search = ctx.params.get("search", None)
     state = ctx.params.get("state", "ALL")
     sort_by = ctx.params.get("sort_by", "NEWEST")
     limit = ctx.params.get("limit", None)
-    cleanup = ctx.params.get("tab", "RUNS") == "CLEANUP"
+    tab = ctx.params.get("tab", None)
 
     uuid = str(dataset) + str(search) + str(state) + str(sort_by) + str(limit)
-
     all_datasets = dataset is None
 
     if search is not None:
-        search = {".*" + search + ".*": ["operator"]}
+        search = {".*" + search + ".*": ["operator", "label"]}
 
     if state == "ALL":
         state = None
@@ -176,15 +177,14 @@ def _manage_delegated_operations_runs(ctx, inputs):
         sort_by = "QUEUED_AT"
         reverse = True
 
-    if all_datasets and cleanup:
+    if all_datasets:
+        # 6 columns: 2 2 2 2 2 2
+        space1 = 2
+        space2 = 2
+    else:
+        # 5 columns: 3 3 2 2 2
         space1 = 3
         space2 = 2
-    elif all_datasets or cleanup:
-        space1 = 3
-        space2 = 3
-    else:
-        space1 = 4
-        space2 = 4
 
     dos = food.DelegatedOperationService()
     ops = dos.list_operations(
@@ -195,7 +195,7 @@ def _manage_delegated_operations_runs(ctx, inputs):
     )
 
     if not ops:
-        inputs.view("warning", types.Warning(label="No operations found"))
+        inputs.view("notice", types.Notice(label="No operations found"))
         return False
 
     obj = types.Object()
@@ -205,12 +205,18 @@ def _manage_delegated_operations_runs(ctx, inputs):
         description="The name of the operator",
         view=types.MarkdownView(read_only=True, space=space1),
     )
+    obj.str(
+        "label",
+        label="Label",
+        description="The operation's label",
+        view=types.MarkdownView(read_only=True, space=space1),
+    )
     if all_datasets:
         obj.str(
             "dataset",
             label="Dataset",
             description="The name of the dataset",
-            view=types.MarkdownView(read_only=True, space=space1),
+            view=types.MarkdownView(read_only=True, space=space2),
         )
     obj.str(
         "state",
@@ -224,22 +230,30 @@ def _manage_delegated_operations_runs(ctx, inputs):
         description="When the run was scheduled",
         view=types.MarkdownView(read_only=True, space=space2),
     )
-    if cleanup:
-        obj.str(
-            "action",
-            label="Action",
-            description="Select runs to cleanup",
-            view=types.MarkdownView(read_only=True, space=space2),
-        )
+    if tab == "CLEANUP":
+        action_description = "Select runs to cleanup"
+    else:
+        action_description = "Select run to view info"
+    obj.str(
+        "action",
+        label="Action",
+        description=action_description,
+        view=types.MarkdownView(read_only=True, space=space2),
+    )
     inputs.define_property(f"{uuid}_header", obj)
 
-    selected_run_states = []
+    selected_ops = []
     for i, op in enumerate(ops, 1):
         prop_name = f"row_{uuid}_{op.id}"
         obj = types.Object()
         obj.str(
             "operator",
             default="/ ".join(op.operator.split("/")),
+            view=types.MarkdownView(read_only=True, space=space1),
+        )
+        obj.str(
+            "label",
+            default=op.label,
             view=types.MarkdownView(read_only=True, space=space1),
         )
         if all_datasets:
@@ -258,21 +272,216 @@ def _manage_delegated_operations_runs(ctx, inputs):
             default=_format_datetime(op.queued_at),
             view=types.MarkdownView(read_only=True, space=space2),
         )
-        if cleanup:
-            obj.bool(
-                "action",
-                default=False,
-                view=types.CheckboxView(space=space2),
-            )
+        obj.bool(
+            "action",
+            default=False,
+            view=types.CheckboxView(space=space2),
+        )
         inputs.define_property(prop_name, obj)
 
         if ctx.params.get(prop_name, {}).get("action", False):
-            selected_run_states.append(op.run_state)
+            selected_ops.append(op)
 
-    if not cleanup or not selected_run_states:
+    if tab == "INFO":
+        return _handle_info(ctx, inputs, selected_ops)
+
+    if tab == "CLEANUP":
+        return _handle_cleanup(ctx, inputs, selected_ops)
+
+    return False
+
+
+def _handle_info(ctx, inputs, selected_ops):
+    if not selected_ops:
         return False
 
-    n = len(selected_run_states)
+    inputs.str(
+        "op_header",
+        view=types.Header(label="Operation info", divider=True),
+    )
+
+    idx = 0
+    if len(selected_ops) > 1:
+        tab_choices = types.TabsView()
+        for idx, op in enumerate(selected_ops):
+            tab_choices.add_choice(idx, label=str(op.id))
+
+        inputs.enum(
+            "op_idx",
+            tab_choices.values(),
+            default=0,
+            view=tab_choices,
+        )
+        idx = ctx.params.get("op_idx", 0)
+
+    op = selected_ops[idx]
+
+    show_raw = ctx.params.get("show_raw", False)
+
+    if show_raw:
+        inputs.str(
+            "op_info",
+            default=fo.pformat(op._doc),
+            view=types.CodeView(
+                read_only=True,
+                height="512px",
+                componentsProps={
+                    "editor": {
+                        "options": {
+                            "minimap": {"enabled": False},
+                            "scrollBeyondLastLine": False,
+                        },
+                    },
+                },
+            ),
+        )
+    else:
+        kv_view = types.MarkdownView(read_only=True, space=4)
+        code_view = types.CodeView(
+            read_only=True,
+            componentsProps={
+                "editor": {
+                    "options": {
+                        "minimap": {"enabled": False},
+                        "scrollBeyondLastLine": False,
+                    },
+                },
+            },
+        )
+
+        def format_dt(dt):
+            if dt is None:
+                return "N/A"
+
+            a = dt.strftime("%Y-%m-%d %H:%M:%S")
+            b = _format_datetime(dt)
+            return f"{a} ({b})"
+
+        def format_code(d):
+            return fo.pformat(d) if d else None
+
+        inputs.str(
+            "op_operator",
+            label="Operator",
+            description=op.operator,
+            view=kv_view,
+        )
+        inputs.str(
+            "op_label",
+            label="Label",
+            description=op.label,
+            view=kv_view,
+        )
+        inputs.str(
+            "op_id",
+            label="ID",
+            description=str(op.id),
+            view=kv_view,
+        )
+        inputs.str(
+            "op_state",
+            label="State",
+            description=op.run_state.capitalize(),
+            view=kv_view,
+        )
+        inputs.str(
+            "op_scheduled_at",
+            label="Scheduled at",
+            description=format_dt(op.scheduled_at),
+            view=kv_view,
+        )
+        inputs.str(
+            "op_queued_at",
+            label="Queued at",
+            description=format_dt(op.queued_at),
+            view=kv_view,
+        )
+        inputs.str(
+            "op_started_at",
+            label="Started at",
+            description=format_dt(op.started_at),
+            view=kv_view,
+        )
+        inputs.str(
+            "op_completed_at",
+            label="Completed at",
+            description=format_dt(op.completed_at),
+            view=kv_view,
+        )
+        inputs.str(
+            "op_failed_at",
+            label="Failed at",
+            description=format_dt(op.failed_at),
+            view=kv_view,
+        )
+
+        tab_choices = types.TabsView()
+        tab_choices.add_choice("INPUTS", label="Inputs")
+        tab_choices.add_choice("VIEW", label="View")
+        tab_choices.add_choice("OUTPUTS", label="Outputs")
+        tab_choices.add_choice("ERRORS", label="Errors")
+
+        inputs.enum(
+            "op_tab",
+            tab_choices.values(),
+            default="INPUTS",
+            view=tab_choices,
+        )
+        tab = ctx.params.get("op_tab", "INPUTS")
+
+        request_params = op._doc["context"]["request_params"]
+        result = op._doc.get("result", None)
+
+        if tab == "INPUTS":
+            inputs.str(
+                "op_inputs",
+                default=format_code(request_params["params"]),
+                view=code_view,
+            )
+        elif tab == "VIEW":
+            dataset_name, view_params = _parse_op_view(request_params)
+            if dataset_name != ctx.dataset.name:
+                inputs.btn(
+                    "op_dataset",
+                    label="Load input dataset",
+                    on_click="open_dataset",
+                    params={"dataset": dataset_name},
+                )
+
+            inputs.btn(
+                "op_view",
+                label="Load input view",
+                on_click="set_view",
+                params=view_params,
+            )
+        elif tab == "OUTPUTS":
+            inputs.str(
+                "op_outputs",
+                default=format_code(result["result"]) if result else None,
+                view=code_view,
+            )
+        elif tab == "ERRORS":
+            inputs.str(
+                "op_errors",
+                default=result["error"] if result else None,
+                view=code_view,
+            )
+
+    inputs.bool(
+        "show_raw",
+        label="Show raw",
+        default=False,
+        view=types.SwitchView(),
+    )
+
+    return False
+
+
+def _handle_cleanup(ctx, inputs, selected_ops):
+    if not selected_ops:
+        return False
+
+    n = len(selected_ops)
     s = "s" if n > 1 else ""
     pronoun = "them" if n > 1 else "it"
     inputs.message(
@@ -318,7 +527,7 @@ def _manage_delegated_operations_runs(ctx, inputs):
             fooe.ExecutionRunState.FAILED,
         )
 
-    okay = all(state in allowed_states for state in selected_run_states)
+    okay = all(op.run_state in allowed_states for op in selected_ops)
 
     if not okay:
         prop.invalid = True
@@ -334,6 +543,24 @@ def _manage_delegated_operations_runs(ctx, inputs):
         return False
 
     return True
+
+
+def _parse_op_view(request_params):
+    ctx = foo.ExecutionContext(request_params=request_params)
+    dataset = ctx.dataset
+    view = ctx.view
+
+    dataset_name = dataset.name if dataset is not None else None
+    view_params = {
+        "view": _serialize_view(view) if view is not None else None,
+        "name": view.name if view is not None else None,
+    }
+
+    return dataset_name, view_params
+
+
+def _serialize_view(view):
+    return json.loads(json_util.dumps(view._serialize()))
 
 
 def _parse_state(state):
