@@ -441,7 +441,7 @@ class ConfigurePlot(foo.Operator):
                     "code",
                     label="Code editor",
                     default=code_example,
-                    view=types.CodeView(language="python", space=6),
+                    view=types.CodeView(language="python", height=600),
                 )
 
                 # Dataset selection tabs
@@ -496,13 +496,6 @@ class ConfigurePlot(foo.Operator):
                             label="Select datasets",
                             default=[],
                             description="Choose which datasets to query",
-                        )
-                    else:
-                        inputs.str(
-                            "selected_datasets",
-                            default="",
-                            label="No datasets available",
-                            description="No datasets are currently available for selection",
                         )
             else:
                 number_fields = self.get_number_field_choices(ctx)
@@ -798,6 +791,7 @@ def load_plot_data_for_item(ctx, dashboard, item):
         data = dashboard.load_data_from_code(
             item.code, item.type, item.datasets
         )
+        print(data)
     elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
         data = dashboard.load_categorical_histogram_data(item)
     elif item.type == PlotType.NUMERIC_HISTOGRAM:
@@ -1061,16 +1055,11 @@ class DashboardState(object):
         user_ns = {}
         try:
             # Create a modified context with datasets configuration
-            ctx_with_datasets = self.ctx
+            ctx = self.ctx
             if datasets_config:
-                # Temporarily add datasets config to ctx.params for _resolve_datasets
-                original_params = getattr(ctx_with_datasets, "params", {})
-                ctx_with_datasets.params = {
-                    **original_params,
-                    **datasets_config,
-                }
+                print("datasets_config", datasets_config)
 
-            exec(code, {"ctx": ctx_with_datasets}, user_ns)
+            exec(code, {"ctx": ctx}, user_ns)
 
             # legacy style: user defines `data = {...}`
             if "data" in user_ns and isinstance(user_ns["data"], dict):
@@ -1083,11 +1072,9 @@ class DashboardState(object):
                 callable(user_ns.get(fn))
                 for fn in ("prepare", "map", "reduce")
             ):
-                datasets = _resolve_datasets(ctx_with_datasets)
+                datasets = _resolve_datasets(ctx, datasets_config)
                 max_workers = 8  # TODO: use fiftyone config/utils
-                result = _run_map_reduce(
-                    user_ns, ctx_with_datasets, datasets, max_workers
-                )
+                result = _run_map_reduce(user_ns, ctx, datasets, max_workers)
                 if isinstance(result, dict):
                     result["type"] = _get_plotly_plot_type(plot_type).value
                     return result
@@ -1282,7 +1269,21 @@ def _run_map_reduce(user_ns, ctx, datasets, max_workers=8):
         raise MapReduceError("User code must define prepare/map/reduce")
 
     # prepare
-    shared = prepare(ctx, datasets)
+    prepared = prepare(ctx, datasets)
+
+    # if prepared is a tuple, unpack it
+    if isinstance(prepared, tuple):
+        targets = prepared[0]
+        shared = prepared[1]
+    else:
+        targets = prepared
+        shared = None
+
+    # targets must be a list
+    if not isinstance(targets, list):
+        raise MapReduceError(
+            "prepare() must return a list or a tuple with a list"
+        )
 
     # run map for each dataset
     results = [None] * len(datasets)
@@ -1305,45 +1306,69 @@ def _run_map_reduce(user_ns, ctx, datasets, max_workers=8):
         raise MapReduceError(f"All map tasks failed:\n{first_err}")
 
     # reduce
-    return reduce_fn(ctx, results, shared) or {}
+    plot_data = reduce_fn(ctx, results, shared) or {}
+
+    if not isinstance(plot_data, dict):
+        raise MapReduceError("reduce() must return a dict")
+
+    return plot_data
 
 
-def _resolve_datasets(ctx):
+def _load_datasets_in_parallel(dataset_names):
+    datasets = [None] * len(dataset_names)
+    errors = {}
+
+    def load_dataset(name, index):
+        try:
+            return fo.load_dataset(name)
+        except Exception as e:
+            logger.warning(f"Could not load dataset '{name}': {e}")
+            return None
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {
+            executor.submit(load_dataset, name, i): i
+            for i, name in enumerate(dataset_names)
+        }
+
+        for future in as_completed(futures):
+            index = futures[future]
+            result = future.result()
+            if result is not None:
+                datasets[index] = result
+
+    # Filter out None values (failed loads)
+    return [d for d in datasets if d is not None]
+
+
+def _resolve_datasets(ctx, datasets_config=None):
     """Resolve datasets based on the dataset selection mode in ctx.params.
 
     Args:
         ctx: The operator context
 
     Returns:
-        List of dataset objects or names based on the selection mode
+        List of dataset objects
     """
-    if not hasattr(ctx, "params") or not isinstance(ctx.params, dict):
-        return [ctx.dataset]
-
-    dataset_mode = ctx.params.get("dataset_mode", "this_dataset")
+    if datasets_config and "dataset_mode" in datasets_config:
+        dataset_mode = datasets_config["dataset_mode"]
+    else:
+        dataset_mode = "this_dataset"
 
     if dataset_mode == "all_datasets":
         # Return all available datasets
-        return fo.list_datasets()
+        dataset_names = fo.list_datasets()
+        return _load_datasets_in_parallel(dataset_names)
     elif dataset_mode == "this_dataset":
         # Return current dataset
         return [ctx.dataset]
     elif dataset_mode == "multiple_datasets":
         # Return selected datasets by name
-        selected_names = ctx.params.get("selected_datasets", [])
+        selected_names = datasets_config["selected_datasets"]
         if not selected_names or not isinstance(selected_names, list):
             return [ctx.dataset]
 
-        datasets = []
-        for name in selected_names:
-            try:
-                dataset = fo.load_dataset(name)
-                datasets.append(dataset)
-            except Exception as e:
-                logger.warning(f"Could not load dataset '{name}': {e}")
-                continue
-
-        return datasets if datasets else [ctx.dataset]
+        return _load_datasets_in_parallel(selected_names)
     else:
         return [ctx.dataset]
 
