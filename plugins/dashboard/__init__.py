@@ -436,13 +436,108 @@ class ConfigurePlot(foo.Operator):
             )
 
             if use_code:
-                code_example = self.get_code_example(plot_type)
-                inputs.str(
-                    "code",
-                    label="Code editor",
-                    default=code_example,
-                    view=types.CodeView(language="python", height=600),
+                # Create tabs for Code, Preview, and Logs
+                tab_choices = types.TabsView()
+                tab_choices.add_choice("code", label="Code")
+                tab_choices.add_choice("preview", label="Preview")
+                tab_choices.add_choice("logs", label="Logs")
+                
+                inputs.enum(
+                    "active_tab",
+                    tab_choices.values(),
+                    default="code",
+                    view=tab_choices,
                 )
+                
+                active_tab = ctx.params.get("active_tab", "code")
+                
+                if active_tab == "code":
+                    code_example = self.get_code_example(plot_type)
+                    inputs.str(
+                        "code",
+                        label="Code editor",
+                        default=code_example,
+                        view=types.CodeView(language="python", height=600),
+                    )
+                elif active_tab == "preview":
+                    # Preview tab - show the plot preview
+                    dashboard_state = DashboardState(ctx)
+                    item = DashboardPlotItem.from_dict(
+                        {
+                            "name": "plot_preview",
+                            "type": plot_type,
+                            "config": _get_plotly_config_and_layout(ctx.params).get("config", {}),
+                            "layout": _get_plotly_config_and_layout(ctx.params).get("layout", {}),
+                            "use_code": True,
+                            "code": ctx.params.get("code", None),
+                            "x_field": ctx.params.get("x_field", None),
+                            "y_field": ctx.params.get("y_field", None),
+                            "field": ctx.params.get("field", None),
+                            "bins": ctx.params.get("bins", 10),
+                            "order": ctx.params.get("order", "alphabetical"),
+                            "reverse": ctx.params.get("reverse", False),
+                            "limit": ctx.params.get("limit", None),
+                            "datasets": {
+                                "dataset_mode": ctx.params.get("dataset_mode", "this_dataset"),
+                                "selected_datasets": ctx.params.get("selected_datasets") or [],
+                            },
+                        }
+                    )
+                    
+                    if dashboard_state.can_load_data(item):
+                        preview_data = dashboard_state.load_plot_data_for_item(ctx, item)
+                        preview_config = _get_plotly_config_and_layout(ctx.params).get("config", {})
+                        preview_layout = _get_plotly_config_and_layout(ctx.params).get("layout", {})
+                        preview_height = 600 if plot_type == "pie" else 300
+                        
+                        # Note: We'll access logs directly in the logs tab
+                        
+                        inputs.plot(
+                            "plot_preview_tab",
+                            label="Plot preview",
+                            config=preview_config,
+                            layout=preview_layout,
+                            data=preview_data,
+                            width="100%",
+                        )
+                    else:
+                        inputs.message(
+                            "preview_message",
+                            label="Preview not available",
+                            description="Please enter valid code to see the preview",
+                        )
+                elif active_tab == "logs":
+                    # Logs tab - show execution logs (read-only text view)
+                    # Execute code to capture logs
+                    code = ctx.params.get("code", "")
+                    if code:
+                        try:
+                            # Create a simple execution to capture logs
+                            user_ns = {}
+                            logs = []
+                            
+                            # Custom print function to capture logs
+                            def log_print(*args, **kwargs):
+                                from io import StringIO as IOStringIO
+                                output = IOStringIO()
+                                print(*args, file=output, **kwargs)
+                                logs.append(output.getvalue().strip())
+                            
+                            # Execute code with custom print function
+                            exec(code, {"ctx": ctx, "print": log_print}, user_ns)
+                            
+                            logs_content = "\n".join(logs) if logs else "Code executed successfully with no output."
+                        except Exception as e:
+                            logs_content = f"Error executing code: {str(e)}"
+                    else:
+                        logs_content = "No code to execute. Enter code in the Code tab first."
+                    
+                    inputs.str(
+                        "execution_logs_display",
+                        label="Execution logs",
+                        default=logs_content,
+                        view=types.CodeView(language="text", height=600, read_only=True),
+                    )
 
                 # Dataset selection tabs
                 dataset_mode_choices = types.TabsView()
@@ -590,56 +685,6 @@ class ConfigurePlot(foo.Operator):
                 ),
             )
 
-            plotly_layout_and_config = _get_plotly_config_and_layout(
-                ctx.params
-            )
-            preview_config = plotly_layout_and_config.get("config", {})
-            preview_layout = plotly_layout_and_config.get("layout", {})
-            item = DashboardPlotItem.from_dict(
-                {
-                    "name": "plot_preview",
-                    "type": plot_type,
-                    "config": preview_config,
-                    "layout": preview_layout,
-                    "use_code": ctx.params.get("use_code", False),
-                    "code": ctx.params.get("code", None),
-                    "x_field": ctx.params.get("x_field", None),
-                    "y_field": ctx.params.get("y_field", None),
-                    "field": ctx.params.get("field", None),
-                    "bins": ctx.params.get("bins", 10),
-                    "order": ctx.params.get("order", "alphabetical"),
-                    "reverse": ctx.params.get("reverse", False),
-                    "limit": ctx.params.get("limit", None),
-                    "datasets": {
-                        "dataset_mode": ctx.params.get(
-                            "dataset_mode", "this_dataset"
-                        ),
-                        "selected_datasets": ctx.params.get(
-                            "selected_datasets"
-                        )
-                        or [],
-                    },
-                }
-            )
-
-            dashboard_state = DashboardState(ctx)
-            if dashboard_state.can_load_data(item):
-                preview_data = dashboard_state.load_plot_data_for_item(
-                    ctx, item
-                )
-                preview_container = inputs.grid(
-                    "grid", height="400px", width="100%"
-                )
-                preview_height = "600px" if plot_type == "pie" else "300px"
-                preview_container.plot(
-                    "plot_preview",
-                    label="Plot preview",
-                    config=preview_config,
-                    layout=preview_layout,
-                    data=preview_data,
-                    height=preview_height,
-                    width="600px",
-                )
 
         is_edit = ctx.params.get("name", None) is not None
         submit_button_label = "Update plot" if is_edit else "Create plot"
@@ -1053,18 +1098,33 @@ class DashboardState(object):
             return {}
 
         user_ns = {}
+        logs = []
+        
+        # Custom print function to capture logs
+        def log_print(*args, **kwargs):
+            import sys
+            from io import StringIO as IOStringIO
+            output = IOStringIO()
+            print(*args, file=output, **kwargs)
+            logs.append(output.getvalue().strip())
+            # Also print to console for debugging
+            print(*args, **kwargs)
+        
         try:
             # Create a modified context with datasets configuration
             ctx = self.ctx
             if datasets_config:
-                print("datasets_config", datasets_config)
+                log_print("datasets_config", datasets_config)
 
-            exec(code, {"ctx": ctx}, user_ns)
+            # Execute code with custom print function
+            exec(code, {"ctx": ctx, "print": log_print}, user_ns)
 
             # legacy style: user defines `data = {...}`
             if "data" in user_ns and isinstance(user_ns["data"], dict):
                 data = user_ns["data"]
                 data["type"] = _get_plotly_plot_type(plot_type).value
+                # Store logs in the data for access in the UI
+                data["_execution_logs"] = "\n".join(logs) if logs else "Code executed successfully with no output."
                 return data
 
             # user defines prepare/map/reduce
@@ -1077,17 +1137,23 @@ class DashboardState(object):
                 result = _run_map_reduce(user_ns, ctx, datasets, max_workers)
                 if isinstance(result, dict):
                     result["type"] = _get_plotly_plot_type(plot_type).value
+                    # Store logs in the result for access in the UI
+                    result["_execution_logs"] = "\n".join(logs) if logs else "Code executed successfully with no output."
                     return result
                 return {}
 
-            return {}
+            # Store logs for cases where no data is returned
+            # We'll return the logs as part of the data structure
+            result = {"_execution_logs": "\n".join(logs) if logs else "Code executed successfully with no output."}
+            return result
 
         except Exception as e:
             # log the error
-            logger.error(
-                f"Error executing custom code: {str(e)}", exc_info=True
-            )
-            return {}
+            error_msg = f"Error executing custom code: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            # Store error in logs
+            logs.append(error_msg)
+            return {"_execution_logs": "\n".join(logs)}
 
 
 def _can_edit(ctx):
