@@ -17,6 +17,12 @@ import fiftyone as fo
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
 from fiftyone import ViewField as F
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import traceback
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from fiftyone.operators.cache import execution_cache
@@ -108,6 +114,10 @@ class DashboardPanel(foo.Panel):
                 order=result.get("order", "alphabetical"),
                 reverse=result.get("reverse", False),
                 limit=result.get("limit", None),
+                datasets={
+                    "dataset_mode": result.get("dataset_mode", "this_dataset"),
+                    "selected_datasets": result.get("selected_datasets") or [],
+                },
             )
 
             if edit:
@@ -298,6 +308,14 @@ class ConfigurePlot(foo.Operator):
 
         return fields
 
+    def get_available_datasets(self, ctx):
+        """Get available dataset names for selection."""
+        try:
+            return fo.list_datasets()
+        except Exception as e:
+            logger.warning(f"Could not list datasets: {e}")
+            return []
+
     def create_axis_input(self, ctx, inputs, axis):
         axis_obj = types.Object()
         axis_obj.str(
@@ -425,6 +443,67 @@ class ConfigurePlot(foo.Operator):
                     default=code_example,
                     view=types.CodeView(language="python", space=6),
                 )
+
+                # Dataset selection tabs
+                dataset_mode_choices = types.TabsView()
+                dataset_mode_choices.add_choice(
+                    "this_dataset",
+                    label="This Dataset",
+                    description="Query data from the current dataset only",
+                )
+                dataset_mode_choices.add_choice(
+                    "multiple_datasets",
+                    label="Multiple Datasets",
+                    description="Query data from specific datasets",
+                )
+                dataset_mode_choices.add_choice(
+                    "all_datasets",
+                    label="All Datasets",
+                    description="Query data from all available datasets",
+                )
+
+                inputs.enum(
+                    "dataset_mode",
+                    values=dataset_mode_choices.values(),
+                    view=dataset_mode_choices,
+                    default="this_dataset",
+                    required=True,
+                )
+
+                dataset_mode = ctx.params.get("dataset_mode", "this_dataset")
+
+                if dataset_mode == "multiple_datasets":
+                    available_datasets = self.get_available_datasets(ctx)
+                    if available_datasets:
+                        dataset_choices = types.AutocompleteView(
+                            label="Datasets",
+                            multiple=True,
+                            space=6,
+                        )
+
+                        # Add individual datasets
+                        for dataset_name in available_datasets:
+                            dataset_choices.add_choice(
+                                dataset_name,
+                                label=dataset_name,
+                            )
+
+                        inputs.list(
+                            "selected_datasets",
+                            types.String(),
+                            view=dataset_choices,
+                            required=True,
+                            label="Select datasets",
+                            default=[],
+                            description="Choose which datasets to query",
+                        )
+                    else:
+                        inputs.str(
+                            "selected_datasets",
+                            default="",
+                            label="No datasets available",
+                            description="No datasets are currently available for selection",
+                        )
             else:
                 number_fields = self.get_number_field_choices(ctx)
                 categorical_fields = self.get_categorical_field_choices(ctx)
@@ -538,6 +617,15 @@ class ConfigurePlot(foo.Operator):
                     "order": ctx.params.get("order", "alphabetical"),
                     "reverse": ctx.params.get("reverse", False),
                     "limit": ctx.params.get("limit", None),
+                    "datasets": {
+                        "dataset_mode": ctx.params.get(
+                            "dataset_mode", "this_dataset"
+                        ),
+                        "selected_datasets": ctx.params.get(
+                            "selected_datasets"
+                        )
+                        or [],
+                    },
                 }
             )
 
@@ -619,6 +707,7 @@ class DashboardPlotItem(object):
         order="alphabetical",
         reverse=False,
         limit=None,
+        datasets=None,
     ):
         self.name = name
         self.type = PlotType(type)
@@ -635,6 +724,7 @@ class DashboardPlotItem(object):
         self.order = order
         self.reverse = reverse
         self.limit = limit
+        self.datasets = datasets
 
     @staticmethod
     def from_dict(data):
@@ -654,6 +744,7 @@ class DashboardPlotItem(object):
             data.get("order", "alphabetical"),
             data.get("reverse", False),
             data.get("limit", None),
+            data.get("datasets", None),
         )
 
     @property
@@ -681,6 +772,7 @@ class DashboardPlotItem(object):
             "order": self.order,
             "reverse": self.reverse,
             "limit": self.limit,
+            "datasets": self.datasets,
         }
 
 
@@ -700,10 +792,12 @@ def plot_data_key_fn(ctx, dashboard, item):
 def load_plot_data_for_item(ctx, dashboard, item):
     fo_orange = "rgb(255, 109, 5)"
     bar_color = {"marker": {"color": fo_orange}}
-    
+
     data = None
     if item.use_code:
-        data = dashboard.load_data_from_code(item.code, item.type)
+        data = dashboard.load_data_from_code(
+            item.code, item.type, item.datasets
+        )
     elif item.type == PlotType.CATEGORICAL_HISTOGRAM:
         data = dashboard.load_categorical_histogram_data(item)
     elif item.type == PlotType.NUMERIC_HISTOGRAM:
@@ -946,19 +1040,6 @@ class DashboardState(object):
 
         return pie_data
 
-    def load_data_from_code(self, code, plot_type):
-        if not code:
-            return {}
-
-        local_vars = {}
-        try:
-            exec(code, {"ctx": self.ctx}, local_vars)
-            data = local_vars.get("data", {})
-            data["type"] = _get_plotly_plot_type(plot_type).value
-            return data
-        except Exception as e:
-            return {}
-
     def can_load_data(self, item):
         if item.code:
             return True
@@ -972,6 +1053,54 @@ class DashboardState(object):
             return item.x_field is not None and item.y_field is not None
         elif item.type == PlotType.PIE:
             return item.field is not None
+
+    def load_data_from_code(self, code, plot_type, datasets_config=None):
+        if not code:
+            return {}
+
+        user_ns = {}
+        try:
+            # Create a modified context with datasets configuration
+            ctx_with_datasets = self.ctx
+            if datasets_config:
+                # Temporarily add datasets config to ctx.params for _resolve_datasets
+                original_params = getattr(ctx_with_datasets, "params", {})
+                ctx_with_datasets.params = {
+                    **original_params,
+                    **datasets_config,
+                }
+
+            exec(code, {"ctx": ctx_with_datasets}, user_ns)
+
+            # legacy style: user defines `data = {...}`
+            if "data" in user_ns and isinstance(user_ns["data"], dict):
+                data = user_ns["data"]
+                data["type"] = _get_plotly_plot_type(plot_type).value
+                return data
+
+            # user defines prepare/map/reduce
+            if all(
+                callable(user_ns.get(fn))
+                for fn in ("prepare", "map", "reduce")
+            ):
+                datasets = _resolve_datasets(ctx_with_datasets)
+                max_workers = 8  # TODO: use fiftyone config/utils
+                result = _run_map_reduce(
+                    user_ns, ctx_with_datasets, datasets, max_workers
+                )
+                if isinstance(result, dict):
+                    result["type"] = _get_plotly_plot_type(plot_type).value
+                    return result
+                return {}
+
+            return {}
+
+        except Exception as e:
+            # log the error
+            logger.error(
+                f"Error executing custom code: {str(e)}", exc_info=True
+            )
+            return {}
 
 
 def _can_edit(ctx):
@@ -1135,6 +1264,88 @@ def find_datetime_max_val(x_datetime, min_val):
     for i in range(len(x_datetime) - 1):
         if x_datetime[i] <= min_val < x_datetime[i + 1]:
             return x_datetime[i], x_datetime[i + 1]
+
+
+##
+## Multi-threading custom code
+##
+class MapReduceError(Exception):
+    pass
+
+
+def _run_map_reduce(user_ns, ctx, datasets, max_workers=8):
+    prepare = user_ns.get("prepare")
+    map_fn = user_ns.get("map")
+    reduce_fn = user_ns.get("reduce")
+
+    if not (callable(prepare) and callable(map_fn) and callable(reduce_fn)):
+        raise MapReduceError("User code must define prepare/map/reduce")
+
+    # prepare
+    shared = prepare(ctx, datasets)
+
+    # run map for each dataset
+    results = [None] * len(datasets)
+    errors = {}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futs = {
+            ex.submit(map_fn, ctx, d, shared): i
+            for i, d in enumerate(datasets)
+        }
+        for fut in as_completed(futs):
+            i = futs[fut]
+            try:
+                results[i] = fut.result()
+            except Exception:
+                errors[i] = traceback.format_exc()
+
+    if all(r is None for r in results):
+        first_err = next(iter(errors.values()), "Unknown map error")
+        raise MapReduceError(f"All map tasks failed:\n{first_err}")
+
+    # reduce
+    return reduce_fn(ctx, results, shared) or {}
+
+
+def _resolve_datasets(ctx):
+    """Resolve datasets based on the dataset selection mode in ctx.params.
+
+    Args:
+        ctx: The operator context
+
+    Returns:
+        List of dataset objects or names based on the selection mode
+    """
+    if not hasattr(ctx, "params") or not isinstance(ctx.params, dict):
+        return [ctx.dataset]
+
+    dataset_mode = ctx.params.get("dataset_mode", "this_dataset")
+
+    if dataset_mode == "all_datasets":
+        # Return all available datasets
+        return fo.list_datasets()
+    elif dataset_mode == "this_dataset":
+        # Return current dataset
+        return [ctx.dataset]
+    elif dataset_mode == "multiple_datasets":
+        # Return selected datasets by name
+        selected_names = ctx.params.get("selected_datasets", [])
+        if not selected_names or not isinstance(selected_names, list):
+            return [ctx.dataset]
+
+        datasets = []
+        for name in selected_names:
+            try:
+                dataset = fo.load_dataset(name)
+                datasets.append(dataset)
+            except Exception as e:
+                logger.warning(f"Could not load dataset '{name}': {e}")
+                continue
+
+        return datasets if datasets else [ctx.dataset]
+    else:
+        return [ctx.dataset]
 
 
 def register(p):
