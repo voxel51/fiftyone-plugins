@@ -1,0 +1,10 @@
+name: "@voxel51/vlmrun"
+description: Extract structured data from visual sources using VLM Run
+version: 1.0.0
+fiftyone:
+  version: ">=0.23.0"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/vlmrun
+license: Apache 2.0
+operators:
+  # Video Processing
+  - transcribe_video
