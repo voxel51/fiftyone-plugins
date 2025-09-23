@@ -40,30 +40,37 @@ session = fo.launch_app(dataset)
 
 4.  Build a dashboard as shown in the video above!
 
-# Feature: Multi-Dataset Charts in the Dashboard Plugin
+# Custom Data Source
 
-You can build charts that span **multiple FiftyOne Datasets** by pasting a
-small “magic code” snippet into the Dashboard panel’s **Code** input. For now
-this is an advanced/hidden capability—there’s no multi-select UI yet.
+Enable **Custom data source** in the panel settings to activate the **Code**
+editor.  
+You can then define a data source in Python, useful for combining multiple
+Datasets or creating custom aggregations.
 
-## What this does
+## Example: Pie chart of label counts
 
--   Aggregates data across **multiple datasets** that share the **same
-    schema/field names**.
--   Produces chart data by setting a Python variable named `data` to **Plotly
-    React props** (e.g., `{"x": [...], "y": [...]}`).
--   The Dashboard will add the correct `type` automatically from the chart
-    selector (no need to include it).
+```python
+# Simple pie chart: label counts in a dataset
+import fiftyone as fo
 
-> Assumptions
->
-> -   All selected datasets have the same fields.
-> -   You can open the Dashboard in the context of any dataset; the code below
->     is what makes it multi-dataset.
-> -   Pick the desired chart type (e.g., **Bar**) in the Dashboard UI; the
->     panel will set `data["type"]` for you.
+# Use the ctx object to interact with the current view or dataset
+dataset = ctx.dataset  # or ctx.view
 
----
+# Choose a field with categorical values
+field = "ground_truth.detections.label"
+
+# Count occurrences of each label
+counts = dataset.count_values(field)
+
+# The Dashboard reads the plot from this `data` variable.
+
+# NOTE: Do not set "type"; simply choose Pie in the
+#       chart selector.
+data = {
+    "labels": list(counts.keys()),
+    "values": list(counts.values()),
+}
+```
 
 ## Example: Multi-Dataset Histogram (combined counts)
 
