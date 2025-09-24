@@ -25,7 +25,7 @@ DEFAULT_MAX_WAIT = 600  # 10 minutes
 DEFAULT_POLL_INTERVAL = 5  # seconds
 MAX_ERROR_DETAILS = 5
 
-# Supported video extensions
+# Supported file extensions
 VIDEO_EXTENSIONS = (
     ".mp4",
     ".avi",
@@ -37,15 +37,37 @@ VIDEO_EXTENSIONS = (
     ".m4v",
 )
 
+IMAGE_EXTENSIONS = (
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".gif",
+    ".tiff",
+    ".tif",
+    ".webp",
+)
 
-class TranscribeVideo(foo.Operator):
+DOCUMENT_EXTENSIONS = (
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".gif",
+    ".tiff",
+    ".tif",
+)
+
+
+class VLMRunTranscribeVideo(foo.Operator):
     """Transcribe video content with temporal grounding using VLM Run."""
 
     @property
     def config(self):
         return foo.OperatorConfig(
-            name="transcribe_video",
-            label="Transcribe Video (VLM Run)",
+            name="vlmrun_transcribe_video",
+            label="VLM Run: Transcribe Video",
             dynamic=True,
             allow_immediate_execution=True,
             allow_delegated_execution=False,
@@ -80,15 +102,6 @@ class TranscribeVideo(foo.Operator):
                 view=target_choices,
             )
 
-        inputs.enum(
-            "domain",
-            [
-                "video.transcription",
-            ],
-            label="Transcription Mode",
-            description="Full video transcription with audio and visual content",
-            default="video.transcription",
-        )
 
         inputs.str(
             "audio_field",
@@ -121,7 +134,7 @@ class TranscribeVideo(foo.Operator):
         target = ctx.params.get("target", "DATASET")
         audio_field = ctx.params["audio_field"]
         video_field = ctx.params["video_field"]
-        domain = ctx.params.get("domain", "video.transcription")
+        domain = "video.transcription"  # Fixed domain for this operator
 
         # Get samples
         sample_collection = ctx.view if target == "VIEW" else ctx.dataset
@@ -271,29 +284,41 @@ class TranscribeVideo(foo.Operator):
         if isinstance(response_data, dict):
             # VLM Run video.transcription returns segments with audio.content and video.content
             if "segments" in response_data:
-                # Combine all audio transcripts from segments
+                # Store full segments with timestamps for detailed analysis
+                segments_data = []
+
+                # Also combine text for quick access
                 audio_transcripts = []
                 video_descriptions = []
 
                 for segment in response_data["segments"]:
                     if isinstance(segment, dict):
+                        segment_info = {}
+
+                        # Capture timestamps
+                        if "start_time" in segment:
+                            segment_info["start_time"] = segment["start_time"]
+                        if "end_time" in segment:
+                            segment_info["end_time"] = segment["end_time"]
+
                         # Get audio content
-                        if "audio" in segment and isinstance(
-                            segment["audio"], dict
-                        ):
+                        if "audio" in segment and isinstance(segment["audio"], dict):
                             audio_content = segment["audio"].get("content", "")
+                            segment_info["audio"] = audio_content
                             if audio_content:
                                 audio_transcripts.append(audio_content)
 
                         # Get video content
-                        if "video" in segment and isinstance(
-                            segment["video"], dict
-                        ):
+                        if "video" in segment and isinstance(segment["video"], dict):
                             video_content = segment["video"].get("content", "")
+                            segment_info["video"] = video_content
                             if video_content:
                                 video_descriptions.append(video_content)
 
-                # Save both fields only if they have content
+                        if segment_info:
+                            segments_data.append(segment_info)
+
+                # Save combined text fields
                 audio_text = " ".join(audio_transcripts)
                 video_text = " ".join(video_descriptions)
 
@@ -302,14 +327,19 @@ class TranscribeVideo(foo.Operator):
                 if video_text:
                     sample[video_field] = video_text
 
+                # Save full segments data with timestamps
+                if segments_data:
+                    sample[f"{video_field}_segments"] = segments_data
+
             # Store metadata if present
             if "metadata" in response_data and isinstance(response_data["metadata"], dict):
                 metadata = response_data["metadata"]
                 if "duration" in metadata and metadata["duration"] is not None:
-                    sample[f"{audio_field}_duration"] = metadata["duration"]
+                    sample[f"{video_field}_duration"] = metadata["duration"]
                 if "topics" in metadata and metadata["topics"] is not None:
-                    sample[f"{audio_field}_topics"] = metadata["topics"]
-
+                    sample[f"{video_field}_topics"] = metadata["topics"]
+                if "content" in metadata and metadata["content"] is not None:
+                    sample[f"{video_field}_summary"] = metadata["content"]
 
         elif isinstance(response_data, str):
             sample[audio_field] = response_data
@@ -349,6 +379,1007 @@ class TranscribeVideo(foo.Operator):
         )
 
 
+class VLMRunClassifyImages(foo.Operator):
+    """Classify images using VLM Run to generate tags with confidence scores."""
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="vlmrun_classify_images",
+            label="VLM Run: Classify Images",
+            dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=False,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        # Check for API key
+        api_key = ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+        if not api_key:
+            inputs.str(
+                "api_key",
+                label="VLM Run API Key",
+                description="Your VLM Run API key",
+                required=True,
+            )
+
+        # Target selection
+        has_view = ctx.view != ctx.dataset.view()
+        if has_view:
+            target_choices = types.RadioGroup()
+            target_choices.add_choice("DATASET", label="Entire dataset")
+            target_choices.add_choice("VIEW", label="Current view")
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                default="VIEW",
+                label="Process",
+                view=target_choices,
+            )
+
+        # Fixed field name for classification
+        default_field = "image_classification"
+
+        inputs.str(
+            "result_field",
+            label="Result Field",
+            description="Field name to store classification results",
+            default=default_field,
+            required=True,
+        )
+
+        return types.Property(
+            inputs, view=types.View(label="Classify Images")
+        )
+
+    def execute(self, ctx):
+        # Get parameters
+        api_key = ctx.params.get("api_key") or ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+
+        if not api_key:
+            return {"error": "VLM Run API key is required"}
+
+        target = ctx.params.get("target", "DATASET")
+        result_field = ctx.params["result_field"]
+        domain = "image.classification"  # Fixed domain for this operator
+
+        # Get samples
+        sample_collection = ctx.view if target == "VIEW" else ctx.dataset
+
+        # Filter for image samples
+        image_samples = sample_collection
+        total_images = len(image_samples)
+
+        if total_images == 0:
+            return {
+                "error": "No image samples found in the selected collection"
+            }
+
+        # Initialize VLM Run client
+        try:
+            from vlmrun.client import VLMRun
+        except ImportError:
+            return {
+                "error": "VLMRun package not installed. Run: fiftyone plugins requirements @voxel51/vlmrun --install"
+            }
+
+        # Get configuration from environment or use defaults
+        api_url = os.getenv("VLMRUN_API_URL", DEFAULT_API_URL)
+        timeout = float(os.getenv("VLMRUN_TIMEOUT", str(DEFAULT_TIMEOUT)))
+        max_retries = int(
+            os.getenv("VLMRUN_MAX_RETRIES", str(DEFAULT_MAX_RETRIES))
+        )
+
+        client = VLMRun(
+            api_key=api_key,
+            base_url=api_url,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+
+        processed = 0
+        errors = []
+
+        with fou.ProgressBar(total=total_images) as pb:
+            for sample in image_samples:
+                try:
+                    # Skip non-image files
+                    if not sample.filepath.lower().endswith(IMAGE_EXTENSIONS):
+                        pb.update()
+                        continue
+
+                    # Process image with VLM Run
+                    file_path = Path(sample.filepath)
+
+                    response = client.image.generate(
+                        images=[file_path],
+                        domain=domain,
+                    )
+
+                    # Parse and store the result
+                    self._process_image_result(
+                        sample,
+                        response,
+                        result_field,
+                        domain,
+                    )
+
+                    sample.save()
+                    processed += 1
+
+                except Exception as e:
+                    error_msg = f"Failed to process {os.path.basename(sample.filepath)}: {str(e)}"
+                    errors.append(error_msg)
+
+                pb.update()
+
+        # Refresh the app
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        # Return summary
+        result = {
+            "processed": processed,
+            "total": total_images,
+            "errors": len(errors),
+        }
+
+        if errors:
+            result["error_details"] = errors[:MAX_ERROR_DETAILS]
+
+        return result
+
+    def _process_image_result(self, sample, result, result_field, domain):
+        """Process VLM Run image result and update sample."""
+
+        # Extract response data - handle nested response structure
+        if hasattr(result, "response"):
+            response_data = result.response
+            # If response is a Pydantic model, convert to dict
+            if hasattr(response_data, "model_dump"):
+                response_data = response_data.model_dump()
+        elif hasattr(result, "data"):
+            response_data = result.data
+        else:
+            response_data = result
+
+        # Store results based on domain
+        if domain == "image.classification":
+            if isinstance(response_data, dict):
+                # Store classification results based on actual VLM Run response structure
+                if "tags" in response_data:
+                    # Store tags as the main classification result
+                    sample[result_field] = response_data["tags"]
+
+                if "confidence" in response_data:
+                    sample[f"{result_field}_confidence"] = response_data["confidence"]
+
+                if "rationale" in response_data:
+                    sample[f"{result_field}_rationale"] = response_data["rationale"]
+            else:
+                sample[result_field] = str(response_data)
+
+        elif domain == "image.caption":
+            if isinstance(response_data, dict):
+                # Store caption as main result
+                if "caption" in response_data:
+                    sample[result_field] = response_data["caption"]
+                elif "description" in response_data:
+                    sample[result_field] = response_data["description"]
+
+                # Store tags if present
+                if "tags" in response_data:
+                    sample[f"{result_field}_tags"] = response_data["tags"]
+            else:
+                sample[result_field] = str(response_data)
+
+    def resolve_output(self, ctx):
+        """Display output to the user."""
+        outputs = types.Object()
+
+        # Show actual results
+        if "processed" in ctx.results:
+            outputs.int("processed", label="Images Processed")
+        if "total" in ctx.results:
+            outputs.int("total", label="Total Images")
+        if "errors" in ctx.results:
+            outputs.int("errors", label="Errors")
+        if "error" in ctx.results:
+            outputs.str("error", label="Error", view=types.Warning())
+        if "error_details" in ctx.results:
+            outputs.list(
+                "error_details", types.String(), label="Error Details"
+            )
+
+        # Success message
+        if ctx.results.get("processed", 0) > 0:
+            outputs.str(
+                "success_msg",
+                label="Success",
+                default=f"Successfully processed {ctx.results.get('processed')} image(s). Check the '{ctx.params.get('result_field', 'vlmrun_image')}' field in your samples.",
+                view=types.Notice(variant="success"),
+            )
+
+        return types.Property(
+            outputs, view=types.View(label="Classification Results")
+        )
+
+
+class VLMRunCaptionImages(foo.Operator):
+    """Generate descriptive captions for images using VLM Run."""
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="vlmrun_caption_images",
+            label="VLM Run: Caption Images",
+            dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=False,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        # Check for API key
+        api_key = ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+        if not api_key:
+            inputs.str(
+                "api_key",
+                label="VLM Run API Key",
+                description="Your VLM Run API key",
+                required=True,
+            )
+
+        # Target selection
+        has_view = ctx.view != ctx.dataset.view()
+        if has_view:
+            target_choices = types.RadioGroup()
+            target_choices.add_choice("DATASET", label="Entire dataset")
+            target_choices.add_choice("VIEW", label="Current view")
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                default="VIEW",
+                label="Process",
+                view=target_choices,
+            )
+
+        # Fixed field name for captions
+        default_field = "image_caption"
+
+        inputs.str(
+            "result_field",
+            label="Result Field",
+            description="Field name to store image captions",
+            default=default_field,
+            required=True,
+        )
+
+        return types.Property(
+            inputs, view=types.View(label="Caption Images")
+        )
+
+    def execute(self, ctx):
+        # Get parameters
+        api_key = ctx.params.get("api_key") or ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+
+        if not api_key:
+            return {"error": "VLM Run API key is required"}
+
+        target = ctx.params.get("target", "DATASET")
+        result_field = ctx.params["result_field"]
+        domain = "image.caption"  # Fixed domain for this operator
+
+        # Get samples
+        sample_collection = ctx.view if target == "VIEW" else ctx.dataset
+
+        # Filter for image samples
+        image_samples = sample_collection
+        total_images = len(image_samples)
+
+        if total_images == 0:
+            return {
+                "error": "No image samples found in the selected collection"
+            }
+
+        # Initialize VLM Run client
+        try:
+            from vlmrun.client import VLMRun
+        except ImportError:
+            return {
+                "error": "VLMRun package not installed. Run: fiftyone plugins requirements @voxel51/vlmrun --install"
+            }
+
+        # Get configuration from environment or use defaults
+        api_url = os.getenv("VLMRUN_API_URL", DEFAULT_API_URL)
+        timeout = float(os.getenv("VLMRUN_TIMEOUT", str(DEFAULT_TIMEOUT)))
+        max_retries = int(
+            os.getenv("VLMRUN_MAX_RETRIES", str(DEFAULT_MAX_RETRIES))
+        )
+
+        client = VLMRun(
+            api_key=api_key,
+            base_url=api_url,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+
+        processed = 0
+        errors = []
+
+        with fou.ProgressBar(total=total_images) as pb:
+            for sample in image_samples:
+                try:
+                    # Skip non-image files
+                    if not sample.filepath.lower().endswith(IMAGE_EXTENSIONS):
+                        pb.update()
+                        continue
+
+                    # Process image with VLM Run
+                    file_path = Path(sample.filepath)
+
+                    response = client.image.generate(
+                        images=[file_path],
+                        domain=domain,
+                    )
+
+                    # Parse and store the result
+                    self._process_image_result(
+                        sample,
+                        response,
+                        result_field,
+                        domain,
+                    )
+
+                    sample.save()
+                    processed += 1
+
+                except Exception as e:
+                    error_msg = f"Failed to process {os.path.basename(sample.filepath)}: {str(e)}"
+                    errors.append(error_msg)
+
+                pb.update()
+
+        # Refresh the app
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        # Return summary
+        result = {
+            "processed": processed,
+            "total": total_images,
+            "errors": len(errors),
+        }
+
+        if errors:
+            result["error_details"] = errors[:MAX_ERROR_DETAILS]
+
+        return result
+
+    def _process_image_result(self, sample, result, result_field, domain):
+        """Process VLM Run image result and update sample."""
+
+        # Extract response data - handle nested response structure
+        if hasattr(result, "response"):
+            response_data = result.response
+            # If response is a Pydantic model, convert to dict
+            if hasattr(response_data, "model_dump"):
+                response_data = response_data.model_dump()
+        elif hasattr(result, "data"):
+            response_data = result.data
+        else:
+            response_data = result
+
+        # Store caption results
+        if isinstance(response_data, dict):
+            # Store caption as main result
+            if "caption" in response_data:
+                sample[result_field] = response_data["caption"]
+            elif "description" in response_data:
+                sample[result_field] = response_data["description"]
+
+            # Store tags if present
+            if "tags" in response_data:
+                sample[f"{result_field}_tags"] = response_data["tags"]
+        else:
+            sample[result_field] = str(response_data)
+
+    def resolve_output(self, ctx):
+        """Display output to the user."""
+        outputs = types.Object()
+
+        # Show actual results
+        if "processed" in ctx.results:
+            outputs.int("processed", label="Images Processed")
+        if "total" in ctx.results:
+            outputs.int("total", label="Total Images")
+        if "errors" in ctx.results:
+            outputs.int("errors", label="Errors")
+        if "error" in ctx.results:
+            outputs.str("error", label="Error", view=types.Warning())
+        if "error_details" in ctx.results:
+            outputs.list(
+                "error_details", types.String(), label="Error Details"
+            )
+
+        # Success message
+        if ctx.results.get("processed", 0) > 0:
+            outputs.str(
+                "success_msg",
+                label="Success",
+                default=f"Successfully captioned {ctx.results.get('processed')} image(s). Check the '{ctx.params.get('result_field', 'image_caption')}' field in your samples.",
+                view=types.Notice(variant="success"),
+            )
+
+        return types.Property(
+            outputs, view=types.View(label="Captioning Results")
+        )
+
+
+class VLMRunClassifyDocuments(foo.Operator):
+    """Classify documents using VLM Run to determine document type."""
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="vlmrun_classify_documents",
+            label="VLM Run: Classify Documents",
+            dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=False,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        # Check for API key
+        api_key = ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+        if not api_key:
+            inputs.str(
+                "api_key",
+                label="VLM Run API Key",
+                description="Your VLM Run API key",
+                required=True,
+            )
+
+        # Target selection
+        has_view = ctx.view != ctx.dataset.view()
+        if has_view:
+            target_choices = types.RadioGroup()
+            target_choices.add_choice("DATASET", label="Entire dataset")
+            target_choices.add_choice("VIEW", label="Current view")
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                default="VIEW",
+                label="Process",
+                view=target_choices,
+            )
+
+        # Fixed field name for classification
+        default_field = "document_classification"
+
+        inputs.str(
+            "result_field",
+            label="Result Field",
+            description="Field name to store extraction results",
+            default=default_field,
+            required=True,
+        )
+
+        return types.Property(
+            inputs, view=types.View(label="Classify Documents")
+        )
+
+    def execute(self, ctx):
+        # Get parameters
+        api_key = ctx.params.get("api_key") or ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+
+        if not api_key:
+            return {"error": "VLM Run API key is required"}
+
+        target = ctx.params.get("target", "DATASET")
+        result_field = ctx.params["result_field"]
+        domain = "document.classification"  # Fixed domain for this operator
+
+        # Get samples
+        sample_collection = ctx.view if target == "VIEW" else ctx.dataset
+
+        # Filter for document samples
+        document_samples = sample_collection
+        total_documents = len(document_samples)
+
+        if total_documents == 0:
+            return {
+                "error": "No document samples found in the selected collection"
+            }
+
+        # Initialize VLM Run client
+        try:
+            from vlmrun.client import VLMRun
+        except ImportError:
+            return {
+                "error": "VLMRun package not installed. Run: fiftyone plugins requirements @voxel51/vlmrun --install"
+            }
+
+        # Get configuration from environment or use defaults
+        api_url = os.getenv("VLMRUN_API_URL", DEFAULT_API_URL)
+        timeout = float(os.getenv("VLMRUN_TIMEOUT", str(DEFAULT_TIMEOUT)))
+        max_retries = int(
+            os.getenv("VLMRUN_MAX_RETRIES", str(DEFAULT_MAX_RETRIES))
+        )
+
+        client = VLMRun(
+            api_key=api_key,
+            base_url=api_url,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+
+        processed = 0
+        errors = []
+
+        with fou.ProgressBar(total=total_documents) as pb:
+            for sample in document_samples:
+                try:
+                    # Skip non-document files
+                    if not sample.filepath.lower().endswith(DOCUMENT_EXTENSIONS):
+                        pb.update()
+                        continue
+
+                    # Process document with VLM Run
+                    file_path = Path(sample.filepath)
+
+                    # Use batch mode for documents as they may take longer
+                    response = client.document.generate(
+                        file=file_path,
+                        domain=domain,
+                        batch=True,
+                    )
+
+                    # Poll for batch completion
+                    if hasattr(response, "id") and hasattr(response, "status"):
+                        prediction_id = response.id
+                        max_wait = int(
+                            os.getenv("VLMRUN_MAX_WAIT", str(DEFAULT_MAX_WAIT))
+                        )
+                        poll_interval = int(
+                            os.getenv(
+                                "VLMRUN_POLL_INTERVAL",
+                                str(DEFAULT_POLL_INTERVAL),
+                            )
+                        )
+                        elapsed = 0
+
+                        while elapsed < max_wait:
+                            pred_response = client.predictions.get(
+                                id=prediction_id
+                            )
+
+                            if pred_response.status == "completed":
+                                result = (
+                                    pred_response.result
+                                    if hasattr(pred_response, "result")
+                                    else pred_response
+                                )
+                                break
+                            elif pred_response.status == "failed":
+                                raise RuntimeError(
+                                    f"Document prediction failed: {pred_response.error if hasattr(pred_response, 'error') else 'Unknown error'}"
+                                )
+
+                            time.sleep(poll_interval)
+                            elapsed += poll_interval
+                        else:
+                            raise TimeoutError(
+                                f"Document prediction timed out after {max_wait} seconds"
+                            )
+
+                    else:
+                        result = response
+
+                    # Parse and store the result
+                    self._process_document_result(
+                        sample,
+                        result,
+                        result_field,
+                        domain,
+                    )
+
+                    sample.save()
+                    processed += 1
+
+                except Exception as e:
+                    error_msg = f"Failed to process {os.path.basename(sample.filepath)}: {str(e)}"
+                    errors.append(error_msg)
+
+                pb.update()
+
+        # Refresh the app
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        # Return summary
+        result = {
+            "processed": processed,
+            "total": total_documents,
+            "errors": len(errors),
+        }
+
+        if errors:
+            result["error_details"] = errors[:MAX_ERROR_DETAILS]
+
+        return result
+
+    def _process_document_result(self, sample, result, result_field, domain):
+        """Process VLM Run document result and update sample."""
+
+        # Extract response data - handle nested response structure
+        if hasattr(result, "response"):
+            response_data = result.response
+            # If response is a Pydantic model, convert to dict
+            if hasattr(response_data, "model_dump"):
+                response_data = response_data.model_dump()
+        elif hasattr(result, "data"):
+            response_data = result.data
+        else:
+            response_data = result
+
+        # Store results based on domain
+        if domain == "document.classification":
+            if isinstance(response_data, dict):
+                # Document classification returns tags, confidence, and rationale (like image classification)
+                if "tags" in response_data:
+                    sample[result_field] = response_data["tags"]
+                if "confidence" in response_data:
+                    sample[f"{result_field}_confidence"] = response_data["confidence"]
+                if "rationale" in response_data:
+                    sample[f"{result_field}_rationale"] = response_data["rationale"]
+            else:
+                sample[result_field] = str(response_data)
+
+        elif domain == "document.invoice":
+            if isinstance(response_data, dict):
+                # Store key invoice fields based on actual response
+                if "invoice_id" in response_data:
+                    sample[f"{result_field}_id"] = response_data["invoice_id"]
+                if "issuer" in response_data:
+                    sample[f"{result_field}_issuer"] = response_data["issuer"]
+                if "customer" in response_data:
+                    sample[f"{result_field}_customer"] = response_data["customer"]
+                if "invoice_issue_date" in response_data:
+                    sample[f"{result_field}_date"] = response_data["invoice_issue_date"]
+                if "total" in response_data:
+                    sample[f"{result_field}_total"] = response_data["total"]
+                if "currency" in response_data:
+                    sample[f"{result_field}_currency"] = response_data["currency"]
+                if "items" in response_data:
+                    sample[f"{result_field}_items"] = response_data["items"]
+
+                # Store full response for reference
+                sample[result_field] = response_data
+            else:
+                sample[result_field] = str(response_data)
+
+
+    def resolve_output(self, ctx):
+        """Display output to the user."""
+        outputs = types.Object()
+
+        # Show actual results
+        if "processed" in ctx.results:
+            outputs.int("processed", label="Documents Processed")
+        if "total" in ctx.results:
+            outputs.int("total", label="Total Documents")
+        if "errors" in ctx.results:
+            outputs.int("errors", label="Errors")
+        if "error" in ctx.results:
+            outputs.str("error", label="Error", view=types.Warning())
+        if "error_details" in ctx.results:
+            outputs.list(
+                "error_details", types.String(), label="Error Details"
+            )
+
+        # Success message
+        if ctx.results.get("processed", 0) > 0:
+            outputs.str(
+                "success_msg",
+                label="Success",
+                default=f"Successfully processed {ctx.results.get('processed')} document(s). Check the '{ctx.params.get('result_field', 'document_data')}' field in your samples.",
+                view=types.Notice(variant="success"),
+            )
+
+        return types.Property(
+            outputs, view=types.View(label="Classification Results")
+        )
+
+
+class VLMRunParseInvoices(foo.Operator):
+    """Extract structured data from invoices using VLM Run."""
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="vlmrun_parse_invoices",
+            label="VLM Run: Parse Invoices",
+            dynamic=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=False,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        # Check for API key
+        api_key = ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+        if not api_key:
+            inputs.str(
+                "api_key",
+                label="VLM Run API Key",
+                description="Your VLM Run API key",
+                required=True,
+            )
+
+        # Target selection
+        has_view = ctx.view != ctx.dataset.view()
+        if has_view:
+            target_choices = types.RadioGroup()
+            target_choices.add_choice("DATASET", label="Entire dataset")
+            target_choices.add_choice("VIEW", label="Current view")
+            inputs.enum(
+                "target",
+                target_choices.values(),
+                default="VIEW",
+                label="Process",
+                view=target_choices,
+            )
+
+        # Fixed field name for invoice parsing
+        default_field = "invoice_data"
+
+        inputs.str(
+            "result_field",
+            label="Result Field",
+            description="Field name to store invoice data",
+            default=default_field,
+            required=True,
+        )
+
+        return types.Property(
+            inputs, view=types.View(label="Parse Invoices")
+        )
+
+    def execute(self, ctx):
+        # Get parameters
+        api_key = ctx.params.get("api_key") or ctx.secrets.get(
+            "VLMRUN_API_KEY", os.getenv("VLMRUN_API_KEY")
+        )
+
+        if not api_key:
+            return {"error": "VLM Run API key is required"}
+
+        target = ctx.params.get("target", "DATASET")
+        result_field = ctx.params["result_field"]
+        domain = "document.invoice"  # Fixed domain for this operator
+
+        # Get samples
+        sample_collection = ctx.view if target == "VIEW" else ctx.dataset
+
+        # Filter for document samples
+        document_samples = sample_collection
+        total_documents = len(document_samples)
+
+        if total_documents == 0:
+            return {
+                "error": "No document samples found in the selected collection"
+            }
+
+        # Initialize VLM Run client
+        try:
+            from vlmrun.client import VLMRun
+        except ImportError:
+            return {
+                "error": "VLMRun package not installed. Run: fiftyone plugins requirements @voxel51/vlmrun --install"
+            }
+
+        # Get configuration from environment or use defaults
+        api_url = os.getenv("VLMRUN_API_URL", DEFAULT_API_URL)
+        timeout = float(os.getenv("VLMRUN_TIMEOUT", str(DEFAULT_TIMEOUT)))
+        max_retries = int(
+            os.getenv("VLMRUN_MAX_RETRIES", str(DEFAULT_MAX_RETRIES))
+        )
+
+        client = VLMRun(
+            api_key=api_key,
+            base_url=api_url,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+
+        processed = 0
+        errors = []
+
+        with fou.ProgressBar(total=total_documents) as pb:
+            for sample in document_samples:
+                try:
+                    # Skip non-document files
+                    if not sample.filepath.lower().endswith(DOCUMENT_EXTENSIONS):
+                        pb.update()
+                        continue
+
+                    # Process document with VLM Run
+                    file_path = Path(sample.filepath)
+
+                    # Use batch mode for documents as they may take longer
+                    response = client.document.generate(
+                        file=file_path,
+                        domain=domain,
+                        batch=True,
+                    )
+
+                    # Poll for batch completion
+                    if hasattr(response, "id") and hasattr(response, "status"):
+                        prediction_id = response.id
+                        max_wait = int(
+                            os.getenv("VLMRUN_MAX_WAIT", str(DEFAULT_MAX_WAIT))
+                        )
+                        poll_interval = int(
+                            os.getenv(
+                                "VLMRUN_POLL_INTERVAL",
+                                str(DEFAULT_POLL_INTERVAL),
+                            )
+                        )
+                        elapsed = 0
+
+                        while elapsed < max_wait:
+                            pred_response = client.predictions.get(
+                                id=prediction_id
+                            )
+
+                            if pred_response.status == "completed":
+                                result = (
+                                    pred_response.result
+                                    if hasattr(pred_response, "result")
+                                    else pred_response
+                                )
+                                break
+                            elif pred_response.status == "failed":
+                                raise RuntimeError(
+                                    f"Document prediction failed: {pred_response.error if hasattr(pred_response, 'error') else 'Unknown error'}"
+                                )
+
+                            time.sleep(poll_interval)
+                            elapsed += poll_interval
+                        else:
+                            raise TimeoutError(
+                                f"Document prediction timed out after {max_wait} seconds"
+                            )
+
+                    else:
+                        result = response
+
+                    # Parse and store the result
+                    self._process_invoice_result(
+                        sample,
+                        result,
+                        result_field,
+                    )
+
+                    sample.save()
+                    processed += 1
+
+                except Exception as e:
+                    error_msg = f"Failed to process {os.path.basename(sample.filepath)}: {str(e)}"
+                    errors.append(error_msg)
+
+                pb.update()
+
+        # Refresh the app
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        # Return summary
+        result = {
+            "processed": processed,
+            "total": total_documents,
+            "errors": len(errors),
+        }
+
+        if errors:
+            result["error_details"] = errors[:MAX_ERROR_DETAILS]
+
+        return result
+
+    def _process_invoice_result(self, sample, result, result_field):
+        """Process VLM Run invoice result and update sample."""
+
+        # Extract response data - handle nested response structure
+        if hasattr(result, "response"):
+            response_data = result.response
+            # If response is a Pydantic model, convert to dict
+            if hasattr(response_data, "model_dump"):
+                response_data = response_data.model_dump()
+        elif hasattr(result, "data"):
+            response_data = result.data
+        else:
+            response_data = result
+
+        # Store invoice results
+        if isinstance(response_data, dict):
+            # Store key invoice fields based on actual response
+            if "invoice_id" in response_data:
+                sample[f"{result_field}_id"] = response_data["invoice_id"]
+            if "issuer" in response_data:
+                sample[f"{result_field}_issuer"] = response_data["issuer"]
+            if "customer" in response_data:
+                sample[f"{result_field}_customer"] = response_data["customer"]
+            if "invoice_issue_date" in response_data:
+                sample[f"{result_field}_date"] = response_data["invoice_issue_date"]
+            if "total" in response_data:
+                sample[f"{result_field}_total"] = response_data["total"]
+            if "currency" in response_data:
+                sample[f"{result_field}_currency"] = response_data["currency"]
+            if "items" in response_data:
+                sample[f"{result_field}_items"] = response_data["items"]
+
+            # Store full response for reference
+            sample[result_field] = response_data
+        else:
+            sample[result_field] = str(response_data)
+
+    def resolve_output(self, ctx):
+        """Display output to the user."""
+        outputs = types.Object()
+
+        # Show actual results
+        if "processed" in ctx.results:
+            outputs.int("processed", label="Invoices Processed")
+        if "total" in ctx.results:
+            outputs.int("total", label="Total Documents")
+        if "errors" in ctx.results:
+            outputs.int("errors", label="Errors")
+        if "error" in ctx.results:
+            outputs.str("error", label="Error", view=types.Warning())
+        if "error_details" in ctx.results:
+            outputs.list(
+                "error_details", types.String(), label="Error Details"
+            )
+
+        # Success message
+        if ctx.results.get("processed", 0) > 0:
+            outputs.str(
+                "success_msg",
+                label="Success",
+                default=f"Successfully parsed {ctx.results.get('processed')} invoice(s). Check the '{ctx.params.get('result_field', 'invoice_data')}' field in your samples.",
+                view=types.Notice(variant="success"),
+            )
+
+        return types.Property(
+            outputs, view=types.View(label="Invoice Parsing Results")
+        )
+
+
 def register(plugin):
     """Register all VLM Run operators."""
-    plugin.register(TranscribeVideo)
+    plugin.register(VLMRunTranscribeVideo)
+    plugin.register(VLMRunClassifyImages)
+    plugin.register(VLMRunCaptionImages)
+    plugin.register(VLMRunClassifyDocuments)
+    plugin.register(VLMRunParseInvoices)
