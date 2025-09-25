@@ -433,6 +433,14 @@ class VLMRunClassifyImages(foo.Operator):
             required=True,
         )
 
+        inputs.bool(
+            "populate_builtin_tags",
+            label="Populate Built-in Tags",
+            description="Also add classification results to the sample's built-in 'tags' field for easier filtering",
+            default=False,
+            required=False,
+        )
+
         return types.Property(
             inputs, view=types.View(label="Classify Images")
         )
@@ -448,6 +456,7 @@ class VLMRunClassifyImages(foo.Operator):
 
         target = ctx.params.get("target", "DATASET")
         result_field = ctx.params["result_field"]
+        populate_builtin_tags = ctx.params.get("populate_builtin_tags", False)
         domain = "image.classification"  # Fixed domain for this operator
 
         # Get samples
@@ -509,6 +518,7 @@ class VLMRunClassifyImages(foo.Operator):
                         response,
                         result_field,
                         domain,
+                        populate_builtin_tags=populate_builtin_tags,
                     )
 
                     sample.save()
@@ -536,7 +546,7 @@ class VLMRunClassifyImages(foo.Operator):
 
         return result
 
-    def _process_image_result(self, sample, result, result_field, domain):
+    def _process_image_result(self, sample, result, result_field, domain, populate_builtin_tags=False):
         """Process VLM Run image result and update sample."""
 
         # Extract response data - handle nested response structure
@@ -557,6 +567,15 @@ class VLMRunClassifyImages(foo.Operator):
                 if "tags" in response_data:
                     # Store tags as the main classification result
                     sample[result_field] = response_data["tags"]
+
+                    # Optionally populate the built-in tags field
+                    if populate_builtin_tags:
+                        if hasattr(sample, 'tags'):
+                            # Append to existing tags
+                            existing_tags = sample.tags if sample.tags else []
+                            sample.tags = list(set(existing_tags + response_data["tags"]))
+                        else:
+                            sample.tags = response_data["tags"]
 
                 if "confidence" in response_data:
                     sample[f"{result_field}_confidence"] = response_data["confidence"]
@@ -665,6 +684,14 @@ class VLMRunCaptionImages(foo.Operator):
             required=True,
         )
 
+        inputs.bool(
+            "populate_builtin_tags",
+            label="Populate Built-in Tags",
+            description="If the caption includes tags, also add them to the sample's built-in 'tags' field for easier filtering",
+            default=False,
+            required=False,
+        )
+
         return types.Property(
             inputs, view=types.View(label="Caption Images")
         )
@@ -680,6 +707,7 @@ class VLMRunCaptionImages(foo.Operator):
 
         target = ctx.params.get("target", "DATASET")
         result_field = ctx.params["result_field"]
+        populate_builtin_tags = ctx.params.get("populate_builtin_tags", False)
         domain = "image.caption"  # Fixed domain for this operator
 
         # Get samples
@@ -741,6 +769,7 @@ class VLMRunCaptionImages(foo.Operator):
                         response,
                         result_field,
                         domain,
+                        populate_builtin_tags=populate_builtin_tags,
                     )
 
                     sample.save()
@@ -768,7 +797,7 @@ class VLMRunCaptionImages(foo.Operator):
 
         return result
 
-    def _process_image_result(self, sample, result, result_field, domain):
+    def _process_image_result(self, sample, result, result_field, domain, populate_builtin_tags=False):
         """Process VLM Run image result and update sample."""
 
         # Extract response data - handle nested response structure
@@ -793,6 +822,15 @@ class VLMRunCaptionImages(foo.Operator):
             # Store tags if present
             if "tags" in response_data:
                 sample[f"{result_field}_tags"] = response_data["tags"]
+
+                # Optionally populate the built-in tags field
+                if populate_builtin_tags:
+                    if hasattr(sample, 'tags'):
+                        # Append to existing tags
+                        existing_tags = sample.tags if sample.tags else []
+                        sample.tags = list(set(existing_tags + response_data["tags"]))
+                    else:
+                        sample.tags = response_data["tags"]
         else:
             sample[result_field] = str(response_data)
 
@@ -881,6 +919,14 @@ class VLMRunClassifyDocuments(foo.Operator):
             required=True,
         )
 
+        inputs.bool(
+            "populate_builtin_tags",
+            label="Populate Built-in Tags",
+            description="Also add classification results to the sample's built-in 'tags' field for easier filtering",
+            default=False,
+            required=False,
+        )
+
         return types.Property(
             inputs, view=types.View(label="Classify Documents")
         )
@@ -896,6 +942,7 @@ class VLMRunClassifyDocuments(foo.Operator):
 
         target = ctx.params.get("target", "DATASET")
         result_field = ctx.params["result_field"]
+        populate_builtin_tags = ctx.params.get("populate_builtin_tags", False)
         domain = "document.classification"  # Fixed domain for this operator
         enable_grounding = False  # Classification doesn't need grounding
         detections_field = None
@@ -1014,6 +1061,7 @@ class VLMRunClassifyDocuments(foo.Operator):
                         domain,
                         enable_grounding,
                         detections_field,
+                        populate_builtin_tags=populate_builtin_tags,
                     )
 
                     if sample_grounding_info and enable_grounding:
@@ -1058,7 +1106,7 @@ class VLMRunClassifyDocuments(foo.Operator):
 
         return result
 
-    def _process_document_result(self, sample, result, result_field, domain, enable_grounding=False, detections_field=None):
+    def _process_document_result(self, sample, result, result_field, domain, enable_grounding=False, detections_field=None, populate_builtin_tags=False):
         """Process VLM Run document result and update sample. Returns grounding info if enabled."""
         grounding_info = {}
 
@@ -1079,6 +1127,16 @@ class VLMRunClassifyDocuments(foo.Operator):
                 # Document classification returns tags, confidence, and rationale (like image classification)
                 if "tags" in response_data:
                     sample[result_field] = response_data["tags"]
+
+                    # Optionally populate the built-in tags field
+                    if populate_builtin_tags:
+                        if hasattr(sample, 'tags'):
+                            # Append to existing tags
+                            existing_tags = sample.tags if sample.tags else []
+                            sample.tags = list(set(existing_tags + response_data["tags"]))
+                        else:
+                            sample.tags = response_data["tags"]
+
                 if "confidence" in response_data:
                     sample[f"{result_field}_confidence"] = response_data["confidence"]
                 if "rationale" in response_data:
