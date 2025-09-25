@@ -1269,9 +1269,15 @@ def get_new_eval_key(
     )
 
     eval_key = ctx.params.get(name, None)
+
     if eval_key is not None and eval_key in ctx.dataset.list_evaluations():
         prop.invalid = True
         prop.error_message = "Evaluation key already exists"
+        eval_key = None
+
+    if eval_key is not None and not eval_key.isidentifier():
+        prop.invalid = True
+        prop.error_message = "Evaluation keys must be valid variable names"
         eval_key = None
 
     return eval_key

@@ -125,9 +125,15 @@ def get_new_anno_key(
     )
 
     anno_key = ctx.params.get(name, None)
+
     if anno_key is not None and anno_key in ctx.dataset.list_annotation_runs():
         prop.invalid = True
         prop.error_message = "Annotation key already exists"
+        anno_key = None
+
+    if anno_key is not None and not anno_key.isidentifier():
+        prop.invalid = True
+        prop.error_message = "Annotation keys must be valid variable names"
         anno_key = None
 
     return anno_key
