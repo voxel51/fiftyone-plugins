@@ -69,6 +69,14 @@ def _supports_remote_datasets():
     return hasattr(fozd, "_list_zoo_datasets")
 
 
+def _get_allowed_dataset_names(ctx, inputs):
+    names = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_DATASET_NAMES", None)
+    if names is None:
+        return None
+
+    return set(names.split(","))
+
+
 def _get_allowed_dataset_licenses(ctx, inputs):
     license = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_DATASET_LICENSES", None)
     if license is None:
@@ -90,6 +98,8 @@ def _get_allowed_dataset_licenses(ctx, inputs):
 
 
 def _get_zoo_datasets(ctx, inputs):
+    names = _get_allowed_dataset_names(ctx, inputs)
+
     # @todo can remove this if we require `fiftyone>=1.4.0`
     if Version(foc.VERSION) >= Version("1.4.0"):
         licenses = _get_allowed_dataset_licenses(ctx, inputs)
@@ -100,18 +110,24 @@ def _get_zoo_datasets(ctx, inputs):
 
     if _supports_remote_datasets():
         zoo_datasets = fozd._list_zoo_datasets(**kwargs)
-        return zoo_datasets, licenses
+    else:
+        # @todo can remove this code path if we require `fiftyone>=1.0.0`
+        datasets_by_source = fozd._get_zoo_datasets()
+        # pylint: disable=no-value-for-parameter
+        all_sources, _ = fozd._get_zoo_dataset_sources()
 
-    # Can remove this code path if we require fiftyone>=1.0.0
-    # pylint: disable=no-value-for-parameter
-    datasets_by_source = fozd._get_zoo_datasets()
-    all_sources, _ = fozd._get_zoo_dataset_sources()
+        zoo_datasets = {}
+        for source in all_sources:
+            for name, zoo_dataset_cls in datasets_by_source[source].items():
+                if name not in zoo_datasets:
+                    zoo_datasets[name] = zoo_dataset_cls()
 
-    zoo_datasets = {}
-    for source in all_sources:
-        for name, zoo_dataset_cls in datasets_by_source[source].items():
-            if name not in zoo_datasets:
-                zoo_datasets[name] = zoo_dataset_cls()
+    if names is not None:
+        zoo_datasets = {
+            name: zoo_dataset
+            for name, zoo_dataset in zoo_datasets.items()
+            if name in names
+        }
 
     return zoo_datasets, licenses
 
@@ -160,7 +176,7 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         )
         caption = None
     else:
-        # Can remove this code path if we require fiftyone>=1.0.0
+        # @todo can remove this code path if we require `fiftyone>=1.0.0`
         description = (
             "The name of the dataset to load from the FiftyOne Dataset Zoo"
         )
@@ -196,6 +212,7 @@ def _get_builtin_zoo_dataset(ctx, inputs):
 
 
 def _get_remote_zoo_dataset(ctx, inputs):
+    names = _get_allowed_dataset_names(ctx, inputs)
     licenses = _get_allowed_dataset_licenses(ctx, inputs)
 
     instructions = """
@@ -225,16 +242,39 @@ download the dataset from, which can be:
         GitHubRepository(name)
     except:
         prop.invalid = True
-        prop.error_message = f"{name} is not a valid GitHub repo or identifier"
+        prop.error_message = (
+            f"'{name}' is not a valid GitHub repo or identifier"
+        )
         return None, None
 
     try:
         zoo_dataset = fozd.get_zoo_dataset(name)
-        return zoo_dataset, licenses
     except Exception as e:
         prop.invalid = True
         prop.error_message = str(e)
         return None, None
+
+    if names is not None and zoo_dataset.name not in names:
+        prop.invalid = True
+        prop.error_message = (
+            f"Loading dataset '{zoo_dataset.name}' is not allowed"
+        )
+        return None, None
+
+    if licenses is not None:
+        license = zoo_dataset.license
+
+        if license is None:
+            prop.invalid = True
+            prop.error_message = f"Cannot load dataset '{zoo_dataset.name}' because its license is unknown"
+            return None, None
+
+        if not set(licenses).intersection(license.split(",")):
+            prop.error_message = f"Cannot load dataset '{zoo_dataset.name}' because its license '{license}' is not allowed"
+            prop.invalid = True
+            return None, None
+
+    return zoo_dataset, licenses
 
 
 def _load_zoo_dataset_inputs(ctx, inputs):
@@ -255,42 +295,11 @@ def _load_zoo_dataset_inputs(ctx, inputs):
         else:
             zoo_dataset, licenses = _get_builtin_zoo_dataset(ctx, inputs)
     else:
-        # Can remove this code path if we require fiftyone>=1.0.0
+        # @todo can remove this code path if we require `fiftyone>=1.0.0`
         zoo_dataset, licenses = _get_builtin_zoo_dataset(ctx, inputs)
 
     if zoo_dataset is None:
         return False
-
-    if licenses is not None:
-        license = zoo_dataset.license
-
-        if license is None:
-            prop = inputs.view(
-                "created",
-                types.Error(
-                    label=(
-                        f"Cannot load dataset '{zoo_dataset.name}' because "
-                        "its license is unknown"
-                    )
-                ),
-            )
-            prop.invalid = True
-
-            return False
-
-        if not set(licenses).intersection(license.split(",")):
-            prop = inputs.view(
-                "created",
-                types.Error(
-                    label=(
-                        f"Cannot load dataset '{zoo_dataset.name}' because "
-                        f"its license '{license}' is not allowed"
-                    )
-                ),
-            )
-            prop.invalid = True
-
-            return False
 
     kwargs = types.Object()
 
@@ -727,6 +736,14 @@ def _supports_remote_models():
     return hasattr(fozm, "_list_zoo_models")
 
 
+def _get_allowed_model_names(ctx, inputs):
+    names = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_MODEL_NAMES", None)
+    if names is None:
+        return None
+
+    return set(names.split(","))
+
+
 def _get_allowed_model_licenses(ctx, inputs):
     license = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES", None)
     if license is None:
@@ -775,7 +792,7 @@ the model from, which can be:
     except:
         prop.invalid = True
         prop.error_message = (
-            f"{source} is not a valid GitHub repo or identifier"
+            f"'{source}' is not a valid GitHub repo or identifier"
         )
         return None
 
@@ -866,10 +883,15 @@ def _apply_zoo_model_inputs(ctx, inputs):
             source = None
             manifest = fozm._list_zoo_models(**kwargs)
     else:
-        # Can remove this code path if we require fiftyone>=1.0.0
+        # @todo can remove this code path if we require fiftyone>=1.0.0
         source = None
         licenses = None
         manifest = fozm._load_zoo_models_manifest()
+
+    names = _get_allowed_model_names(ctx, inputs)
+
+    if names is not None:
+        manifest = [model for model in manifest if model.name in names]
 
     # pylint: disable=no-member
     models_by_tag = defaultdict(set)
@@ -923,7 +945,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
             )
         caption = None
     else:
-        # Can remove this code path if we require fiftyone>=1.0.0
+        # @todo can remove this code path if we require `fiftyone>=1.0.0`
         description = (
             "The name of a model from the FiftyOne Model Zoo to apply"
         )
@@ -943,6 +965,10 @@ def _apply_zoo_model_inputs(ctx, inputs):
         prop.error_message = (
             "There are no models with all the tags you've requested"
         )
+        prop.invalid = True
+
+    if names is not None and not model_names:
+        prop.error_message = "There are no models with allowed names"
         prop.invalid = True
 
     if licenses is not None and not model_names:

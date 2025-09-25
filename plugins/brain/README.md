@@ -22,7 +22,7 @@ locally.
 You can optionally configure which license(s) models must be distributed under
 in order to be made available by this plugin's operators by setting the
 following
-[plugin secrets](https://docs.voxel51.com/plugins/using_plugins.html#plugin-secrets):
+[plugin secret](https://docs.voxel51.com/plugins/using_plugins.html#plugin-secrets):
 
 ```shell
 export FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES="MIT,Apache 2.0"
@@ -32,6 +32,14 @@ Run the following command to see the available models and their licenses:
 
 ```shell
 fiftyone zoo models list
+```
+
+You can also provide a specific list of models that should be made available by
+this plugin's operators by setting the following
+[plugin secret](https://docs.voxel51.com/plugins/using_plugins.html#plugin-secrets):
+
+```shell
+export FIFTYONE_ZOO_ALLOWED_MODEL_NAMES="clip-vit-base32-torch,zero-shot-classification-transformer-torch"
 ```
 
 ## Usage
