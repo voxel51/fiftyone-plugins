@@ -800,6 +800,8 @@ class SortBySimilarity(foo.Operator):
         elif tab == "TEXT":
             sort_by_text_similarity(ctx, inputs)
             label = "Sort by text similarity"
+        else:
+            label = None
 
         view = types.View(label=label)
         return types.Property(inputs, view=view)
@@ -819,6 +821,8 @@ class SortBySimilarity(foo.Operator):
             query = _embed_query_image(ctx)
         elif tab == "TEXT":
             query = ctx.params["query"]
+        else:
+            return
 
         view = target_view.sort_by_similarity(query, k=k, brain_key=brain_key)
         ctx.trigger("set_view", params={"view": serialize_view(view)})
@@ -1650,6 +1654,14 @@ def get_embeddings(ctx, inputs, view, patches_field):
             )
 
 
+def _get_allowed_model_names(ctx, inputs):
+    names = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_MODEL_NAMES", None)
+    if names is None:
+        return None
+
+    return set(names.split(","))
+
+
 def _get_allowed_model_licenses(ctx, inputs):
     license = ctx.secrets.get("FIFTYONE_ZOO_ALLOWED_MODEL_LICENSES", None)
     if license is None:
@@ -1670,6 +1682,8 @@ def _get_allowed_model_licenses(ctx, inputs):
 
 
 def _get_zoo_models_with_embeddings(ctx, inputs):
+    names = _get_allowed_model_names(ctx, inputs)
+
     # @todo can remove this if we require `fiftyone>=1.4.0`
     if Version(foc.VERSION) >= Version("1.4.0"):
         licenses = _get_allowed_model_licenses(ctx, inputs)
@@ -1687,6 +1701,9 @@ def _get_zoo_models_with_embeddings(ctx, inputs):
     # pylint: disable=no-member
     available_models = set()
     for model in manifest:
+        if names is not None and model.name not in names:
+            continue
+
         if model.has_tag("embeddings"):
             available_models.add(model.name)
 
@@ -2624,7 +2641,7 @@ def _get_label_fields(sample_collection, label_types):
 
 
 def _inject_brain_secrets(ctx):
-    for key, value in getattr(ctx, "secrets", {}).items():
+    for key, value in ctx.secrets.items():
         # FIFTYONE_BRAIN_SIMILARITY_[UPPER_BACKEND]_[UPPER_KEY]
         if key.startswith("FIFTYONE_BRAIN_SIMILARITY_"):
             _key = key[len("FIFTYONE_BRAIN_SIMILARITY_") :].lower()
