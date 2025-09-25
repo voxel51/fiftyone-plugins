@@ -16,6 +16,7 @@ import fiftyone.operators as foo
 import fiftyone.operators.types as types
 import fiftyone.core.utils as fou
 import fiftyone.core.labels as fol
+from vlmrun.client.types import GenerationConfig
 
 # Configuration constants
 DEFAULT_API_URL = "https://api.vlm.run/v1"
@@ -89,7 +90,7 @@ class VLMRunTranscribeVideo(foo.Operator):
             )
 
         # Target selection
-        has_view = ctx.view != ctx.dataset.view()
+        has_view = ctx.dataset is not None and ctx.view != ctx.dataset.view()
         if has_view:
             target_choices = types.RadioGroup()
             target_choices.add_choice("DATASET", label="Entire dataset")
@@ -408,7 +409,7 @@ class VLMRunClassifyImages(foo.Operator):
             )
 
         # Target selection
-        has_view = ctx.view != ctx.dataset.view()
+        has_view = ctx.dataset is not None and ctx.view != ctx.dataset.view()
         if has_view:
             target_choices = types.RadioGroup()
             target_choices.add_choice("DATASET", label="Entire dataset")
@@ -640,7 +641,7 @@ class VLMRunCaptionImages(foo.Operator):
             )
 
         # Target selection
-        has_view = ctx.view != ctx.dataset.view()
+        has_view = ctx.dataset is not None and ctx.view != ctx.dataset.view()
         if has_view:
             target_choices = types.RadioGroup()
             target_choices.add_choice("DATASET", label="Entire dataset")
@@ -856,7 +857,7 @@ class VLMRunClassifyDocuments(foo.Operator):
             )
 
         # Target selection
-        has_view = ctx.view != ctx.dataset.view()
+        has_view = ctx.dataset is not None and ctx.view != ctx.dataset.view()
         if has_view:
             target_choices = types.RadioGroup()
             target_choices.add_choice("DATASET", label="Entire dataset")
@@ -896,6 +897,8 @@ class VLMRunClassifyDocuments(foo.Operator):
         target = ctx.params.get("target", "DATASET")
         result_field = ctx.params["result_field"]
         domain = "document.classification"  # Fixed domain for this operator
+        enable_grounding = False  # Classification doesn't need grounding
+        detections_field = None
 
         # Get samples
         sample_collection = ctx.view if target == "VIEW" else ctx.dataset
@@ -931,8 +934,14 @@ class VLMRunClassifyDocuments(foo.Operator):
             max_retries=max_retries,
         )
 
+        # Create config for grounding if enabled
+        config = None
+        if enable_grounding:
+            config = GenerationConfig(grounding=True)
+
         processed = 0
         errors = []
+        grounding_info = []  # Collect grounding information
 
         with fou.ProgressBar(total=total_documents) as pb:
             for sample in document_samples:
@@ -946,11 +955,15 @@ class VLMRunClassifyDocuments(foo.Operator):
                     file_path = Path(sample.filepath)
 
                     # Use batch mode for documents as they may take longer
-                    response = client.document.generate(
-                        file=file_path,
-                        domain=domain,
-                        batch=True,
-                    )
+                    generate_kwargs = {
+                        "file": file_path,
+                        "domain": domain,
+                        "batch": True,
+                    }
+                    if enable_grounding and config:
+                        generate_kwargs["config"] = config
+
+                    response = client.document.generate(**generate_kwargs)
 
                     # Poll for batch completion
                     if hasattr(response, "id") and hasattr(response, "status"):
@@ -994,12 +1007,20 @@ class VLMRunClassifyDocuments(foo.Operator):
                         result = response
 
                     # Parse and store the result
-                    self._process_document_result(
+                    sample_grounding_info = self._process_document_result(
                         sample,
                         result,
                         result_field,
                         domain,
+                        enable_grounding,
+                        detections_field,
                     )
+
+                    if sample_grounding_info and enable_grounding:
+                        grounding_info.append({
+                            "file": os.path.basename(sample.filepath),
+                            **sample_grounding_info
+                        })
 
                     sample.save()
                     processed += 1
@@ -1024,10 +1045,22 @@ class VLMRunClassifyDocuments(foo.Operator):
         if errors:
             result["error_details"] = errors[:MAX_ERROR_DETAILS]
 
+        if enable_grounding and grounding_info:
+            # Format the raw responses for display
+            raw_responses = []
+            for item in grounding_info[:20]:  # Limit to 20
+                if "raw_response" in item:
+                    raw_responses.append(f"File: {item.get('file', 'unknown')}\n{item['raw_response']}")
+
+            if raw_responses:
+                result["grounding_raw_data"] = raw_responses
+            result["total_grounding_items"] = len(grounding_info)
+
         return result
 
-    def _process_document_result(self, sample, result, result_field, domain):
-        """Process VLM Run document result and update sample."""
+    def _process_document_result(self, sample, result, result_field, domain, enable_grounding=False, detections_field=None):
+        """Process VLM Run document result and update sample. Returns grounding info if enabled."""
+        grounding_info = {}
 
         # Extract response data - handle nested response structure
         if hasattr(result, "response"):
@@ -1050,6 +1083,23 @@ class VLMRunClassifyDocuments(foo.Operator):
                     sample[f"{result_field}_confidence"] = response_data["confidence"]
                 if "rationale" in response_data:
                     sample[f"{result_field}_rationale"] = response_data["rationale"]
+
+                # Handle grounding if enabled
+                if enable_grounding and detections_field:
+                    detections_list = []
+
+                    # Store raw response for debugging
+                    grounding_info["raw_response"] = str(response_data)
+
+                    # Check for any field ending with _metadata (VLM Run convention)
+                    for field_name, field_value in response_data.items():
+                        if field_name.endswith("_metadata") and isinstance(field_value, dict):
+                            # Extract the base field name (remove _metadata suffix)
+                            label = field_name.replace("_metadata", "")
+                            self._add_detection_from_metadata(detections_list, label, field_value)
+
+                    if detections_list:
+                        sample[detections_field] = fol.Detections(detections=detections_list)
             else:
                 sample[result_field] = str(response_data)
 
@@ -1076,6 +1126,44 @@ class VLMRunClassifyDocuments(foo.Operator):
             else:
                 sample[result_field] = str(response_data)
 
+        return grounding_info if enable_grounding else None
+
+    def _add_detection_from_metadata(self, detections_list, label, metadata):
+        """Convert VLM Run grounding metadata to FiftyOne Detection."""
+        if not metadata or not isinstance(metadata, dict):
+            return
+
+        if "bboxes" in metadata:
+            # Convert confidence string to numeric
+            confidence_str = metadata.get("confidence", "med")
+            if confidence_str == "hi":
+                confidence = 0.9
+            elif confidence_str == "med":
+                confidence = 0.7
+            else:  # "low"
+                confidence = 0.5
+
+            # Process each bounding box
+            for bbox_info in metadata["bboxes"]:
+                # Check for bbox in nested structure
+                bbox_data = None
+                if "bbox" in bbox_info and "xywh" in bbox_info["bbox"]:
+                    bbox_data = bbox_info["bbox"]["xywh"]
+                elif "xywh" in bbox_info:
+                    bbox_data = bbox_info["xywh"]
+
+                if bbox_data:
+                    # VLM Run format is already [x, y, w, h] normalized
+                    detection = fol.Detection(
+                        label=label,
+                        bounding_box=bbox_data,
+                        confidence=confidence,
+                    )
+                    # Add page info if available
+                    if "page" in bbox_info:
+                        detection["page"] = bbox_info["page"]
+
+                    detections_list.append(detection)
 
     def resolve_output(self, ctx):
         """Display output to the user."""
@@ -1093,6 +1181,15 @@ class VLMRunClassifyDocuments(foo.Operator):
         if "error_details" in ctx.results:
             outputs.list(
                 "error_details", types.String(), label="Error Details"
+            )
+
+        # Show grounding information if available
+        if "grounding_raw_data" in ctx.results:
+            outputs.list(
+                "grounding_raw_data",
+                types.String(),
+                label="Raw Grounding Responses",
+                description="Raw response data from VLM Run API"
             )
 
         # Success message
@@ -1138,7 +1235,7 @@ class VLMRunParseInvoices(foo.Operator):
             )
 
         # Target selection
-        has_view = ctx.view != ctx.dataset.view()
+        has_view = ctx.dataset is not None and ctx.view != ctx.dataset.view()
         if has_view:
             target_choices = types.RadioGroup()
             target_choices.add_choice("DATASET", label="Entire dataset")
@@ -1162,6 +1259,23 @@ class VLMRunParseInvoices(foo.Operator):
             required=True,
         )
 
+        # Grounding option
+        inputs.bool(
+            "enable_grounding",
+            label="Enable Visual Grounding",
+            description="Extract bounding boxes for detected invoice fields",
+            default=True,
+            required=False,
+        )
+
+        inputs.str(
+            "detections_field",
+            label="Detections Field",
+            description="Field name to store bounding box detections (if grounding enabled)",
+            default="invoice_detections",
+            required=False,
+        )
+
         return types.Property(
             inputs, view=types.View(label="Parse Invoices")
         )
@@ -1177,6 +1291,8 @@ class VLMRunParseInvoices(foo.Operator):
 
         target = ctx.params.get("target", "DATASET")
         result_field = ctx.params["result_field"]
+        enable_grounding = ctx.params.get("enable_grounding", True)
+        detections_field = ctx.params.get("detections_field", "invoice_detections")
         domain = "document.invoice"  # Fixed domain for this operator
 
         # Get samples
@@ -1213,8 +1329,14 @@ class VLMRunParseInvoices(foo.Operator):
             max_retries=max_retries,
         )
 
+        # Create config for grounding if enabled
+        config = None
+        if enable_grounding:
+            config = GenerationConfig(grounding=True)
+
         processed = 0
         errors = []
+        grounding_info = []  # Collect grounding information
 
         with fou.ProgressBar(total=total_documents) as pb:
             for sample in document_samples:
@@ -1228,11 +1350,15 @@ class VLMRunParseInvoices(foo.Operator):
                     file_path = Path(sample.filepath)
 
                     # Use batch mode for documents as they may take longer
-                    response = client.document.generate(
-                        file=file_path,
-                        domain=domain,
-                        batch=True,
-                    )
+                    generate_kwargs = {
+                        "file": file_path,
+                        "domain": domain,
+                        "batch": True,
+                    }
+                    if enable_grounding and config:
+                        generate_kwargs["config"] = config
+
+                    response = client.document.generate(**generate_kwargs)
 
                     # Poll for batch completion
                     if hasattr(response, "id") and hasattr(response, "status"):
@@ -1276,11 +1402,19 @@ class VLMRunParseInvoices(foo.Operator):
                         result = response
 
                     # Parse and store the result
-                    self._process_invoice_result(
+                    sample_grounding_info = self._process_invoice_result(
                         sample,
                         result,
                         result_field,
+                        enable_grounding,
+                        detections_field,
                     )
+
+                    if sample_grounding_info and enable_grounding:
+                        grounding_info.append({
+                            "file": os.path.basename(sample.filepath),
+                            **sample_grounding_info
+                        })
 
                     sample.save()
                     processed += 1
@@ -1305,10 +1439,22 @@ class VLMRunParseInvoices(foo.Operator):
         if errors:
             result["error_details"] = errors[:MAX_ERROR_DETAILS]
 
+        if enable_grounding and grounding_info:
+            # Format the raw responses for display
+            raw_responses = []
+            for item in grounding_info[:20]:  # Limit to 20
+                if "raw_response" in item:
+                    raw_responses.append(f"File: {item.get('file', 'unknown')}\n{item['raw_response']}")
+
+            if raw_responses:
+                result["grounding_raw_data"] = raw_responses
+            result["total_grounding_items"] = len(grounding_info)
+
         return result
 
-    def _process_invoice_result(self, sample, result, result_field):
-        """Process VLM Run invoice result and update sample."""
+    def _process_invoice_result(self, sample, result, result_field, enable_grounding=False, detections_field=None):
+        """Process VLM Run invoice result and update sample. Returns grounding info if enabled."""
+        grounding_info = {}
 
         # Extract response data - handle nested response structure
         if hasattr(result, "response"):
@@ -1323,26 +1469,108 @@ class VLMRunParseInvoices(foo.Operator):
 
         # Store invoice results
         if isinstance(response_data, dict):
+            # Store raw response for debugging
+            if enable_grounding:
+                grounding_info["raw_response"] = str(response_data)
+
+            # Collect detections if grounding is enabled
+            detections = []
+
             # Store key invoice fields based on actual response
             if "invoice_id" in response_data:
                 sample[f"{result_field}_id"] = response_data["invoice_id"]
+                # Check for grounding metadata
+                if enable_grounding and "invoice_id_metadata" in response_data:
+                    self._add_detection_from_metadata(
+                        detections, "invoice_id", response_data["invoice_id_metadata"]
+                    )
+
             if "issuer" in response_data:
                 sample[f"{result_field}_issuer"] = response_data["issuer"]
+                if enable_grounding and "issuer_metadata" in response_data:
+                    self._add_detection_from_metadata(
+                        detections, "issuer", response_data["issuer_metadata"]
+                    )
+
             if "customer" in response_data:
                 sample[f"{result_field}_customer"] = response_data["customer"]
+                if enable_grounding and "customer_metadata" in response_data:
+                    self._add_detection_from_metadata(
+                        detections, "customer", response_data["customer_metadata"]
+                    )
+
             if "invoice_issue_date" in response_data:
                 sample[f"{result_field}_date"] = response_data["invoice_issue_date"]
+                if enable_grounding and "invoice_issue_date_metadata" in response_data:
+                    self._add_detection_from_metadata(
+                        detections, "invoice_date", response_data["invoice_issue_date_metadata"]
+                    )
+
             if "total" in response_data:
                 sample[f"{result_field}_total"] = response_data["total"]
+                if enable_grounding and "total_metadata" in response_data:
+                    self._add_detection_from_metadata(
+                        detections, "total", response_data["total_metadata"]
+                    )
+
             if "currency" in response_data:
                 sample[f"{result_field}_currency"] = response_data["currency"]
+                if enable_grounding and "currency_metadata" in response_data:
+                    self._add_detection_from_metadata(
+                        detections, "currency", response_data["currency_metadata"]
+                    )
+
             if "items" in response_data:
                 sample[f"{result_field}_items"] = response_data["items"]
+                # Items might have their own metadata
+
+            # Store detections if grounding is enabled and we have detections
+            if enable_grounding and detections and detections_field:
+                sample[detections_field] = fol.Detections(detections=detections)
 
             # Store full response for reference
             sample[result_field] = response_data
         else:
             sample[result_field] = str(response_data)
+
+        return grounding_info if enable_grounding else None
+
+    def _add_detection_from_metadata(self, detections_list, label, metadata):
+        """Convert VLM Run grounding metadata to FiftyOne Detection."""
+        if not metadata or not isinstance(metadata, dict):
+            return
+
+        if "bboxes" in metadata:
+            # Convert confidence string to numeric
+            confidence_str = metadata.get("confidence", "med")
+            if confidence_str == "hi":
+                confidence = 0.9
+            elif confidence_str == "med":
+                confidence = 0.7
+            else:  # "low"
+                confidence = 0.5
+
+            # Process each bounding box
+            for bbox_info in metadata["bboxes"]:
+                # Check for bbox in nested structure
+                bbox_data = None
+                if "bbox" in bbox_info and "xywh" in bbox_info["bbox"]:
+                    bbox_data = bbox_info["bbox"]["xywh"]
+                elif "xywh" in bbox_info:
+                    bbox_data = bbox_info["xywh"]
+
+                if bbox_data:
+                    # VLM Run format is already [x, y, w, h] normalized
+                    detection = fol.Detection(
+                        label=label,
+                        bounding_box=bbox_data,
+                        confidence=confidence,
+                    )
+                    # Add page info if available
+                    if "page" in bbox_info:
+                        detection["page"] = bbox_info["page"]
+
+                    detections_list.append(detection)
 
     def resolve_output(self, ctx):
         """Display output to the user."""
@@ -1360,6 +1588,15 @@ class VLMRunParseInvoices(foo.Operator):
         if "error_details" in ctx.results:
             outputs.list(
                 "error_details", types.String(), label="Error Details"
+            )
+
+        # Show grounding information if available
+        if "grounding_raw_data" in ctx.results:
+            outputs.list(
+                "grounding_raw_data",
+                types.String(),
+                label="Raw Grounding Responses",
+                description="Raw response data from VLM Run API"
             )
 
         # Success message
