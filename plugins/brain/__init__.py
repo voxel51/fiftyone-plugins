@@ -1659,7 +1659,7 @@ def _get_allowed_model_names(ctx, inputs):
     if names is None:
         return None
 
-    return set(names.split(","))
+    return set(n.strip() for n in names.split(","))
 
 
 def _get_allowed_model_licenses(ctx, inputs):
@@ -1667,7 +1667,7 @@ def _get_allowed_model_licenses(ctx, inputs):
     if license is None:
         return None
 
-    licenses = license.split(",")
+    licenses = [l.strip() for l in license.split(",")]
 
     inputs.view(
         "licenses",
