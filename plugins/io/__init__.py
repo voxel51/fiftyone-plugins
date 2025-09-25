@@ -1714,7 +1714,26 @@ class ExportSamples(foo.Operator):
         return types.Property(inputs, view=types.View(label="Export samples"))
 
     def execute(self, ctx):
-        _export_samples(ctx)
+        return _export_samples(ctx)
+
+    def resolve_output(self, ctx):
+        # @todo render a download button for remote exports
+        """
+        export_path = ctx.results["export_path"]
+        if hasattr(foc, "TEAMS_VERSION") and not fos.is_local(export_path):
+            download_link = fos.get_url(export_path)
+            download_md = f"[{download_link}](download_link)"
+
+            outputs = types.Object()
+            outputs.str(
+                "download_md", label="Export path", view=types.MarkdownView()
+            )
+
+            view = types.View(label="Export samples")
+            return types.Property(outputs, view=view)
+        """
+
+        return None
 
 
 def _export_samples_inputs(ctx, inputs):
@@ -1896,101 +1915,118 @@ def _export_samples_inputs(ctx, inputs):
             view=types.CheckboxView(),
         )
 
-    labels_path_type = _get_labels_path_type(dataset_type)
+    if export_type == "LABELS_ONLY":
+        labels_path_type = _get_labels_path_type(dataset_type)
+    else:
+        labels_path_type = None
+
+    if labels_path_type != "file":
+        # Give the user a choice of exporting to a directory or an archive
+        tab_choices = types.TabsView()
+        tab_choices.add_choice("DIRECTORY", label="Directory")
+        tab_choices.add_choice("ARCHIVE", label="Archive")
+
+        inputs.enum(
+            "tab",
+            tab_choices.values(),
+            default="DIRECTORY",
+            view=tab_choices,
+        )
+        tab = ctx.params.get("tab", "DIRECTORY")
+    else:
+        # User is exporting a single labels file
+        tab = None
 
     if labels_path_type == "file":
+        # User is exporting a single labels file
         ext = _get_labels_path_ext(dataset_type)
-        file_explorer = types.FileExplorerView(button_label="Choose a file...")
-        prop = inputs.file(
-            "labels_path",
-            required=True,
-            label="Labels path",
-            description=f"Choose a `{ext}` path to write the labels",
-            view=file_explorer,
+        labels_path = _get_path_from_user(
+            ctx,
+            inputs,
+            choose_dir=False,
+            path_param="labels_path",
+            path_label="Labels path",
+            path_description=f"Choose a `{ext}` path to write the labels",
+            path_button_label="Choose a path...",
+            path_validator=lambda p: os.path.splitext(p)[1] == ext,
+            path_error=f"Please provide a `{ext}` path",
+            overwrite_param="overwrite",
+            overwrite_label="File already exists. Overwrite it?",
+            overwrite_error="The specified file already exists",
         )
-
-        labels_path = _parse_path(ctx, "labels_path")
         if labels_path is None:
             return False
-
-        if os.path.splitext(labels_path)[1] != ext:
-            prop.invalid = True
-            prop.error_message = f"Please provide a {ext} path"
-            return False
-
-        if fos.isfile(labels_path):
-            inputs.bool(
-                "overwrite",
-                default=True,
-                label="File already exists. Overwrite it?",
-                view=types.CheckboxView(),
-            )
-            overwrite = ctx.params.get("overwrite", True)
-
-            if not overwrite:
-                prop.invalid = True
-                prop.error_message = "The specified file already exists"
-                return False
     elif labels_path_type == "directory":
-        file_explorer = types.FileExplorerView(
-            choose_dir=True,
-            button_label="Choose a directory...",
-        )
-        prop = inputs.file(
-            "labels_path",
-            required=True,
-            label="Directory",
-            description="Choose a directory at which to write the export",
-            view=file_explorer,
-        )
+        # User is exporting a directory of labels...
+        if tab == "ARCHIVE":
+            # ...as an archive
+            labels_path = _get_path_from_user(
+                ctx,
+                inputs,
+                choose_dir=False,
+                # note: using `export_dir`, not `labels_path`, is intentional
+                path_param="export_dir",
+                path_label="Labels path",
+                path_description="Choose an archive path to write the labels",
+                path_button_label="Choose an archive path...",
+                path_validator=etau.is_archive,
+                path_error="Please provide a path with extension `.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tar.bz`, or `.tbz`",
+                overwrite_param="overwrite",
+                overwrite_label="Archive already exists. Overwrite it?",
+                overwrite_error="The specified archive already exists",
+            )
+        else:
+            # ...as a directory
+            labels_path = _get_path_from_user(
+                ctx,
+                inputs,
+                choose_dir=True,
+                path_param="labels_path",
+                path_label="Labels path",
+                path_description="Choose a directory to write the labels",
+                path_button_label="Choose a directory...",
+                overwrite_param="overwrite",
+                overwrite_label="Directory already exists. Overwrite it?",
+                overwrite_error="The specified directory already exists",
+            )
 
-        labels_path = _parse_path(ctx, "labels_path")
         if labels_path is None:
             return False
-
-        if fos.isdir(labels_path):
-            inputs.bool(
-                "overwrite",
-                default=True,
-                label="Directory already exists. Overwrite it?",
-                view=types.CheckboxView(),
-            )
-            overwrite = ctx.params.get("overwrite", True)
-
-            if not overwrite:
-                prop.invalid = True
-                prop.error_message = "The specified directory already exists"
-                return False
     else:
-        file_explorer = types.FileExplorerView(
-            choose_dir=True,
-            button_label="Choose a directory...",
-        )
-        prop = inputs.file(
-            "export_dir",
-            required=True,
-            label="Directory",
-            description="Choose a directory at which to write the export",
-            view=file_explorer,
-        )
+        # User is exporting media and possibly labels...
+        if tab == "ARCHIVE":
+            # ...as an archive
+            export_dir = _get_path_from_user(
+                ctx,
+                inputs,
+                choose_dir=False,
+                path_param="export_dir",
+                path_label="Archive",
+                path_description="Choose an archive path to write the export",
+                path_button_label="Choose an archive path...",
+                path_validator=etau.is_archive,
+                path_error="Please provide a path with extension `.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tar.bz`, or `.tbz`",
+                overwrite_param="overwrite",
+                overwrite_label="Archive already exists. Overwrite it?",
+                overwrite_error="The specified archive already exists",
+            )
+        else:
+            # ...as a directory
+            export_dir = _get_path_from_user(
+                ctx,
+                inputs,
+                choose_dir=True,
+                path_param="export_dir",
+                path_label="Directory",
+                path_description="Choose a directory to write the export",
+                path_button_label="Choose a directory...",
+                overwrite_param="overwrite",
+                overwrite_label="Directory already exists. Overwrite it?",
+                overwrite_error="The specified directory already exists",
+            )
 
-        export_dir = _parse_path(ctx, "export_dir")
         if export_dir is None:
             return False
-
-        if fos.isdir(export_dir):
-            inputs.bool(
-                "overwrite",
-                default=True,
-                label="Directory already exists. Overwrite it?",
-                view=types.CheckboxView(),
-            )
-            overwrite = ctx.params.get("overwrite", True)
-
-            if not overwrite:
-                prop.invalid = True
-                prop.error_message = "The specified directory already exists"
-                return False
 
     size_bytes = _estimate_export_size(target_view, export_type, fields)
     size_str = etau.to_human_bytes_str(size_bytes)
@@ -1998,6 +2034,61 @@ def _export_samples_inputs(ctx, inputs):
     inputs.view("estimate", types.Notice(label=label))
 
     return True
+
+
+def _get_path_from_user(
+    ctx,
+    inputs,
+    choose_dir=False,
+    path_param="path",
+    path_label="Path",
+    path_description="Choose a path",
+    path_button_label="Choose a path...",
+    path_validator=None,
+    path_error=None,
+    overwrite_param=None,
+    overwrite_label="Path already exists. Overwrite it?",
+    overwrite_error="The specified path already exists",
+):
+    file_explorer = types.FileExplorerView(
+        choose_dir=choose_dir,
+        button_label=path_button_label,
+    )
+    prop = inputs.file(
+        path_param,
+        required=True,
+        label=path_label,
+        description=path_description,
+        view=file_explorer,
+    )
+
+    path = _parse_path(ctx, path_param)
+    if path is None:
+        return None
+
+    if path_validator is not None and not path_validator(path):
+        prop.invalid = True
+        prop.error_message = path_error
+        return None
+
+    if overwrite_param is None:
+        return path
+
+    if fos.exists(path):
+        inputs.bool(
+            overwrite_param,
+            default=True,
+            label=overwrite_label,
+            view=types.CheckboxView(),
+        )
+        overwrite = ctx.params.get(overwrite_param, True)
+
+        if not overwrite:
+            prop.invalid = True
+            prop.error_message = overwrite_error
+            return None
+
+    return path
 
 
 def _export_samples(ctx):
@@ -2012,6 +2103,7 @@ def _export_samples(ctx):
     csv_fields = ctx.params.get("csv_fields", None)
     abs_paths = ctx.params.get("abs_paths", None)
     manual = ctx.params.get("manual", False)
+    tab = ctx.params.get("tab", None)
     kwargs = ctx.params.get("kwargs", {})
 
     if _can_export_multiple_fields(dataset_type):
@@ -2020,8 +2112,12 @@ def _export_samples(ctx):
     target_view = _get_target_view(ctx, target)
 
     if manual:
+        if export_dir is None and labels_path is not None:
+            export_type = "LABELS_ONLY"
+
         dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
     elif export_type == "FILEPATHS_ONLY":
+        export_type = "LABELS_ONLY"
         dataset_type = fot.CSVDataset
         csv_fields = ["filepath"]
         export_media = False
@@ -2037,6 +2133,9 @@ def _export_samples(ctx):
         label_field = None
         export_media = True
     elif export_type == "LABELS_ONLY":
+        if tab == "ARCHIVE":
+            export_type = None
+
         dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
         export_media = False
     else:
@@ -2071,6 +2170,13 @@ def _export_samples(ctx):
         export_media=export_media,
         **kwargs,
     )
+
+    if export_type == "LABELS_ONLY":
+        export_path = labels_path
+    else:
+        export_path = export_dir
+
+    return {"export_path": export_path}
 
 
 def _estimate_export_size(view, export_type, fields):
@@ -2288,8 +2394,8 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#imageclassificationdirectorytree",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#imageclassificationdirectorytree",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#image-classification-dir-tree",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#image-classification-dir-tree",
     },
     {
         "label": "Video Classification Directory Tree",
@@ -2301,8 +2407,8 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#videoclassificationdirectorytree",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#videoclassificationdirectorytree",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#video-classification-dir-tree",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#video-classification-dir-tree",
     },
     {
         "label": "TF Image Classification",
@@ -2314,8 +2420,8 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#tfimageclassificationdataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tfimageclassificationdataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#tf-image-classification",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tf-image-classification",
     },
     {
         "label": "COCO",
@@ -2329,8 +2435,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": True,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#cocodetectiondataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cocodetectiondataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#coco",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#coco",
     },
     {
         "label": "VOC",
@@ -2343,8 +2449,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#vocdetectiondataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#vocdetectiondataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#voc",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#voc",
     },
     {
         "label": "KITTI",
@@ -2357,8 +2463,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#kittidetectiondataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#kittidetectiondataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#kitti",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#kitti",
     },
     {
         "label": "YOLOv4",
@@ -2371,8 +2477,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#yolov4dataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov4dataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#yolov4",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov4",
     },
     {
         "label": "YOLOv5",
@@ -2384,8 +2490,8 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#yolov5dataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov5dataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#yolov5",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov5",
     },
     {
         "label": "TF Object Detection",
@@ -2397,8 +2503,8 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#tfobjectdetectiondataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tfobjectdetectiondataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#tf-object-detection",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tf-object-detection",
     },
     {
         "label": "CVAT Image",
@@ -2417,8 +2523,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": True,
         "export_abs_paths": True,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#cvatimagedataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cvatimagedataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#cvat-image",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cvat-image",
     },
     {
         "label": "CVAT Video",
@@ -2431,8 +2537,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": True,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#cvatvideodataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cvatvideodataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#cvat-video",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#cvat-video",
     },
     {
         "label": "OpenLABEL Image",
@@ -2442,7 +2548,7 @@ _DATASET_TYPES = [
         "labels_path_type": "directory",
         "import": True,
         "export": False,  # no export
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#openlabelimagedataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#openlabel-image",
     },
     {
         "label": "OpenLABEL Video",
@@ -2452,7 +2558,7 @@ _DATASET_TYPES = [
         "labels_path_type": "directory",
         "import": True,
         "export": False,  # no export
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#openlabelvideodataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#openlabel-video",
     },
     {
         "label": "Image Segmentation",
@@ -2465,8 +2571,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#imagesegmentationdirectory",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#imagesegmentationdirectory",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#image-segmentation-directory",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#image-segmentation-directory",
     },
     {
         "label": "CSV",
@@ -2480,8 +2586,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": True,
         "export_abs_paths": True,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#csvdataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#csvdataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#csv",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#csv",
     },
     {
         "label": "DICOM",
@@ -2490,7 +2596,7 @@ _DATASET_TYPES = [
         "label_types": None,  # all
         "import": True,
         "export": False,  # no export
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#dicomdataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#dicom",
     },
     {
         "label": "GeoJSON",
@@ -2504,8 +2610,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": True,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#geojsondataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#geojsondataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#geojson",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#geojson",
     },
     {
         "label": "GeoTIFF",
@@ -2514,7 +2620,7 @@ _DATASET_TYPES = [
         "label_types": ["geolocation"],
         "import": True,
         "export": False,  # no export
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#geotiffdataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#geotiff",
     },
     {
         "label": "FiftyOne Dataset",
@@ -2526,8 +2632,8 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": False,
-        "import_docs": "https://docs.voxel51.com/user_guide/dataset_creation/datasets.html#fiftyonedataset",
-        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#fiftyonedataset",
+        "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#fiftyone-dataset",
+        "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#fiftyone-dataset",
     },
 ]
 
