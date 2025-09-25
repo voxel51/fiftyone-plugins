@@ -373,9 +373,15 @@ def get_new_run_key(
     )
 
     run_key = ctx.params.get(name, None)
+
     if run_key is not None and run_key in ctx.dataset.list_runs():
         prop.invalid = True
         prop.error_message = "Run key already exists"
+        run_key = None
+
+    if run_key is not None and not run_key.isidentifier():
+        prop.invalid = True
+        prop.error_message = "Run keys must be valid variable names"
         run_key = None
 
     return run_key

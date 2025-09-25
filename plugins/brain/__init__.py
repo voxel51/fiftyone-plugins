@@ -1708,9 +1708,15 @@ def get_new_brain_key(
     )
 
     brain_key = ctx.params.get(name, None)
+
     if brain_key is not None and brain_key in ctx.dataset.list_brain_runs():
         prop.invalid = True
         prop.error_message = "Brain key already exists"
+        brain_key = None
+
+    if brain_key is not None and not brain_key.isidentifier():
+        prop.invalid = True
+        prop.error_message = "Brain keys must be valid variable names"
         brain_key = None
 
     return brain_key
