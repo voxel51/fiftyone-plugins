@@ -9,6 +9,7 @@ from collections import defaultdict
 from packaging.version import Version
 
 import fiftyone as fo
+import fiftyone.brain as fob
 import fiftyone.constants as foc
 import fiftyone.operators as foo
 import fiftyone.operators.types as types
@@ -16,6 +17,7 @@ from fiftyone.utils.github import GitHubRepository
 import fiftyone.zoo as foz
 import fiftyone.zoo.datasets as fozd
 import fiftyone.zoo.models as fozm
+from fiftyone import ViewField as F
 
 
 class LoadZooDataset(foo.Operator):
@@ -471,6 +473,7 @@ def _partial_download_inputs(ctx, inputs, zoo_dataset):
         only_matching = True
     elif "activitynet" in name:
         supported_label_types = None
+        default = None
         id_type = None
         only_matching = False
     else:
@@ -599,14 +602,17 @@ class ApplyZooModel(foo.Operator):
         target = ctx.params.get("target", None)
         model = ctx.params["model"]
         source = ctx.params.get("source", None)
-        embeddings = ctx.params.get("embeddings", None) == "EMBEDDINGS"
+        task = ctx.params.get("task", None)
+        storage_method = ctx.params.get("storage_method", None)
         embeddings_field = ctx.params.get("embeddings_field", None)
+        brain_key = ctx.params.get("brain_key", None)
         patches_field = ctx.params.get("patches_field", None)
         label_field = ctx.params.get("label_field", None)
         confidence_thresh = ctx.params.get("confidence_thresh", None)
         store_logits = ctx.params.get("store_logits", False)
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
+        skip_existing = ctx.params.get("skip_existing", False)
         skip_failures = ctx.params.get("skip_failures", True)
         output_dir = ctx.params.get("output_dir", None)
         rel_dir = ctx.params.get("rel_dir", None)
@@ -634,24 +640,64 @@ class ApplyZooModel(foo.Operator):
         if not ctx.delegated:
             num_workers = 0
 
-        if embeddings and patches_field is not None:
-            target_view.compute_patch_embeddings(
-                model,
-                patches_field,
-                embeddings_field=embeddings_field,
-                batch_size=batch_size,
-                num_workers=num_workers,
-                skip_failures=skip_failures,
-            )
-        elif embeddings:
-            target_view.compute_embeddings(
-                model,
-                embeddings_field=embeddings_field,
-                batch_size=batch_size,
-                num_workers=num_workers,
-                skip_failures=skip_failures,
-            )
+        if task == "EMBEDDINGS":
+            if storage_method == "SIMILARITY_INDEX":
+                _inject_brain_secrets(ctx)
+
+                similarity_index = ctx.dataset.load_brain_results(brain_key)
+
+                (
+                    embeddings,
+                    sample_ids,
+                    label_ids,
+                ) = similarity_index.compute_embeddings(
+                    target_view,
+                    model=model,
+                    batch_size=batch_size,
+                    num_workers=num_workers,
+                    skip_existing=skip_existing,
+                    skip_failures=skip_failures,
+                    warn_existing=False,
+                )
+
+                similarity_index.add_to_index(
+                    embeddings,
+                    sample_ids,
+                    label_ids=label_ids,
+                    overwrite=True,
+                    warn_existing=False,
+                )
+            elif patches_field is not None:
+                if skip_existing:
+                    target_view = target_view.filter_labels(
+                        patches_field, F(embeddings_field).exists(bool=False)
+                    )
+
+                target_view.compute_patch_embeddings(
+                    model,
+                    patches_field,
+                    embeddings_field=embeddings_field,
+                    batch_size=batch_size,
+                    num_workers=num_workers,
+                    skip_failures=skip_failures,
+                )
+            else:
+                if skip_existing:
+                    target_view = target_view.exists(
+                        embeddings_field, bool=False
+                    )
+
+                target_view.compute_embeddings(
+                    model,
+                    embeddings_field=embeddings_field,
+                    batch_size=batch_size,
+                    num_workers=num_workers,
+                    skip_failures=skip_failures,
+                )
         else:
+            if skip_existing:
+                target_view = target_view.exists(label_field, bool=False)
+
             target_view.apply_model(
                 model,
                 label_field=label_field,
@@ -666,6 +712,15 @@ class ApplyZooModel(foo.Operator):
 
         if not ctx.delegated:
             ctx.trigger("reload_dataset")
+
+
+def _inject_brain_secrets(ctx):
+    for key, value in getattr(ctx, "secrets", {}).items():
+        # FIFTYONE_BRAIN_SIMILARITY_[UPPER_BACKEND]_[UPPER_KEY]
+        if key.startswith("FIFTYONE_BRAIN_SIMILARITY_"):
+            _key = key[len("FIFTYONE_BRAIN_SIMILARITY_") :].lower()
+            _backend, _key = _key.split("_", 1)
+            fob.brain_config.similarity_backends[_backend][_key] = value
 
 
 def _supports_remote_models():
@@ -902,23 +957,21 @@ def _apply_zoo_model_inputs(ctx, inputs):
 
     if zoo_model.has_tag("embeddings"):
         tab_choices = types.TabsView(
-            description=(
-                "This model exposes embeddings. Would you like to compute "
-                "predictions or embeddings?"
-            )
+            description="Would you like to compute predictions or embeddings?"
         )
         tab_choices.add_choice("PREDICTIONS", label="Predictions")
         tab_choices.add_choice("EMBEDDINGS", label="Embeddings")
         inputs.enum(
-            "embeddings",
+            "task",
             tab_choices.values(),
             default="PREDICTIONS",
             view=tab_choices,
         )
 
-    embeddings = ctx.params.get("embeddings", None) == "EMBEDDINGS"
+    task = ctx.params.get("task", "PREDICTIONS")
+    input_str = "samples"
 
-    if embeddings:
+    if task == "EMBEDDINGS":
         patch_types = (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines)
         patches_fields = _get_label_fields(target_view, patch_types)
 
@@ -941,28 +994,90 @@ def _apply_zoo_model_inputs(ctx, inputs):
             )
 
         patches_field = ctx.params.get("patches_field", None)
-
         if patches_field is not None:
-            root, _ = target_view._get_label_field_root(patches_field)
-            field = target_view.get_field(root, leaf=True)
-            fields = list(field.get_field_schema(ftype=fo.VectorField).keys())
-        else:
-            fields = _get_sample_fields(target_view, fo.VectorField)
+            input_str = "patches"
 
-        embeddings_field_choices = types.AutocompleteView()
-        for field in sorted(fields):
-            embeddings_field_choices.add_choice(field, label=field)
-
-        inputs.str(
-            "embeddings_field",
-            required=True,
-            label="Embeddings field",
-            description=(
-                "The name of a new or existing field in which to store the "
-                "embeddings"
-            ),
-            view=embeddings_field_choices,
+        tab_choices = types.TabsView(
+            description="Where would you like to store the embeddings?"
         )
+        tab_choices.add_choice("DATASET", label="Dataset field")
+        tab_choices.add_choice("SIMILARITY_INDEX", label="Similarity index")
+        inputs.enum(
+            "storage_method",
+            tab_choices.values(),
+            default="DATASET",
+            view=tab_choices,
+        )
+
+        storage_method = ctx.params.get("storage_method", None)
+
+        if storage_method == "SIMILARITY_INDEX":
+            brain_keys = target_view.list_brain_runs(
+                type="similarity",
+                patches_field=patches_field,
+            )
+
+            if brain_keys:
+                brain_key_choices = types.DropdownView()
+                for brain_key in brain_keys:
+                    brain_key_choices.add_choice(brain_key, label=brain_key)
+
+                inputs.str(
+                    "brain_key",
+                    required=True,
+                    label="Similarity index",
+                    description=(
+                        "An existing similarity index in which to store the "
+                        "embeddings"
+                    ),
+                    view=brain_key_choices,
+                )
+
+                brain_key = ctx.params.get("brain_key", None)
+
+                if brain_key is not None:
+                    brain_info = target_view.get_brain_info(brain_key)
+                    sim_model = brain_info.config.model
+                    if sim_model != model:
+                        warning = types.Warning(
+                            label=(
+                                "This similarity index uses a different "
+                                f"model ({sim_model}) than the model you've "
+                                f"chosen for inference ({model}). Are you "
+                                "sure you want to continue?"
+                            )
+                        )
+                        inputs.view("sim_model_warning", warning)
+            else:
+                warning = types.Warning(
+                    label="This dataset has no suitable similarity indexes",
+                    description="https://docs.voxel51.com/user_guide/brain.html",
+                )
+                prop = inputs.view("brain_key_warning", warning)
+                prop.invalid = True
+        else:
+            if patches_field is not None:
+                root, _ = target_view._get_label_field_root(patches_field)
+                field = target_view.get_field(root, leaf=True)
+                schema = field.get_field_schema(ftype=fo.VectorField)
+                fields = list(schema.keys())
+            else:
+                fields = _get_sample_fields(target_view, fo.VectorField)
+
+            embeddings_field_choices = types.AutocompleteView()
+            for field in sorted(fields):
+                embeddings_field_choices.add_choice(field, label=field)
+
+            inputs.str(
+                "embeddings_field",
+                required=True,
+                label="Embeddings field",
+                description=(
+                    "The name of a new or existing field in which to store "
+                    "the embeddings"
+                ),
+                view=embeddings_field_choices,
+            )
     else:
         # @todo can remove this if we require `fiftyone>=1.4.0`
         if Version(foc.VERSION) >= Version("1.4.0"):
@@ -1025,14 +1140,22 @@ def _apply_zoo_model_inputs(ctx, inputs):
         ),
     )
 
-    inference_string = ctx.params.get("embeddings", "PREDICTIONS").lower()
+    inputs.bool(
+        "skip_existing",
+        default=False,
+        label="Skip existing",
+        description=(
+            f"Whether to skip {input_str} that already have {task.lower()}"
+        ),
+    )
+
     inputs.bool(
         "skip_failures",
         default=True,
         label="Skip failures",
         description=(
-            "Whether to gracefully continue without raising an error "
-            f"if {inference_string} cannot be generated for a sample"
+            "Whether to gracefully continue without raising an error if "
+            f"{task.lower()} cannot be generated for a sample"
         ),
     )
 
