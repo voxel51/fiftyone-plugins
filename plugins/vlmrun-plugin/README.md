@@ -73,21 +73,6 @@ The operator extracts:
 - Temporal segments with timestamps
 - Language detection and word counts
 
-### vlmrun_classify_images
-
-Classify images into categories with confidence scores.
-
-This operator uses VLM Run's image classification domain:
-
-```py
-client.run("image.classification", image_path)
-```
-
-Returns:
-- Multi-label classification tags
-- Confidence levels (high/medium/low)
-- Rationale for classifications
-
 ### vlmrun_caption_images
 
 Generate descriptive captions for images.
@@ -125,23 +110,6 @@ This operator uses VLM Run's person detection domain:
 client.run("image.person-detection", image_path,
            generation_config=GenerationConfig(grounding=True))
 ```
-
-### vlmrun_classify_documents
-
-Automatically classify document types.
-
-This operator uses VLM Run's document classification domain:
-
-```py
-client.run("document.classification", document_path)
-```
-
-Identifies document types such as:
-- Invoices
-- Receipts
-- Contracts
-- Bank statements
-- And more
 
 ### vlmrun_parse_invoices
 
