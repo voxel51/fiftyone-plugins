@@ -30,17 +30,6 @@ class TestVideoOperators:
 class TestImageOperators:
     """Test image processing operators."""
 
-    def test_classify_images_init(self):
-        """Test VLMRunClassifyImages operator initialization."""
-        from __init__ import VLMRunClassifyImages
-
-        operator = VLMRunClassifyImages()
-        config = operator.config
-
-        assert config.name == "vlmrun_classify_images"
-        assert config.label == "VLM Run: Classify Images"
-        assert operator is not None
-
     def test_caption_images_init(self):
         """Test VLMRunCaptionImages operator initialization."""
         from __init__ import VLMRunCaptionImages
@@ -78,17 +67,6 @@ class TestImageOperators:
 class TestDocumentOperators:
     """Test document processing operators."""
 
-    def test_classify_documents_init(self):
-        """Test VLMRunClassifyDocuments operator initialization."""
-        from __init__ import VLMRunClassifyDocuments
-
-        operator = VLMRunClassifyDocuments()
-        config = operator.config
-
-        assert config.name == "vlmrun_classify_documents"
-        assert config.label == "VLM Run: Classify Documents"
-        assert operator is not None
-
     def test_parse_invoices_init(self):
         """Test VLMRunParseInvoices operator initialization."""
         from __init__ import VLMRunParseInvoices
@@ -119,28 +97,24 @@ class TestOperatorRegistry:
         """Test that all operators can be imported."""
         from __init__ import (
             VLMRunTranscribeVideo,
-            VLMRunClassifyImages,
             VLMRunCaptionImages,
             VLMRunObjectDetection,
             VLMRunPersonDetection,
-            VLMRunClassifyDocuments,
             VLMRunParseInvoices,
             VLMRunLayoutDetection
         )
 
-        # Verify all 8 operators are importable
+        # Verify all 6 operators are importable
         operators = [
             VLMRunTranscribeVideo,
-            VLMRunClassifyImages,
             VLMRunCaptionImages,
             VLMRunObjectDetection,
             VLMRunPersonDetection,
-            VLMRunClassifyDocuments,
             VLMRunParseInvoices,
             VLMRunLayoutDetection
         ]
 
-        assert len(operators) == 8
+        assert len(operators) == 6
 
         for op_class in operators:
             operator = op_class()
