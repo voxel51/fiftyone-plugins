@@ -11,6 +11,9 @@ operators:
   # Image Processing
   - vlmrun_classify_images
   - vlmrun_caption_images
+  - vlmrun_object_detection
+  - vlmrun_person_detection
   # Document Processing
   - vlmrun_classify_documents
   - vlmrun_parse_invoices
+  - vlmrun_layout_detection
