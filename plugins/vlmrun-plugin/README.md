@@ -3,6 +3,8 @@
 A plugin that provides operators for extracting structured data from visual
 sources using [VLM Run](https://vlm.run)'s vision-language model.
 
+![Plugin Overview](img/plugin_overview.gif)
+
 ## Installation
 
 ```shell
