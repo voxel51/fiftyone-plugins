@@ -39,6 +39,15 @@ fiftyone zoo models list
 fiftyone zoo datasets list
 ```
 
+You can also provide a specific list of models and datasets that should be made
+available by this plugin's operators by setting the following
+[plugin secrets](https://docs.voxel51.com/plugins/using_plugins.html#plugin-secrets):
+
+```shell
+export FIFTYONE_ZOO_ALLOWED_MODEL_NAMES="clip-vit-base32-torch,zero-shot-classification-transformer-torch"
+export FIFTYONE_ZOO_ALLOWED_DATASET_NAMES="quickstart,coco-2017"
+```
+
 ## Usage
 
 1.  Launch the App:
