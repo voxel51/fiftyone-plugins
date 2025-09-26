@@ -40,87 +40,139 @@ session = fo.launch_app(dataset)
 
 4.  Build a dashboard as shown in the video above!
 
-# Custom Data Source
+## Custom data sources
 
-Enable **Custom data source** in the panel settings to activate the **Code**
-editor.  
-You can then define a data source in Python, useful for combining multiple
-Datasets or creating custom aggregations.
+The Dashboard panel supports defining arbitrary custom plots via Python code.
+This feature is useful for defining plots that require custom aggregations or
+for more advanced use cases such as defining plots that operate across multiple
+datasets.
 
-## Example: Pie chart of label counts
+To use this functionality:
 
-```python
-# Simple pie chart: label counts in a dataset
+1.  Enable **Custom data source** mode in the plot configuration modal
+2.  Define your data source by entering valid Python code into the editor
+
+### Defining data sources
+
+All data sources must define `data` object that describes a valid
+[plotly-react](https://plotly.com/javascript/react) plot for the chart type
+that you've selected in the dashboard's plot creation modal:
+
+```py
+# eg: pie chart
+data = {
+    "labels": ["foo", "bar", ...],
+    "values": [1, 2, ...],
+}
+
+# eg: histogram
+data = {
+    "x": [0.1, 0.2, ...],
+    "y": [100, 150, ...],
+    "name": "...",
+}
+```
+
+> Do **not** set the `type` property of the `data` object; it will be
+> automatically populated based on the chart type you've selected in the modal
+
+Your code has access to a `ctx` variable that contains the dashboard's
+[ExecutionContext](https://docs.voxel51.com/plugins/developing_plugins.html#execution-context):
+
+```py
+# Use the `ctx` object to interact with the current dataset, view, and more
+dataset = ctx.dataset           # the current dataset
+view = ctx.view                 # the current view
+ids = ctx.selected              # the list of currently selected samples in the App, if any
+labels = ctx.selected_labels    # the list of currently selected labels in the App, if any
+group_slice = ctx.group_slice   # the active group slice in the App, if any
+...
+```
+
+You can also add and use custom imports when defining your data sources:
+
+```py
+import numpy as np
 import fiftyone as fo
 
-# Use the ctx object to interact with the current view or dataset
+...
+```
+
+### Example: custom pie chart of label counts
+
+The following custom data source defines a simple pie chart of label counts in
+a specified field of the current dataset:
+
+```py
+import fiftyone as fo
+
+# Use the `ctx` object to interact with the current view or dataset
 dataset = ctx.dataset  # or ctx.view
 
 # Choose a field with categorical values
 field = "ground_truth.detections.label"
 
-# Count occurrences of each label
 counts = dataset.count_values(field)
 
-# The Dashboard reads the plot from this `data` variable.
-
-# NOTE: Do not set "type"; simply choose Pie in the
-#       chart selector.
+# Define a `data` variable for the dashboard
+# NOTE: do not set "type"; instead choose Pie in the chart selector
 data = {
     "labels": list(counts.keys()),
     "values": list(counts.values()),
 }
 ```
 
-## Example: Multi-Dataset Histogram (combined counts)
+### Example: multi-dataset histogram
 
-Paste this into the Dashboard panel’s **Code** editor, edit the `names`,
-`path`, and `bins`, then select **Bar** as the chart type.
+The following custom data source defines a histogram that aggregates values
+across multiple datasets:
 
 ```python
-# Multi-dataset histogram (combined) — paste into Dashboard "Code" editor
-
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import fiftyone as fo
 
-# --- EDIT THESE ---
-names = [
-    "quickstart",  # add your datasets here
-    "quickstart-video",
-]
-path = "uniqueness"  # numeric field or expression supported by FiftyOne
+###############################################################################
+# Configuration
+###############################################################################
+names = ["quickstart", "quickstart-video", ...]  # the datasets of interest
+path = "uniqueness"  # numeric field that exists on all datasets
 bins = 50
-# -------------------
+max_workers = 16
+###############################################################################
 
-# Compute global range across all datasets
-rmin, rmax = np.inf, -np.inf
-for name in names:
-    ds = fo.load_dataset(name)
-    vmin, vmax = ds.bounds(path)
-    rmin = min(rmin, vmin)
-    rmax = max(rmax, vmax)
 
-# Aggregate histogram counts across datasets
-counts = np.zeros(bins, dtype=float)
-for name in names:
-    ds = fo.load_dataset(name)
-    c, _, _ = ds.histogram_values(path, bins=bins, range=(rmin, rmax))
-    counts += np.asarray(c, dtype=float)
+def compute_range(name):
+    dataset = fo.load_dataset(name)
+    return dataset.bounds(path)
 
-# Convert to Plotly React props
-edges = np.linspace(rmin, rmax, num=bins + 1)
+
+def compute_histogram(name):
+    dataset = fo.load_dataset(name)
+    counts, _, _ = dataset.histogram_values(path, bins=bins, range=range)
+    return counts
+
+
+# compute range (using thread pool for efficiency)
+range = (np.inf, -np.inf)
+with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    for r1, r2 in executor.map(compute_range, names):
+        range = (min(range[0], r1), max(range[1], r2))
+
+# compute counts (using thread pool for efficiency)
+counts = np.zeros(bins)
+with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    for c in executor.map(compute_histogram, names):
+        counts += np.array(c)
+
+edges = np.linspace(*range, num=bins + 1)
 centers = 0.5 * (edges[:-1] + edges[1:])
 
-# IMPORTANT: The Dashboard reads this `data` variable.
-# Do NOT set "type"; the panel adds it based on your UI chart selection.
+# Define `data` variable for the dashboard
+# NOTE: do not set "type"; instead choose Numeric histogram in the modal
 data = {
     "x": centers.tolist(),
     "y": counts.tolist(),
     "name": f"{path} (combined)",
 }
 ```
-
-## Plotly React
-
-See the [plotly-react documentation](https://plotly.com/javascript/react/) for
-more info about the `data` object.
