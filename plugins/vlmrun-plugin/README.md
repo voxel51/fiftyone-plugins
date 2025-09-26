@@ -145,6 +145,11 @@ Identifies:
 - Tables and figures
 - Bounding boxes for each layout element
 
+#### Example Output
+
+![Layout Detection Example](img/layout_detection.jpg)
+*Document layout detection showing identified text regions, headers, and structural elements with bounding boxes*
+
 ## Visual Grounding
 
 When enabled, visual grounding provides bounding box coordinates for extracted
