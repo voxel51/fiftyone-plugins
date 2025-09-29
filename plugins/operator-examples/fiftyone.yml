@@ -31,5 +31,6 @@ operators:
   - example_lazy_field
   - example_python_view
   - example_complex_execution
+  - example_sample_download
 secrets:
   - FIFTYONE_EXAMPLE_SECRET
