@@ -726,14 +726,10 @@ class SecretsExample(foo.Operator):
         return True
 
     def execute(self, ctx):
-        for key, value in getattr(ctx, "secrets", {}).items():
-            if key == "FIFTYONE_EXAMPLE_SECRET":
-                print(f"The delegated operator has access to the secret!")
-            break
+        if "FIFTYONE_EXAMPLE_SECRET" in ctx.secrets:
+            print("The delegated operator has access to the secret!")
         else:
-            print(
-                f"The delegated operator does not have access to the secret."
-            )
+            print("The delegated operator does not have access to the secret.")
 
 
 class LazyFieldExample(foo.Operator):
