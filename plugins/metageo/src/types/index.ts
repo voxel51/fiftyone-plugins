@@ -129,6 +129,7 @@ export interface MetageoClient {
   calculate_sample_distribution: (params: {
     bbox: number[];
     grid_tiles: number;
+    geo_field: string;
   }) => Promise<any>;
   index_grid: (params: {
     bbox: number[];
@@ -138,11 +139,12 @@ export interface MetageoClient {
   start_indexing: (params: {
     bbox: number[];
     grid_tiles: number;
-    location: string;
+    geo_field: string;
     execution_mode: "immediate" | "delegated";
   }) => Promise<any>;
   watch_indexing: (params: { indexing_id: string }) => Promise<any>;
   get_current_indexing_state: () => Promise<any>;
   drop_index: () => Promise<any>;
   get_available_osm_tags: () => Promise<any>;
+  get_geo_fields: () => Promise<any>;
 }

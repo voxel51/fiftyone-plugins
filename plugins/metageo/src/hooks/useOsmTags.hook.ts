@@ -9,6 +9,12 @@ export function useOsmTags() {
   const client = useMetageoClient();
 
   const loadOsmTags = useCallback(async () => {
+    if (!client) {
+      setError("Client not available");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

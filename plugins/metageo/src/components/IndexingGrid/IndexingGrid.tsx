@@ -126,7 +126,7 @@ export function IndexingGrid({
           label={`Idle: ${statusCounts.idle}`}
           size="small"
           variant="outlined"
-          sx={{ borderColor: theme.palette.grey[400] }}
+          sx={{ borderColor: theme.palette.grey[600] }}
         />
         <Chip
           label={`Running: ${statusCounts.running}`}
@@ -183,7 +183,7 @@ export function IndexingGrid({
               case "rate_limited":
                 return theme.palette.warning.main;
               case "idle":
-                return theme.palette.grey[400];
+                return theme.palette.grey[600];
               default:
                 return theme.palette.grey[300];
             }

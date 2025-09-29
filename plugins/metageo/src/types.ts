@@ -14,3 +14,11 @@ export interface QuadtreeConfig {
   threshold: number; // max samples per cell before splitting
   maxSamplesPerCell: number;
 }
+
+export interface GeoFieldsData {
+  geo_fields: string[];
+  has_geo_fields: boolean;
+  dataset_name: string;
+  total_fields: number;
+  can_proceed: boolean;
+}

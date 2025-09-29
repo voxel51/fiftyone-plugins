@@ -839,15 +839,21 @@ class MetageoPanel(Panel):
 
     def get_geo_fields(self, ctx: ExecutionContext) -> dict[str, any]:
         """Get available geo fields and validation info."""
+        print(f"🔍 get_geo_fields: Method called for dataset: {ctx.dataset.name}")
+        
         geo_fields = self._get_geo_fields(ctx.dataset)
+        print(f"🔍 get_geo_fields: Found geo fields: {geo_fields}")
 
-        return {
+        result = {
             "geo_fields": geo_fields,
             "has_geo_fields": len(geo_fields) > 0,
             "dataset_name": ctx.dataset.name,
             "total_fields": len(ctx.dataset.get_field_schema()),
             "can_proceed": len(geo_fields) > 0,
         }
+        
+        print(f"🔍 get_geo_fields: Returning result: {result}")
+        return result
 
     def get_available_osm_tags(self, ctx: ExecutionContext) -> dict[str, any]:
         """Get available OSM tags from the existing index."""
@@ -1946,6 +1952,7 @@ class MetageoPanel(Panel):
                 cancel_indexing=self.cancel_indexing,
                 test_osm_client=self.test_osm_client,
                 get_available_osm_tags=self.get_available_osm_tags,
+                get_geo_fields=self.get_geo_fields,
                 enrich=self.enrich,
                 cleanup_index=self.cleanup_index,
                 cleanup_enriched_data=self.cleanup_enriched_data,

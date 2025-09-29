@@ -6,7 +6,58 @@ import type { MappingConfig, TagMapping, FieldMapping } from "../types";
 export function useMappingConfig() {
   console.log("🔍 useMappingConfig: Hook starting...");
 
-  const [mappingConfig, setMappingConfig] = useRecoilState(mappingConfigAtom);
+  let mappingConfig, setMappingConfig;
+  try {
+    [mappingConfig, setMappingConfig] = useRecoilState(mappingConfigAtom);
+  } catch (error) {
+    console.error("🔍 useMappingConfig: Error accessing atom:", error);
+    // Return default state if atom access fails
+    const defaultState = {
+      radius: 100,
+      geoField: "",
+      enable3DDetections: false,
+      threeDSlice: "",
+      detectionFieldName: "",
+      detectionLabelTag: "",
+      enableSampleTagging: false,
+      tagSlice: "",
+      tagMappings: [],
+      tagRadius: 100,
+      renderOn3D: true,
+      renderOn2D: false,
+      enableFieldMapping: false,
+      fieldMappings: [],
+      useYamlConfig: false,
+      yamlConfig: "",
+    };
+    
+    return {
+      state: defaultState,
+      actions: {
+        setRadius: () => {},
+        setGeoField: () => {},
+        setUseYamlConfig: () => {},
+        setYamlConfig: () => {},
+        setEnable3DDetections: () => {},
+        setThreeDSlice: () => {},
+        setDetectionFieldName: () => {},
+        setDetectionLabelTag: () => {},
+        setEnableSampleTagging: () => {},
+        setTagSlice: () => {},
+        setTagRadius: () => {},
+        setRenderOn3D: () => {},
+        setRenderOn2D: () => {},
+        setEnableFieldMapping: () => {},
+        addTagMapping: () => {},
+        removeTagMapping: () => {},
+        updateTagMapping: () => {},
+        addFieldMapping: () => {},
+        removeFieldMapping: () => {},
+        updateFieldMapping: () => {},
+      },
+    };
+  }
+  
   console.log("🔍 useMappingConfig: mappingConfig =", mappingConfig);
   console.log(
     "🔍 useMappingConfig: mappingConfig.tagMappings =",
@@ -19,180 +70,120 @@ export function useMappingConfig() {
 
   const actions = useMemo(
     () => ({
-      setRadius: useCallback(
-        (radius: number) => {
-          setMappingConfig((prev) => ({ ...prev, radius }));
-        },
-        [setMappingConfig]
-      ),
+      setRadius: (radius: number) => {
+        setMappingConfig((prev) => ({ ...prev, radius }));
+      },
 
-      setGeoField: useCallback(
-        (geoField: string) => {
-          setMappingConfig((prev) => ({ ...prev, geoField }));
-        },
-        [setMappingConfig]
-      ),
+      setGeoField: (geoField: string) => {
+        setMappingConfig((prev) => ({ ...prev, geoField }));
+      },
 
-      setUseYamlConfig: useCallback(
-        (useYamlConfig: boolean) => {
-          setMappingConfig((prev) => ({ ...prev, useYamlConfig }));
-        },
-        [setMappingConfig]
-      ),
+      setUseYamlConfig: (useYamlConfig: boolean) => {
+        setMappingConfig((prev) => ({ ...prev, useYamlConfig }));
+      },
 
-      setYamlConfig: useCallback(
-        (yamlConfig: string) => {
-          setMappingConfig((prev) => ({ ...prev, yamlConfig }));
-        },
-        [setMappingConfig]
-      ),
+      setYamlConfig: (yamlConfig: string) => {
+        setMappingConfig((prev) => ({ ...prev, yamlConfig }));
+      },
 
       // 3D Detections
-      setEnable3DDetections: useCallback(
-        (enable: boolean) => {
-          setMappingConfig((prev) => ({ ...prev, enable3DDetections: enable }));
-        },
-        [setMappingConfig]
-      ),
+      setEnable3DDetections: (enable: boolean) => {
+        setMappingConfig((prev) => ({ ...prev, enable3DDetections: enable }));
+      },
 
-      setThreeDSlice: useCallback(
-        (slice: string) => {
-          setMappingConfig((prev) => ({ ...prev, threeDSlice: slice }));
-        },
-        [setMappingConfig]
-      ),
+      setThreeDSlice: (slice: string) => {
+        setMappingConfig((prev) => ({ ...prev, threeDSlice: slice }));
+      },
 
-      setDetectionFieldName: useCallback(
-        (fieldName: string) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            detectionFieldName: fieldName,
-          }));
-        },
-        [setMappingConfig]
-      ),
+      setDetectionFieldName: (fieldName: string) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          detectionFieldName: fieldName,
+        }));
+      },
 
-      setDetectionLabelTag: useCallback(
-        (tag: string) => {
-          setMappingConfig((prev) => ({ ...prev, detectionLabelTag: tag }));
-        },
-        [setMappingConfig]
-      ),
+      setDetectionLabelTag: (tag: string) => {
+        setMappingConfig((prev) => ({ ...prev, detectionLabelTag: tag }));
+      },
 
       // Sample Tagging
-      setEnableSampleTagging: useCallback(
-        (enable: boolean) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            enableSampleTagging: enable,
-          }));
-        },
-        [setMappingConfig]
-      ),
+      setEnableSampleTagging: (enable: boolean) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          enableSampleTagging: enable,
+        }));
+      },
 
-      setTagSlice: useCallback(
-        (slice: string) => {
-          setMappingConfig((prev) => ({ ...prev, tagSlice: slice }));
-        },
-        [setMappingConfig]
-      ),
+      setTagSlice: (slice: string) => {
+        setMappingConfig((prev) => ({ ...prev, tagSlice: slice }));
+      },
 
-      setTagRadius: useCallback(
-        (radius: number) => {
-          setMappingConfig((prev) => ({ ...prev, tagRadius: radius }));
-        },
-        [setMappingConfig]
-      ),
+      setTagRadius: (radius: number) => {
+        setMappingConfig((prev) => ({ ...prev, tagRadius: radius }));
+      },
 
-      setRenderOn3D: useCallback(
-        (render: boolean) => {
-          setMappingConfig((prev) => ({ ...prev, renderOn3D: render }));
-        },
-        [setMappingConfig]
-      ),
+      setRenderOn3D: (render: boolean) => {
+        setMappingConfig((prev) => ({ ...prev, renderOn3D: render }));
+      },
 
-      setRenderOn2D: useCallback(
-        (render: boolean) => {
-          setMappingConfig((prev) => ({ ...prev, renderOn2D: render }));
-        },
-        [setMappingConfig]
-      ),
+      setRenderOn2D: (render: boolean) => {
+        setMappingConfig((prev) => ({ ...prev, renderOn2D: render }));
+      },
 
       // Tag Mappings
-      addTagMapping: useCallback(
-        (mapping: TagMapping) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            tagMappings: [...prev.tagMappings, mapping],
-          }));
-        },
-        [setMappingConfig]
-      ),
+      addTagMapping: (mapping: TagMapping) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          tagMappings: [...prev.tagMappings, mapping],
+        }));
+      },
 
-      updateTagMapping: useCallback(
-        (index: number, mapping: TagMapping) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            tagMappings: prev.tagMappings.map((m, i) =>
-              i === index ? mapping : m
-            ),
-          }));
-        },
-        [setMappingConfig]
-      ),
+      updateTagMapping: (index: number, mapping: TagMapping) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          tagMappings: prev.tagMappings.map((m, i) =>
+            i === index ? mapping : m
+          ),
+        }));
+      },
 
-      removeTagMapping: useCallback(
-        (index: number) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            tagMappings: prev.tagMappings.filter((_, i) => i !== index),
-          }));
-        },
-        [setMappingConfig]
-      ),
+      removeTagMapping: (index: number) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          tagMappings: prev.tagMappings.filter((_, i) => i !== index),
+        }));
+      },
 
       // Field Mappings
-      addFieldMapping: useCallback(
-        (mapping: FieldMapping) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            fieldMappings: [...prev.fieldMappings, mapping],
-          }));
-        },
-        [setMappingConfig]
-      ),
+      addFieldMapping: (mapping: FieldMapping) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          fieldMappings: [...prev.fieldMappings, mapping],
+        }));
+      },
 
-      updateFieldMapping: useCallback(
-        (index: number, mapping: FieldMapping) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            fieldMappings: prev.fieldMappings.map((m, i) =>
-              i === index ? mapping : m
-            ),
-          }));
-        },
-        [setMappingConfig]
-      ),
+      updateFieldMapping: (index: number, mapping: FieldMapping) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          fieldMappings: prev.fieldMappings.map((m, i) =>
+            i === index ? mapping : m
+          ),
+        }));
+      },
 
-      removeFieldMapping: useCallback(
-        (index: number) => {
-          setMappingConfig((prev) => ({
-            ...prev,
-            fieldMappings: prev.fieldMappings.filter((_, i) => i !== index),
-          }));
-        },
-        [setMappingConfig]
-      ),
+      removeFieldMapping: (index: number) => {
+        setMappingConfig((prev) => ({
+          ...prev,
+          fieldMappings: prev.fieldMappings.filter((_, i) => i !== index),
+        }));
+      },
 
       // Field Mapping Enable
-      setEnableFieldMapping: useCallback(
-        (enable: boolean) => {
-          setMappingConfig((prev) => ({ ...prev, enableFieldMapping: enable }));
-        },
-        [setMappingConfig]
-      ),
+      setEnableFieldMapping: (enable: boolean) => {
+        setMappingConfig((prev) => ({ ...prev, enableFieldMapping: enable }));
+      },
 
-      resetMapping: useCallback(() => {
+      resetMapping: () => {
         setMappingConfig((prev) => ({
           ...prev,
           radius: 100,
@@ -212,7 +203,7 @@ export function useMappingConfig() {
           useYamlConfig: false,
           yamlConfig: "",
         }));
-      }, [setMappingConfig]),
+      },
     }),
     [setMappingConfig]
   );

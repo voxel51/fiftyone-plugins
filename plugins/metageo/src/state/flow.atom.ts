@@ -1,13 +1,16 @@
 import { atom } from "recoil";
+import { getStoredFlowState } from "../utils/persistence";
+
+const storedFlowState = getStoredFlowState();
 
 export const activeStepAtom = atom<number>({
   key: "metageo/activeStep",
-  default: 0,
+  default: storedFlowState?.activeStep ?? 0,
 });
 
 export const hasStartedAtom = atom<boolean>({
   key: "metageo/hasStarted",
-  default: false,
+  default: storedFlowState?.hasStarted ?? false,
 });
 
 export const geoFieldsAtom = atom<string[]>({

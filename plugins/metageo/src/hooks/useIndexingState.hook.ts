@@ -2,12 +2,57 @@ import { useCallback, useMemo } from "react";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { indexingStateAtom } from "../state/indexing.atom";
 import { useMetageoClient } from "./useMetageoClient.hook";
+import { useMappingConfig } from "./useMappingConfig.hook";
 import type { IndexingState, BoundingBox } from "../types";
 
 export function useIndexingState() {
   console.log("🔍 useIndexingState: Hook starting...");
 
-  const [indexingState, setIndexingState] = useRecoilState(indexingStateAtom);
+  let indexingState, setIndexingState;
+  try {
+    [indexingState, setIndexingState] = useRecoilState(indexingStateAtom);
+  } catch (error) {
+    console.error("🔍 useIndexingState: Error accessing atom:", error);
+    // Return default state if atom access fails
+    const defaultState = {
+      bbox: null,
+      gridTiles: 16,
+      location: "",
+      gridCells: [],
+      executionMode: "immediate" as const,
+      indexingStatus: "idle" as const,
+      quadtreeCells: [],
+      realSampleDistribution: {},
+    };
+    
+    return {
+      state: defaultState,
+      actions: {
+        setBbox: () => {},
+        setLocation: () => {},
+        setGridTiles: () => {},
+        setGridCells: () => {},
+        setIndexingStatus: () => {},
+        setQuadtreeCells: () => {},
+        setRealSampleDistribution: () => {},
+        updateCellStatus: () => {},
+        resetIndexing: () => {},
+        clearDistribution: () => {},
+      },
+      derived: {
+        hasBbox: false,
+        hasGridCells: false,
+        hasQuadtreeCells: false,
+        isIndexing: false,
+        isCompleted: false,
+        isFailed: false,
+        canStartIndexing: false,
+        canCalculateDistribution: false,
+        progress: 0,
+      },
+    };
+  }
+  
   console.log("🔍 useIndexingState: indexingState =", indexingState);
   console.log(
     "🔍 useIndexingState: indexingState.gridCells =",
@@ -20,86 +65,64 @@ export function useIndexingState() {
 
   const client = useMetageoClient();
   console.log("🔍 useIndexingState: client =", client);
+  
+  const { state: mappingConfig } = useMappingConfig();
 
   const actions = useMemo(
     () => ({
-      setBbox: useCallback(
-        (bbox: BoundingBox | null) => {
-          setIndexingState((prev) => ({ ...prev, bbox }));
-        },
-        [setIndexingState]
-      ),
+      setBbox: (bbox: BoundingBox | null) => {
+        setIndexingState((prev) => ({ ...prev, bbox }));
+      },
 
-      setLocation: useCallback(
-        (location: string) => {
-          setIndexingState((prev) => ({ ...prev, location }));
-        },
-        [setIndexingState]
-      ),
+      setLocation: (location: string) => {
+        setIndexingState((prev) => ({ ...prev, location }));
+      },
 
-      setGridTiles: useCallback(
-        (gridTiles: number) => {
-          setIndexingState((prev) => ({ ...prev, gridTiles }));
-        },
-        [setIndexingState]
-      ),
+      setGridTiles: (gridTiles: number) => {
+        setIndexingState((prev) => ({ ...prev, gridTiles }));
+      },
 
-      setGridCells: useCallback(
-        (gridCells: IndexingState["gridCells"]) => {
-          setIndexingState((prev) => ({ ...prev, gridCells }));
-        },
-        [setIndexingState]
-      ),
+      setGridCells: (gridCells: IndexingState["gridCells"]) => {
+        setIndexingState((prev) => ({ ...prev, gridCells }));
+      },
 
-      setIndexingStatus: useCallback(
-        (status: IndexingState["indexingStatus"]) => {
-          setIndexingState((prev) => ({ ...prev, indexingStatus: status }));
-        },
-        [setIndexingState]
-      ),
+      setIndexingStatus: (status: IndexingState["indexingStatus"]) => {
+        setIndexingState((prev) => ({ ...prev, indexingStatus: status }));
+      },
 
-      setQuadtreeCells: useCallback(
-        (cells: IndexingState["quadtreeCells"]) => {
-          setIndexingState((prev) => ({ ...prev, quadtreeCells: cells }));
-        },
-        [setIndexingState]
-      ),
+      setQuadtreeCells: (cells: IndexingState["quadtreeCells"]) => {
+        setIndexingState((prev) => ({ ...prev, quadtreeCells: cells }));
+      },
 
-      setRealSampleDistribution: useCallback(
-        (distribution: { [cellId: string]: number }) => {
-          setIndexingState((prev) => ({
-            ...prev,
-            realSampleDistribution: distribution,
-          }));
-        },
-        [setIndexingState]
-      ),
+      setRealSampleDistribution: (distribution: { [cellId: string]: number }) => {
+        setIndexingState((prev) => ({
+          ...prev,
+          realSampleDistribution: distribution,
+        }));
+      },
 
-      updateCellStatus: useCallback(
-        (
-          cellId: string,
-          status: IndexingState["gridCells"][0]["status"],
-          progress?: number,
-          error?: string
-        ) => {
-          setIndexingState((prev) => ({
-            ...prev,
-            gridCells: prev.gridCells.map((cell) =>
-              cell.id === cellId
-                ? {
-                    ...cell,
-                    status,
-                    progress: progress ?? cell.progress,
-                    error,
-                  }
-                : cell
-            ),
-          }));
-        },
-        [setIndexingState]
-      ),
+      updateCellStatus: (
+        cellId: string,
+        status: IndexingState["gridCells"][0]["status"],
+        progress?: number,
+        error?: string
+      ) => {
+        setIndexingState((prev) => ({
+          ...prev,
+          gridCells: prev.gridCells.map((cell) =>
+            cell.id === cellId
+              ? {
+                  ...cell,
+                  status,
+                  progress: progress ?? cell.progress,
+                  error,
+                }
+              : cell
+          ),
+        }));
+      },
 
-      resetIndexing: useCallback(() => {
+      resetIndexing: () => {
         setIndexingState((prev) => ({
           ...prev,
           gridCells: [],
@@ -107,15 +130,15 @@ export function useIndexingState() {
           quadtreeCells: [],
           realSampleDistribution: {},
         }));
-      }, [setIndexingState]),
+      },
 
-      clearDistribution: useCallback(() => {
+      clearDistribution: () => {
         setIndexingState((prev) => ({
           ...prev,
           gridCells: [],
           realSampleDistribution: {},
         }));
-      }, [setIndexingState]),
+      },
     }),
     [setIndexingState]
   );
@@ -134,12 +157,12 @@ export function useIndexingState() {
       isFailed: indexingState.indexingStatus === "failed",
       canStartIndexing: Boolean(
         indexingState.bbox &&
-          indexingState.location &&
+          mappingConfig.geoField &&
           indexingState.gridTiles > 0
       ),
       canCalculateDistribution: Boolean(
         indexingState.bbox &&
-          indexingState.location &&
+          mappingConfig.geoField &&
           indexingState.gridTiles > 0
       ),
       progress:

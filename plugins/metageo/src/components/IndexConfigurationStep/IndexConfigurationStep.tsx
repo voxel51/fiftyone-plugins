@@ -133,6 +133,9 @@ export default function IndexConfigurationStep() {
             disabled={geoFieldsLoading}
             label="Geographic Field"
           >
+            <MenuItem value="">
+              <em>Choose a field containing geographic data...</em>
+            </MenuItem>
             {geoFields.map((field) => (
               <MenuItem key={field} value={field}>
                 {field}
@@ -150,9 +153,15 @@ export default function IndexConfigurationStep() {
           </Box>
         )}
 
-        {geoFields.length === 0 && !geoFieldsLoading && (
-          <Typography variant="body2" color="error">
-            No geographic fields found in this dataset.
+        {!geoFieldsLoading && geoFields.length === 0 && (
+          <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
+            No geographic fields found in the dataset. Please ensure your dataset contains fields with geographic data.
+          </Typography>
+        )}
+
+        {!geoFieldsLoading && geoFields.length > 0 && (
+          <Typography variant="body2" color="success.main" sx={{ mb: 2 }}>
+            Found {geoFields.length} geographic field{geoFields.length !== 1 ? 's' : ''}: {geoFields.join(', ')}
           </Typography>
         )}
       </Paper>

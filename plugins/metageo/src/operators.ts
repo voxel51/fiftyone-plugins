@@ -4,7 +4,8 @@ import {
   ExecutionContext,
 } from "@fiftyone/operators";
 import { useRecoilState, useSetRecoilState } from "recoil";
-import { metageoIndexingState } from "./state";
+import { indexingStateAtom } from "./state/indexing.atom";
+import type { CellStatus } from "./types";
 
 // Operator to handle indexing started event
 export class IndexingStartedOperator extends Operator {
@@ -17,20 +18,18 @@ export class IndexingStartedOperator extends Operator {
   }
 
   useHooks() {
-    const setIndexingState = useSetRecoilState(metageoIndexingState);
+    const setIndexingState = useSetRecoilState(indexingStateAtom);
     return { setIndexingState };
   }
 
   async execute({ hooks, params }: ExecutionContext) {
     const { indexing_id, total_cells, active_cells, status } = params;
 
+    console.log("IndexingStartedOperator: Indexing started", { indexing_id, total_cells, active_cells });
+
     hooks.setIndexingState((prev) => ({
       ...prev,
-      status: "running",
-      indexing_id,
-      total_cells,
-      active_cells,
-      started_at: new Date().toISOString(),
+      indexingStatus: "running",
     }));
   }
 }
@@ -47,7 +46,7 @@ export class CellStatusUpdateOperator extends Operator {
 
   useHooks() {
     const [indexingState, setIndexingState] =
-      useRecoilState(metageoIndexingState);
+      useRecoilState(indexingStateAtom);
     return { indexingState, setIndexingState };
   }
 
@@ -59,26 +58,22 @@ export class CellStatusUpdateOperator extends Operator {
     );
 
     hooks.setIndexingState((prev) => {
-      const updatedCells = { ...prev.cells };
-
-      updatedCells[cell_id] = {
-        id: cell_id,
-        status: status as
-          | "idle"
-          | "running"
-          | "completed"
-          | "failed"
-          | "rate_limited"
-          | "empty",
-        progress: progress || 0,
-        osm_features: osm_features || 0,
-        error: error || null,
-        updated_at: new Date().toISOString(),
-      };
+      const updatedGridCells = prev.gridCells.map((cell) => {
+        if (cell.id === cell_id) {
+          return {
+            ...cell,
+            status: status as CellStatus,
+            progress: progress || 0,
+            error: error || undefined,
+            osm_features: osm_features ? [osm_features] : undefined,
+          };
+        }
+        return cell;
+      });
 
       return {
         ...prev,
-        cells: updatedCells,
+        gridCells: updatedGridCells,
       };
     });
   }
@@ -95,7 +90,7 @@ export class IndexingProgressOperator extends Operator {
   }
 
   useHooks() {
-    const setIndexingState = useSetRecoilState(metageoIndexingState);
+    const setIndexingState = useSetRecoilState(indexingStateAtom);
     return { setIndexingState };
   }
 
@@ -109,14 +104,17 @@ export class IndexingProgressOperator extends Operator {
       progress,
     } = params;
 
-    hooks.setIndexingState((prev) => ({
-      ...prev,
-      progress: progress || 0,
-      completed_cells: completed_cells || 0,
-      failed_cells: failed_cells || 0,
-      total_features: total_features || 0,
-      last_updated: new Date().toISOString(),
-    }));
+    console.log("IndexingProgressOperator: Progress update", { 
+      indexing_id, 
+      completed_cells, 
+      failed_cells, 
+      total_cells, 
+      total_features, 
+      progress 
+    });
+
+    // For now, just log the progress since the IndexingState doesn't have these fields
+    // The UI can calculate progress from the gridCells array
   }
 }
 
@@ -131,7 +129,7 @@ export class IndexingCompletedOperator extends Operator {
   }
 
   useHooks() {
-    const setIndexingState = useSetRecoilState(metageoIndexingState);
+    const setIndexingState = useSetRecoilState(indexingStateAtom);
     return { setIndexingState };
   }
 
@@ -145,13 +143,18 @@ export class IndexingCompletedOperator extends Operator {
       status,
     } = params;
 
+    console.log("IndexingCompletedOperator: Indexing completed", { 
+      indexing_id, 
+      completed_cells, 
+      failed_cells, 
+      total_cells, 
+      total_features, 
+      status 
+    });
+
     hooks.setIndexingState((prev) => ({
       ...prev,
-      status: "completed",
-      completed_cells: completed_cells || 0,
-      failed_cells: failed_cells || 0,
-      total_features: total_features || 0,
-      completed_at: new Date().toISOString(),
+      indexingStatus: "completed",
     }));
   }
 }
@@ -167,7 +170,7 @@ export class GridIndexingCompletedOperator extends Operator {
   }
 
   useHooks() {
-    const setIndexingState = useSetRecoilState(metageoIndexingState);
+    const setIndexingState = useSetRecoilState(indexingStateAtom);
     return { setIndexingState };
   }
 
@@ -189,12 +192,7 @@ export class GridIndexingCompletedOperator extends Operator {
 
     hooks.setIndexingState((prev) => ({
       ...prev,
-      status: "completed",
-      completed_cells: completed_cells || 0,
-      failed_cells: failed_cells || 0,
-      rate_limited_cells: rate_limited_cells || 0,
-      total_features: total_features || 0,
-      completed_at: new Date().toISOString(),
+      indexingStatus: "completed",
     }));
   }
 }

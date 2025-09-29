@@ -1,8 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import { RecoilRoot } from "recoil";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { CssBaseline, Box, Container } from "@mui/material";
+import { CssBaseline, Box, Container, CircularProgress } from "@mui/material";
 import { MetageoView } from "./MetageoView";
+import { usePersistence } from "./hooks/usePersistence.hook";
 
 // Create a theme that matches FiftyOne's design
 const theme = createTheme({
@@ -44,17 +45,33 @@ const theme = createTheme({
   },
 });
 
+// Inner component that uses the persistence hook
+function AppContent() {
+  // Enable automatic state persistence
+  usePersistence();
+  
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+          <Suspense fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+              <CircularProgress />
+            </Box>
+          }>
+            <MetageoView />
+          </Suspense>
+        </Container>
+      </Box>
+    </ThemeProvider>
+  );
+}
+
 export default function App() {
   return (
     <RecoilRoot>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-          <Container maxWidth="xl" sx={{ py: 3 }}>
-            <MetageoView />
-          </Container>
-        </Box>
-      </ThemeProvider>
+      <AppContent />
     </RecoilRoot>
   );
 }
