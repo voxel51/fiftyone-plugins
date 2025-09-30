@@ -155,6 +155,18 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/isaac0_1">@harpreetsahota/isaac0_1</a></b></td>
+        <td>👨 A FiftyOne Model Zoo integration for Isaac-0.1 by Perceptron AI - an open-source, 2B-parameter perceptive-language model designed for real-world visual understanding tasks. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/moondream3">@harpreetsahota/moondream3</a></b></td>
+        <td>🌗 A FiftyOne remote source zoo model implementation for Moondream 3 (Preview), a state-of-the-art vision language model with a mixture-of-experts architecture (9B total parameters, 2B active). </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/kosmos2_5">@harpreetsahota/kosmos2_5-v</a></b></td>
+        <td>🪐 A FiftyOne model plugin for Microsoft's Kosmos-2.5, a multimodal literate model for machine reading of text-intensive images.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/minicpm-v">@harpreetsahota/minicpm-v</a></b></td>
         <td>👁️ Integrating MiniCPM-V 4.5 as a Remote Source Zoo Model in FiftyOne</td>
     </tr>
