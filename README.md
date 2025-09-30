@@ -427,6 +427,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/AdonaiVera/bddoia-fiftyone">@AdonaiVera/bddoia-fiftyone</a></b></td>
         <td>🚗 Load and explore the BDDOIA Safe/Unsafe Action dataset via the FiftyOne Zoo</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/vlm-run/vlmrun-voxel51-plugin">@voxel51/vlmrun</a></b></td>
+        <td>🎯 Extract structured data from visual and audio sources including documents, images, and videos</td>
+    </tr>
 </table>
 
 ## Using Plugins
