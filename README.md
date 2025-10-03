@@ -155,6 +155,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/vlmrun-plugin">@voxel51/vlmrun</a></b></td>
+        <td>🎯 Extract structured data from visual and audio sources including documents, images, and videos</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/minicpm-v">@harpreetsahota/minicpm-v</a></b></td>
         <td>👁️ Integrating MiniCPM-V 4.5 as a Remote Source Zoo Model in FiftyOne</td>
     </tr>
