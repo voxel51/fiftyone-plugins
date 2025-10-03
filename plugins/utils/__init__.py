@@ -1743,7 +1743,7 @@ def _compute_metadata_inputs(ctx, inputs):
             action_description="Compute metadata for",
             allow_selected_labels=True,
         )
-        target = ctx.params.get("target", target_prop.default)
+        target = ctx.params.get("view_target", target_prop.default)
         target_view = ctx.target_view()
     else:
         has_view = ctx.view != ctx.dataset.view()
