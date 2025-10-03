@@ -433,10 +433,11 @@ def _handle_info(ctx, inputs, selected_ops):
         result = op._doc.get("result", None)
 
         if tab == "INPUTS":
+            op_inputs = format_code(request_params["params"])
             inputs.str(
                 "op_inputs",
-                default=format_code(request_params["params"]),
-                view=code_view,
+                default=op_inputs,
+                view=code_view if op_inputs else kv_view,
             )
         elif tab == "VIEW":
             dataset_name, view_params = _parse_op_view(request_params)
@@ -455,16 +456,18 @@ def _handle_info(ctx, inputs, selected_ops):
                 params=view_params,
             )
         elif tab == "OUTPUTS":
+            op_outputs = format_code(result["result"]) if result else None
             inputs.str(
                 "op_outputs",
-                default=format_code(result["result"]) if result else None,
-                view=code_view,
+                default=op_outputs,
+                view=code_view if op_outputs else kv_view,
             )
         elif tab == "ERRORS":
+            op_errors = result["error"] if result else None
             inputs.str(
                 "op_errors",
-                default=result["error"] if result else None,
-                view=code_view,
+                default=op_errors,
+                view=code_view if op_errors else kv_view,
             )
 
     inputs.bool(
