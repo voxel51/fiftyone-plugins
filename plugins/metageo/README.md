@@ -260,13 +260,31 @@ yarn install
 yarn build
 ```
 
+### Running Tests
+
+The plugin includes comprehensive tests for the OSM API integration:
+
+```bash
+# Install test dependencies
+pip install pytest overpy
+
+# Run all tests
+pytest tests/ -v
+
+# Run with output
+pytest tests/ -v -s
+```
+
+See `tests/README.md` for detailed testing instructions.
+
 ### Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Add tests if applicable
-5. Submit a pull request
+5. Run the test suite: `pytest tests/ -v`
+6. Submit a pull request
 
 ## License
 

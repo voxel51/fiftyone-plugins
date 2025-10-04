@@ -3,22 +3,33 @@ import type { MappingConfig } from "../types";
 import { getStoredMappingConfig } from "../utils/persistence";
 
 const defaultMappingConfig: MappingConfig = {
-  radius: 100,
+  // Basic configuration
   geoField: "",
+  useYamlConfig: false,
+  yamlConfig: "",
+  
+  // 3D Detections configuration
   enable3DDetections: false,
   threeDSlice: "",
   detectionFieldName: "",
   detectionLabelTag: "",
+  detectionRadius: 100,
+  
+  // Sample tagging configuration
   enableSampleTagging: false,
   tagSlice: "",
   tagMappings: [],
   tagRadius: 100,
   renderOn3D: true,
   renderOn2D: false,
+  
+  // Field mapping configuration
   enableFieldMapping: false,
   fieldMappings: [],
-  useYamlConfig: false,
-  yamlConfig: "",
+  
+  // Metadata configuration
+  includeAllTagsAsMetadata: false,
+  metadataFieldName: "osm_metadata",
 };
 
 export const mappingConfigAtom = atom<MappingConfig>({

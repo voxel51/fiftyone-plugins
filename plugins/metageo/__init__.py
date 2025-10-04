@@ -30,14 +30,17 @@ class OSMClient:
         self.rate_limit_delay = 0.1  # seconds between requests
 
     def query_bbox(
-        self, bbox: BBox, feature_types: List[str] = None
+        self, bbox: BBox, feature_types: List[str] = None, max_retries: int = 3, base_delay: float = 1.0, max_delay: float = 60.0
     ) -> Dict[str, Any]:
         """
-        Query OSM data within a bounding box
+        Query OSM data within a bounding box with retry logic for rate limiting
 
         Args:
             bbox: [minLon, minLat, maxLon, maxLat] - will be normalized to (south, west, north, east)
             feature_types: List of OSM feature types to query
+            max_retries: Maximum number of retry attempts
+            base_delay: Base delay in seconds for exponential backoff
+            max_delay: Maximum delay in seconds
 
         Returns:
             Dict containing query results and metadata
@@ -67,138 +70,237 @@ class OSMClient:
         min_lon, min_lat, max_lon, max_lat = bbox
         south, west, north, east = min_lat, min_lon, max_lat, max_lon
 
-        # Build Overpass QL query
-        query_parts = []
-        for feature_type in feature_types:
-            query_parts.append(
-                f'node["{feature_type}"]({south},{west},{north},{east});'
-            )
-            query_parts.append(
-                f'way["{feature_type}"]({south},{west},{north},{east});'
-            )
-            query_parts.append(
-                f'relation["{feature_type}"]({south},{west},{north},{east});'
-            )
+        # Build Overpass QL query with proper syntax
+        # Start with just nodes to avoid API limits, then add ways and relations if needed
+        # We'll filter by feature types in Python code for better reliability
+        query = f"node({south},{west},{north},{east});out body;"
+        
+        print(f"DEBUG: Using simple query to get nodes in bounding box")
+        print(f"DEBUG: Query length: {len(query)} characters")
 
-        query = "".join(query_parts)
-        query += "out body;"
+        # Retry logic with exponential backoff
+        for attempt in range(max_retries + 1):
+            try:
+                print(f"OVERPASS QUERY (attempt {attempt + 1}/{max_retries + 1}): {query}")
+                print(
+                    f"BBOX: {bbox} -> (south={south}, west={west}, north={north}, east={east})"
+                )
+                print(f"FEATURE TYPES: {feature_types}")
+                print(f"COORDINATE DEBUG: min_lon={min_lon}, min_lat={min_lat}, max_lon={max_lon}, max_lat={max_lat}")
+                print(f"COORDINATE DEBUG: south={south}, west={west}, north={north}, east={east}")
 
-        try:
-            print(f"OVERPASS QUERY: {query}")
-            print(
-                f"BBOX: {bbox} -> (south={south}, west={west}, north={north}, east={east})"
-            )
-            print(f"FEATURE TYPES: {feature_types}")
+                # Execute query with rate limiting
+                time.sleep(self.rate_limit_delay)
+                
+                # Test with a simple query first to debug coordinate issues
+                test_query = f"node({south},{west},{north},{east});out body;"
+                print(f"TEST QUERY: {test_query}")
+                test_result = self.api.query(test_query)
+                print(f"TEST RESULT: nodes={len(test_result.nodes)}")
+                
+                result = self.api.query(query)
 
-            # Execute query with rate limiting
-            time.sleep(self.rate_limit_delay)
-            result = self.api.query(query)
+                print(
+                    f"RAW RESULT: nodes={len(result.nodes)}, ways={len(result.ways)}, relations={len(result.relations)}"
+                )
+                
+                # Debug: Check if we have any results at all
+                if len(result.nodes) == 0 and len(result.ways) == 0 and len(result.relations) == 0:
+                    print("WARNING: No results returned from Overpass API")
+                    print(f"Query was: {query}")
+                    print(f"Bounding box: south={south}, west={west}, north={north}, east={east}")
+                else:
+                    print(f"SUCCESS: Found {len(result.nodes)} nodes, {len(result.ways)} ways, {len(result.relations)} relations")
+                    
+                # Debug: Check if the query is too broad and being limited
+                if len(result.nodes) == 0 and len(result.ways) == 0:
+                    print("WARNING: Query returned 0 nodes and 0 ways - this might indicate the query is too broad")
+                    print("The Overpass API might be limiting results due to query complexity or size")
 
-            print(
-                f"RAW RESULT: nodes={len(result.nodes)}, ways={len(result.ways)}, relations={len(result.relations)}"
-            )
+                # Process results
+                features = []
 
-            # Process results
-            features = []
+                # Process nodes
+                for node in result.nodes:
+                    try:
+                        feature_type = self._get_primary_tag(node.tags) if node.tags else None
+                        feature = {
+                            "type": "node",
+                            "id": node.id,
+                            "lat": float(node.lat),
+                            "lon": float(node.lon),
+                            "tags": dict(node.tags) if node.tags else {},
+                            "feature_type": feature_type,
+                        }
+                        features.append(feature)
+                        
+                        # Debug: Log first few features
+                        if len(features) <= 3:
+                            print(f"DEBUG: Node {node.id} - tags: {dict(node.tags) if node.tags else {}}, feature_type: {feature_type}")
+                    except Exception as e:
+                        print(f"Error processing node {node.id}: {e}")
+                        continue
 
-            # Process nodes
-            for node in result.nodes:
-                try:
-                    feature = {
-                        "type": "node",
-                        "id": node.id,
-                        "lat": float(node.lat),
-                        "lon": float(node.lon),
-                        "tags": dict(node.tags) if node.tags else {},
-                        "feature_type": self._get_primary_tag(node.tags)
-                        if node.tags
-                        else None,
-                    }
-                    features.append(feature)
-                except Exception as e:
-                    print(f"Error processing node {node.id}: {e}")
+                # Process ways (if any)
+                for way in result.ways:
+                    try:
+                        feature_type = self._get_primary_tag(way.tags) if way.tags else None
+                        feature = {
+                            "type": "way",
+                            "id": way.id,
+                            "nodes": [node.id for node in way.nodes],
+                            "tags": dict(way.tags) if way.tags else {},
+                            "feature_type": feature_type,
+                        }
+                        features.append(feature)
+                        
+                        # Debug: Log first few features
+                        if len(features) <= 6:  # 3 nodes + 3 ways
+                            print(f"DEBUG: Way {way.id} - tags: {dict(way.tags) if way.tags else {}}, feature_type: {feature_type}")
+                    except Exception as e:
+                        print(f"Error processing way {way.id}: {e}")
+                        continue
+
+                # Process relations (if any)
+                for relation in result.relations:
+                    try:
+                        feature_type = self._get_primary_tag(relation.tags) if relation.tags else None
+                        feature = {
+                            "type": "relation",
+                            "id": relation.id,
+                            "members": [
+                                {"type": type(m).__name__, "ref": m.ref, "role": m.role}
+                                for m in relation.members
+                            ],
+                            "tags": dict(relation.tags) if relation.tags else {},
+                            "feature_type": feature_type,
+                        }
+                        features.append(feature)
+                        
+                        # Debug: Log first few features
+                        if len(features) <= 9:  # 3 nodes + 3 ways + 3 relations
+                            print(f"DEBUG: Relation {relation.id} - tags: {dict(relation.tags) if relation.tags else {}}, feature_type: {feature_type}")
+                    except Exception as e:
+                        print(f"Error processing relation {relation.id}: {e}")
+                        continue
+
+                result_data = {
+                    "status": "success",
+                    "features": features,
+                    "count": len(features),
+                    "bbox": bbox,
+                    "feature_types": feature_types,
+                    "query_time": datetime.now().isoformat(),
+                    "attempts": attempt + 1,
+                }
+
+                # Filter features to only include those with our target feature types
+                filtered_features = []
+                feature_type_counts = {}
+                for feature in features:
+                    feature_type = feature.get("feature_type")
+                    if feature_type:
+                        feature_type_counts[feature_type] = feature_type_counts.get(feature_type, 0) + 1
+                    
+                    # Check if this feature matches any of our target feature types
+                    # Either through the primary tag or by checking all tags
+                    tags = feature.get("tags", {})
+                    matches_target = False
+                    
+                    if feature_type in feature_types:
+                        matches_target = True
+                    else:
+                        # Check if any of the target feature types are in the tags
+                        for target_type in feature_types:
+                            if target_type in tags:
+                                matches_target = True
+                                break
+                    
+                    if matches_target:
+                        filtered_features.append(feature)
+                
+                print(f"FEATURE TYPE COUNTS: {feature_type_counts}")
+                print(f"TARGET FEATURE TYPES: {feature_types}")
+                
+                print(f"FINAL RESULT: {len(features)} total features, {len(filtered_features)} matching target types")
+                if len(filtered_features) > 0:
+                    print(f"Sample filtered feature: {filtered_features[0]}")
+                else:
+                    print("No features found matching target types - this might indicate a filtering issue")
+                    if len(features) > 0:
+                        print(f"Sample unfiltered feature: {features[0]}")
+
+                # Update result data with filtered features
+                result_data["features"] = filtered_features
+                result_data["count"] = len(filtered_features)
+
+                return result_data
+
+            except overpy.exception.OverpassTooManyRequests:
+                error_msg = "Too many requests - rate limited"
+                print(f"Rate limited on attempt {attempt + 1}: {error_msg}")
+                
+                if attempt < max_retries:
+                    # Calculate exponential backoff delay
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    print(f"Retrying in {delay} seconds...")
+                    time.sleep(delay)
                     continue
-
-            # Process ways
-            for way in result.ways:
-                try:
-                    feature = {
-                        "type": "way",
-                        "id": way.id,
-                        "nodes": [node.id for node in way.nodes],
-                        "tags": dict(way.tags) if way.tags else {},
-                        "feature_type": self._get_primary_tag(way.tags)
-                        if way.tags
-                        else None,
+                else:
+                    return {
+                        "status": "error",
+                        "error": f"{error_msg} (after {max_retries + 1} attempts)",
+                        "features": [],
+                        "count": 0,
+                        "bbox": bbox,
+                        "attempts": max_retries + 1,
                     }
-                    features.append(feature)
-                except Exception as e:
-                    print(f"Error processing way {way.id}: {e}")
-                    continue
-
-            # Process relations
-            for relation in result.relations:
-                try:
-                    feature = {
-                        "type": "relation",
-                        "id": relation.id,
-                        "members": [
-                            {"type": m.type, "ref": m.ref, "role": m.role}
-                            for m in relation.members
-                        ],
-                        "tags": dict(relation.tags) if relation.tags else {},
-                        "feature_type": self._get_primary_tag(relation.tags)
-                        if relation.tags
-                        else None,
-                    }
-                    features.append(feature)
-                except Exception as e:
-                    print(f"Error processing relation {relation.id}: {e}")
-                    continue
-
-            result_data = {
-                "features": features,
-                "count": len(features),
-                "bbox": bbox,
-                "feature_types": feature_types,
-                "query_time": datetime.now().isoformat(),
-            }
-
-            return result_data
-
-        except overpy.exception.OverpassTooManyRequests:
-            return {
-                "error": "Too many requests - rate limited",
-                "features": [],
-                "count": 0,
-                "bbox": bbox,
-            }
-        except overpy.exception.OverpassBadRequest as e:
-            return {
-                "error": f"Bad request: {str(e)}",
-                "features": [],
-                "count": 0,
-                "bbox": bbox,
-            }
-        except Exception as e:
-            error_msg = str(e)
-            if (
-                "rate limit" in error_msg.lower()
-                or "too many requests" in error_msg.lower()
-            ):
+                    
+            except overpy.exception.OverpassBadRequest as e:
+                # Bad requests shouldn't be retried
                 return {
-                    "error": "Rate limited by OSM API",
+                    "status": "error",
+                    "error": f"Bad request: {str(e)}",
                     "features": [],
                     "count": 0,
                     "bbox": bbox,
+                    "attempts": attempt + 1,
                 }
-            else:
-                return {
-                    "error": f"OSM query error: {error_msg}",
-                    "features": [],
-                    "count": 0,
-                    "bbox": bbox,
-                }
+                
+            except Exception as e:
+                error_msg = str(e)
+                if (
+                    "rate limit" in error_msg.lower()
+                    or "too many requests" in error_msg.lower()
+                    or "server load too high" in error_msg.lower()
+                ):
+                    print(f"Rate limited on attempt {attempt + 1}: {error_msg}")
+                    
+                    if attempt < max_retries:
+                        # Calculate exponential backoff delay
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                        print(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        return {
+                            "status": "error",
+                            "error": f"Rate limited by OSM API (after {max_retries + 1} attempts)",
+                            "features": [],
+                            "count": 0,
+                            "bbox": bbox,
+                            "attempts": max_retries + 1,
+                        }
+                else:
+                    # Other errors shouldn't be retried
+                    return {
+                        "status": "error",
+                        "error": f"OSM query error: {error_msg}",
+                        "features": [],
+                        "count": 0,
+                        "bbox": bbox,
+                        "attempts": attempt + 1,
+                    }
 
     def _get_primary_tag(self, tags: Dict[str, str]) -> str:
         """Extract the primary feature type from tags"""
@@ -713,6 +815,82 @@ class WatchIndexingOperator(foo.Operator):
             )
 
 
+class ResetMetageoOperator(foo.Operator):
+    """Operator for completely resetting all metageo state and configuration"""
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="reset_metageo",
+            label="Reset Metageo",
+            allow_delegated_execution=False,
+            allow_immediate_execution=True,
+        )
+
+    def execute(self, ctx: ExecutionContext):
+        """Reset all metageo state and configuration"""
+        print("ResetMetageoOperator.execute() called!")
+        
+        try:
+            # Clear all metageo-related data from the execution store
+            store = ctx.store("metageo")
+            
+            # Get all keys in the store to clear them
+            all_keys = []
+            
+            # Clear indexing state
+            indexing_state = store.get("indexing_state")
+            if indexing_state:
+                # Clear individual cell data
+                grid_cells = indexing_state.get("grid_cells", [])
+                for cell in grid_cells:
+                    cell_id = cell["id"]
+                    all_keys.extend([
+                        f"cell_{cell_id}_status",
+                        f"cell_{cell_id}_error", 
+                        f"cell_{cell_id}_osm_features",
+                        f"cell_{cell_id}_osm_data"
+                    ])
+            
+            # Clear main state keys
+            main_keys = [
+                "indexing_state",
+                "mapping_config", 
+                "sample_distribution",
+                "bbox",
+                "grid_tiles",
+                "geo_field",
+                "location"
+            ]
+            all_keys.extend(main_keys)
+            
+            # Delete all keys
+            for key in all_keys:
+                try:
+                    store.delete(key)
+                    print(f"ResetMetageoOperator: Deleted key '{key}'")
+                except Exception as e:
+                    print(f"ResetMetageoOperator: Error deleting key '{key}': {e}")
+            
+            # Clear panel data
+            ctx.panel.clear_data()
+            
+            print("ResetMetageoOperator: Successfully reset all metageo state")
+            
+            return {
+                "status": "success",
+                "message": "All metageo state and configuration has been reset",
+                "cleared_keys": len(all_keys)
+            }
+            
+        except Exception as e:
+            print(f"ResetMetageoOperator: Error during reset: {e}")
+            return {
+                "status": "error", 
+                "message": f"Error resetting metageo state: {str(e)}"
+            }
+
+
 class MetageoPanel(Panel):
     @property
     def config(self) -> PanelConfig:
@@ -860,44 +1038,65 @@ class MetageoPanel(Panel):
         try:
             # Get the existing index
             indexing_state = ctx.store("metageo").get("indexing_state")
-            if (
-                not indexing_state
-                or indexing_state.get("status") != "completed"
-            ):
+            print(f"get_available_osm_tags: indexing_state = {indexing_state}")
+            print(f"get_available_osm_tags: status = {indexing_state.get('status') if indexing_state else 'None'}")
+            
+            if not indexing_state:
                 return {
                     "status": "no_index",
-                    "message": "No completed index found. Please complete the indexing step first.",
+                    "message": "No indexing state found. Please complete the indexing step first.",
+                    "tags": [],
+                }
+            
+            # Check if indexing is completed - be more flexible with status checking
+            status = indexing_state.get("status", "idle")
+            if status not in ["completed", "running"]:
+                return {
+                    "status": "no_index",
+                    "message": f"Indexing not completed. Current status: {status}. Please complete the indexing step first.",
                     "tags": [],
                 }
 
             # Collect all unique OSM tags from the index
             all_tags = set()
             tag_counts = {}
+            tag_examples = {}  # Store example values for each tag
 
             # Get all cell data from the store
             store = ctx.store("metageo")
-            store_keys = list(store.keys())
-            print(f"get_available_osm_tags: Store keys: {store_keys}")
             
-            for key in store_keys:
-                if key.startswith("cell_") and key.endswith("_osm_data"):
-                    cell_id = key.replace("cell_", "").replace("_osm_data", "")
-                    print(f"get_available_osm_tags: Processing cell {cell_id}")
-                    
-                    osm_data = store.get(key)
-                    print(f"get_available_osm_tags: Cell {cell_id} OSM data: {osm_data}")
-                    
-                    if osm_data:
-                        for feature in osm_data:
-                            if isinstance(feature, dict) and "tags" in feature:
+            # Get all cell data from the grid cells in indexing state
+            grid_cells = indexing_state.get("grid_cells", [])
+            print(f"get_available_osm_tags: Processing {len(grid_cells)} grid cells")
+            
+            for cell in grid_cells:
+                cell_id = cell["id"]
+                print(f"get_available_osm_tags: Processing cell {cell_id}")
+                
+                osm_data = store.get(f"cell_{cell_id}_osm_data")
+                print(f"get_available_osm_tags: Cell {cell_id} OSM data: {osm_data}")
+                
+                if osm_data:
+                    for feature in osm_data:
+                        if isinstance(feature, dict) and "tags" in feature:
                                 print(f"get_available_osm_tags: Feature tags: {feature['tags']}")
                                 for tag_key, tag_value in feature["tags"].items():
                                     all_tags.add(tag_key)
                                     tag_counts[tag_key] = tag_counts.get(tag_key, 0) + 1
+                                    
+                                    # Collect example values (limit to 5 per tag)
+                                    if tag_key not in tag_examples:
+                                        tag_examples[tag_key] = set()
+                                    if len(tag_examples[tag_key]) < 5 and tag_value:
+                                        tag_examples[tag_key].add(tag_value)
 
             # Convert to list format for frontend
             tags_list = [
-                {"key": tag, "count": count, "examples": []}
+                {
+                    "key": tag, 
+                    "count": count, 
+                    "examples": list(tag_examples.get(tag, []))[:5]  # Limit to 5 examples
+                }
                 for tag, count in tag_counts.items()
             ]
 
@@ -916,6 +1115,855 @@ class MetageoPanel(Panel):
                 "status": "error",
                 "message": f"Error retrieving OSM tags: {str(e)}",
                 "tags": [],
+            }
+
+    def enrich_dataset_async(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Enrich dataset with OSM data asynchronously for multi-dashboard support."""
+        try:
+            # Get the mapping configuration
+            mapping_config = ctx.store("metageo").get("mapping_config")
+            print(f"🔍 enrich_dataset_async: Retrieved mapping config from store: {mapping_config}")
+            
+            if not mapping_config:
+                print(f"🔍 enrich_dataset_async: No mapping configuration found in store")
+                return {
+                    "status": "error",
+                    "message": "No mapping configuration found. Please complete the mapping step first.",
+                }
+
+            # Get the indexing state
+            indexing_state = ctx.store("metageo").get("indexing_state")
+            if not indexing_state:
+                return {
+                    "status": "error", 
+                    "message": "No indexing state found. Please complete the indexing step first.",
+                }
+
+            # Get dataset info
+            dataset = ctx.dataset
+            if not dataset:
+                return {
+                    "status": "error",
+                    "message": "No dataset found in context.",
+                }
+
+            # Store enrichment job info
+            enrichment_job = {
+                "status": "running",
+                "started_at": datetime.now().isoformat(),
+                "dataset_name": dataset.name,
+                "total_samples": len(dataset),
+                "processed_samples": 0,
+                "mapping_config": mapping_config,
+                "indexing_state": indexing_state,
+            }
+            
+            ctx.store("metageo").set("enrichment_job", enrichment_job)
+            
+            # Start the enrichment process asynchronously
+            # Use FiftyOne's built-in async execution
+            import threading
+            
+            def run_enrichment():
+                try:
+                    self._start_enrichment_process(ctx, dataset, mapping_config, indexing_state)
+                except Exception as e:
+                    print(f"🔍 enrich_dataset_async: Background enrichment failed: {e}")
+                    # Update job with error status
+                    enrichment_job = ctx.store("metageo").get("enrichment_job")
+                    if enrichment_job:
+                        enrichment_job["status"] = "failed"
+                        enrichment_job["error"] = str(e)
+                        enrichment_job["failed_at"] = datetime.now().isoformat()
+                        ctx.store("metageo").set("enrichment_job", enrichment_job)
+            
+            # Start enrichment in background thread
+            enrichment_thread = threading.Thread(target=run_enrichment, daemon=True)
+            enrichment_thread.start()
+            
+            return {
+                "status": "success",
+                "message": "Enrichment process started successfully",
+                "job_id": "enrichment_job",
+                "total_samples": len(dataset),
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error starting enrichment process: {str(e)}",
+            }
+
+    def _start_enrichment_process(self, ctx: ExecutionContext, dataset, mapping_config: dict, indexing_state: dict):
+        """Start the actual enrichment process."""
+        try:
+            print(f"🔍 _start_enrichment_process: Starting enrichment for {len(dataset)} samples")
+            print(f"🔍 _start_enrichment_process: Mapping config keys: {list(mapping_config.keys()) if mapping_config else 'None'}")
+            print(f"🔍 _start_enrichment_process: Mapping config geoField: '{mapping_config.get('geoField', 'NOT_FOUND')}'")
+            print(f"🔍 _start_enrichment_process: Mapping config enableSampleTagging: {mapping_config.get('enableSampleTagging', 'NOT_FOUND')}")
+            print(f"🔍 _start_enrichment_process: Mapping config enableFieldMapping: {mapping_config.get('enableFieldMapping', 'NOT_FOUND')}")
+            print(f"🔍 _start_enrichment_process: Mapping config includeAllTagsAsMetadata: {mapping_config.get('includeAllTagsAsMetadata', 'NOT_FOUND')}")
+            print(f"🔍 _start_enrichment_process: Indexing state keys: {list(indexing_state.keys())}")
+            
+            # Get the geo field from mapping config
+            geo_field = mapping_config.get("geoField", "location")
+            print(f"🔍 _start_enrichment_process: Using geo field: '{geo_field}'")
+            print(f"🔍 _start_enrichment_process: geo_field is empty: {not geo_field}")
+            
+            # If geo_field is empty, try to use "location" as default
+            if not geo_field:
+                geo_field = "location"
+                print(f"🔍 _start_enrichment_process: geo_field was empty, using default: '{geo_field}'")
+            
+            # First, define new fields in the dataset schema
+            print(f"🔍 _start_enrichment_process: Defining dataset fields...")
+            self._define_dataset_fields(dataset, mapping_config)
+            
+            # Get all OSM data from the index
+            store = ctx.store("metageo")
+            all_osm_data = {}
+            
+            # Collect all OSM data from grid cells
+            grid_cells = indexing_state.get("grid_cells", [])
+            print(f"🔍 _start_enrichment_process: Found {len(grid_cells)} grid cells")
+            
+            # Debug: Show what's in the first grid cell
+            if grid_cells:
+                print(f"🔍 _start_enrichment_process: First grid cell structure: {grid_cells[0]}")
+                print(f"🔍 _start_enrichment_process: First grid cell keys: {list(grid_cells[0].keys()) if grid_cells[0] else 'None'}")
+            
+            for cell in grid_cells:
+                cell_id = cell["id"]
+                print(f"🔍 _start_enrichment_process: Processing cell {cell_id}")
+                print(f"🔍 _start_enrichment_process: Cell {cell_id} structure: {cell}")
+                osm_data = store.get(f"cell_{cell_id}_osm_data")
+                print(f"🔍 _start_enrichment_process: Cell {cell_id} OSM data: {type(osm_data)}, length: {len(osm_data) if osm_data else 0}")
+                
+                if osm_data:
+                    # Store OSM data by cell for spatial lookup
+                    all_osm_data[cell_id] = osm_data
+                    print(f"🔍 _start_enrichment_process: Loaded {len(osm_data)} OSM features for cell {cell_id}")
+                    # Log first few features for debugging
+                    if len(osm_data) > 0:
+                        print(f"🔍 _start_enrichment_process: First feature in cell {cell_id}: {osm_data[0]}")
+                else:
+                    print(f"🔍 _start_enrichment_process: No OSM data found for cell {cell_id}")
+            
+            print(f"🔍 _start_enrichment_process: Total OSM data loaded from {len(all_osm_data)} cells")
+            
+            # Process samples by iterating through grid cells (more efficient)
+            processed_count = 0
+            total_samples = len(dataset)
+            print(f"🔍 _start_enrichment_process: Processing {total_samples} samples across {len(grid_cells)} grid cells")
+            
+            # Process each grid cell
+            for cell in grid_cells:
+                cell_id = cell["id"]
+                cell_coordinates = cell.get("coordinates")
+                sample_count = cell.get("sample_count", 0)
+                
+                print(f"🔍 _start_enrichment_process: Processing cell {cell_id} with {sample_count} samples")
+                
+                if not cell_coordinates or len(cell_coordinates) != 4:
+                    print(f"🔍 _start_enrichment_process: Cell {cell_id} has invalid coordinates: {cell_coordinates}")
+                    continue
+                
+                if sample_count == 0:
+                    print(f"🔍 _start_enrichment_process: Cell {cell_id} has no samples, skipping")
+                    continue
+                
+                # Get OSM data for this cell
+                cell_osm_data = all_osm_data.get(cell_id, [])
+                print(f"🔍 _start_enrichment_process: Cell {cell_id} has {len(cell_osm_data)} OSM features")
+                
+                if not cell_osm_data:
+                    print(f"🔍 _start_enrichment_process: Cell {cell_id} has no OSM data, skipping")
+                    continue
+                
+                # Extract cell boundaries
+                min_lon, min_lat, max_lon, max_lat = cell_coordinates
+                print(f"🔍 _start_enrichment_process: Cell {cell_id} bounds: [{min_lon}, {min_lat}, {max_lon}, {max_lat}]")
+                
+                # Find samples that fall within this cell's boundaries
+                cell_samples = []
+                for sample in dataset:
+                    try:
+                        # Get sample's geographic location
+                        if geo_field not in sample:
+                            continue
+                        
+                        geo_location = sample[geo_field]
+                        if not geo_location:
+                            continue
+                        
+                        # Convert to lat/lon
+                        lon, lat = self._extract_coordinates(geo_location)
+                        if lon is None or lat is None:
+                            continue
+                        
+                        # Check if sample falls within this cell
+                        if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
+                            cell_samples.append((sample, lon, lat))
+                            print(f"🔍 _start_enrichment_process: Sample {sample.id} belongs to cell {cell_id}")
+                    
+                    except Exception as e:
+                        print(f"🔍 _start_enrichment_process: Error checking sample {sample.id} for cell {cell_id}: {e}")
+                        continue
+                
+                print(f"🔍 _start_enrichment_process: Found {len(cell_samples)} samples in cell {cell_id}")
+                
+                # Process samples in this cell
+                for sample, lon, lat in cell_samples:
+                    try:
+                        print(f"🔍 _start_enrichment_process: Applying mappings to sample {sample.id} in cell {cell_id}")
+                        self._apply_mapping_to_sample(sample, cell_osm_data, mapping_config, lon, lat)
+                        processed_count += 1
+                        
+                        # Update progress every 100 samples
+                        if processed_count % 100 == 0:
+                            self._update_enrichment_progress(ctx, processed_count, total_samples)
+                            print(f"🔍 _start_enrichment_process: Processed {processed_count}/{total_samples} samples")
+                    
+                    except Exception as e:
+                        print(f"🔍 _start_enrichment_process: Error processing sample {sample.id} in cell {cell_id}: {e}")
+                        continue
+            
+            # Mark as completed
+            enrichment_job = ctx.store("metageo").get("enrichment_job")
+            if enrichment_job:
+                enrichment_job["status"] = "completed"
+                enrichment_job["completed_at"] = datetime.now().isoformat()
+                enrichment_job["processed_samples"] = processed_count
+                enrichment_job["total_samples"] = total_samples
+                ctx.store("metageo").set("enrichment_job", enrichment_job)
+            
+            print(f"🔍 _start_enrichment_process: Enrichment completed. Processed {processed_count}/{total_samples} samples")
+                
+        except Exception as e:
+            print(f"🔍 _start_enrichment_process: Enrichment failed: {e}")
+            # Update job with error status
+            enrichment_job = ctx.store("metageo").get("enrichment_job")
+            if enrichment_job:
+                enrichment_job["status"] = "failed"
+                enrichment_job["error"] = str(e)
+                enrichment_job["failed_at"] = datetime.now().isoformat()
+                ctx.store("metageo").set("enrichment_job", enrichment_job)
+
+    def _define_dataset_fields(self, dataset, mapping_config: dict):
+        """Define new fields in the dataset schema based on mapping configuration."""
+        try:
+            print(f"🔍 _define_dataset_fields: Defining new fields in dataset schema")
+            print(f"🔍 _define_dataset_fields: Dataset name: {dataset.name}")
+            print(f"🔍 _define_dataset_fields: Current field names: {list(dataset.get_field_schema().keys())}")
+            
+            # Define fields for sample tagging
+            if mapping_config.get("enableSampleTagging", False):
+                tag_mappings = mapping_config.get("tagMappings", [])
+                print(f"🔍 _define_dataset_fields: Sample tagging enabled, {len(tag_mappings)} tag mappings")
+                
+                for i, tag_mapping in enumerate(tag_mappings):
+                    field_name = tag_mapping.get("fieldName")
+                    field_type = tag_mapping.get("fieldType", "string")
+                    
+                    print(f"🔍 _define_dataset_fields: Tag mapping {i+1}: {field_name} ({field_type})")
+                    
+                    if field_name:
+                        # Define the field in the dataset schema
+                        if field_type == "bool":
+                            dataset.add_sample_field(field_name, fo.BooleanField)
+                        elif field_type == "int":
+                            dataset.add_sample_field(field_name, fo.IntField)
+                        elif field_type == "float":
+                            dataset.add_sample_field(field_name, fo.FloatField)
+                        else:  # string
+                            dataset.add_sample_field(field_name, fo.StringField)
+                        
+                        print(f"🔍 _define_dataset_fields: Added field '{field_name}' of type '{field_type}'")
+                    else:
+                        print(f"🔍 _define_dataset_fields: Skipping tag mapping {i+1} - no field name")
+            else:
+                print(f"🔍 _define_dataset_fields: Sample tagging disabled")
+            
+            # Define fields for field mapping
+            if mapping_config.get("enableFieldMapping", False):
+                field_mappings = mapping_config.get("fieldMappings", [])
+                for field_mapping in field_mappings:
+                    field_name = field_mapping.get("fieldName")
+                    field_type = field_mapping.get("fieldType", "string")
+                    
+                    if field_name:
+                        # Define the field in the dataset schema
+                        if field_type == "bool":
+                            dataset.add_sample_field(field_name, fo.BooleanField)
+                        elif field_type == "int":
+                            dataset.add_sample_field(field_name, fo.IntField)
+                        elif field_type == "float":
+                            dataset.add_sample_field(field_name, fo.FloatField)
+                        else:  # string
+                            dataset.add_sample_field(field_name, fo.StringField)
+                        
+                        print(f"🔍 _define_dataset_fields: Added field '{field_name}' of type '{field_type}'")
+            
+            # Define metadata field if enabled
+            if mapping_config.get("includeAllTagsAsMetadata", False):
+                metadata_field = mapping_config.get("metadataFieldName", "osm_metadata")
+                dataset.add_sample_field(metadata_field, fo.ListField)
+                print(f"🔍 _define_dataset_fields: Added metadata field '{metadata_field}' as ListField")
+            
+            # Define detection field if 3D detections are enabled
+            if mapping_config.get("enable3DDetections", False):
+                detection_field = mapping_config.get("detectionFieldName", "detections")
+                dataset.add_sample_field(detection_field, fo.ListField)
+                print(f"🔍 _define_dataset_fields: Added detection field '{detection_field}'")
+                
+        except Exception as e:
+            print(f"🔍 _define_dataset_fields: Error defining fields: {e}")
+
+    def _extract_coordinates(self, geo_location) -> tuple:
+        """Extract longitude and latitude from various geo location formats."""
+        try:
+            if hasattr(geo_location, 'point') and geo_location.point is not None:
+                # FiftyOne GeoLocation object with point
+                point = geo_location.point
+                if hasattr(point, 'coordinates'):
+                    # Point geometry
+                    return point.coordinates
+                elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                    # [lon, lat] format
+                    return point[0], point[1]
+            elif hasattr(geo_location, 'coordinates'):
+                # Point geometry
+                return geo_location.coordinates
+            elif isinstance(geo_location, (list, tuple)) and len(geo_location) >= 2:
+                # [lon, lat] or [lat, lon] format
+                if len(geo_location) == 2:
+                    # Assume [lon, lat] format
+                    return geo_location[0], geo_location[1]
+            
+            return None, None
+        except Exception as e:
+            print(f"🔍 _extract_coordinates: Error extracting coordinates: {e}")
+            return None, None
+
+    def _find_cell_for_location(self, lon: float, lat: float, grid_cells: list) -> str:
+        """Find which grid cell contains the given location."""
+        print(f"🔍 _find_cell_for_location: Looking for cell containing lon={lon}, lat={lat}")
+        print(f"🔍 _find_cell_for_location: Checking {len(grid_cells)} grid cells")
+        
+        for i, cell in enumerate(grid_cells):
+            cell_id = cell.get("id", f"cell_{i}")
+            bbox = cell.get("bbox")
+            print(f"🔍 _find_cell_for_location: Cell {cell_id} bbox: {bbox}")
+            
+            if bbox and len(bbox) == 4:
+                min_lon, min_lat, max_lon, max_lat = bbox
+                print(f"🔍 _find_cell_for_location: Cell {cell_id} bounds: min_lon={min_lon}, min_lat={min_lat}, max_lon={max_lon}, max_lat={max_lat}")
+                print(f"🔍 _find_cell_for_location: Checking if {lon} in [{min_lon}, {max_lon}] and {lat} in [{min_lat}, {max_lat}]")
+                
+                if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
+                    print(f"🔍 _find_cell_for_location: Found match in cell {cell_id}")
+                    return cell["id"]
+                else:
+                    print(f"🔍 _find_cell_for_location: No match in cell {cell_id}")
+            else:
+                print(f"🔍 _find_cell_for_location: Cell {cell_id} has invalid bbox: {bbox}")
+        
+        print(f"🔍 _find_cell_for_location: No cell found for lon={lon}, lat={lat}")
+        return None
+
+    def _apply_mapping_to_sample(self, sample, osm_data: list, mapping_config: dict, lon: float, lat: float):
+        """Apply the mapping configuration to a sample using nearby OSM data."""
+        try:
+            print(f"🔍 _apply_mapping_to_sample: Applying mappings to sample {sample.id}")
+            print(f"🔍 _apply_mapping_to_sample: OSM data count: {len(osm_data)}")
+            print(f"🔍 _apply_mapping_to_sample: Mapping config enabled features:")
+            print(f"  - 3D Detections: {mapping_config.get('enable3DDetections', False)}")
+            print(f"  - Sample Tagging: {mapping_config.get('enableSampleTagging', False)}")
+            print(f"  - Field Mapping: {mapping_config.get('enableFieldMapping', False)}")
+            print(f"  - Metadata: {mapping_config.get('includeAllTagsAsMetadata', False)}")
+            
+            # 3D Detections
+            if mapping_config.get("enable3DDetections", False):
+                print(f"🔍 _apply_mapping_to_sample: Applying 3D detections to sample {sample.id}")
+                self._apply_3d_detections(sample, osm_data, mapping_config, lon, lat)
+            
+            # Sample Tagging
+            if mapping_config.get("enableSampleTagging", False):
+                print(f"🔍 _apply_mapping_to_sample: Applying sample tagging to sample {sample.id}")
+                self._apply_sample_tagging(sample, osm_data, mapping_config, lon, lat)
+            
+            # Field Mapping
+            if mapping_config.get("enableFieldMapping", False):
+                print(f"🔍 _apply_mapping_to_sample: Applying field mapping to sample {sample.id}")
+                self._apply_field_mapping(sample, osm_data, mapping_config, lon, lat)
+            
+            # Metadata
+            if mapping_config.get("includeAllTagsAsMetadata", False):
+                print(f"🔍 _apply_mapping_to_sample: Applying metadata to sample {sample.id}")
+                self._apply_metadata(sample, osm_data, mapping_config, lon, lat)
+                
+        except Exception as e:
+            print(f"🔍 _apply_mapping_to_sample: Error applying mappings to sample {sample.id}: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _apply_3d_detections(self, sample, osm_data: list, mapping_config: dict, lon: float, lat: float):
+        """Apply 3D detections mapping."""
+        detection_field = mapping_config.get("detectionFieldName", "detections")
+        label_tag = mapping_config.get("detectionLabelTag", "type")
+        radius = mapping_config.get("detectionRadius", 100)
+        
+        # Find nearby OSM features
+        nearby_features = self._find_nearby_features(osm_data, lon, lat, radius)
+        
+        detections = []
+        for feature in nearby_features:
+            if "tags" in feature and label_tag in feature["tags"]:
+                label = feature["tags"][label_tag]
+                # Create a detection object (simplified)
+                detection = {
+                    "label": label,
+                    "location": [lon, lat],  # Simplified location
+                    "confidence": 1.0,
+                    "osm_id": feature.get("id"),
+                    "osm_type": feature.get("type")
+                }
+                detections.append(detection)
+        
+        if detections:
+            sample[detection_field] = detections
+            sample.save()
+
+    def _apply_sample_tagging(self, sample, osm_data: list, mapping_config: dict, lon: float, lat: float):
+        """Apply sample tagging mapping."""
+        tag_slice = mapping_config.get("tagSlice", "default")
+        radius = mapping_config.get("tagRadius", 100)
+        tag_mappings = mapping_config.get("tagMappings", [])
+        
+        print(f"🔍 _apply_sample_tagging: Sample {sample.id}, tag_mappings: {len(tag_mappings)}")
+        
+        if not tag_mappings:
+            print(f"🔍 _apply_sample_tagging: No tag mappings configured")
+            return
+        
+        # Find nearby OSM features
+        nearby_features = self._find_nearby_features(osm_data, lon, lat, radius)
+        print(f"🔍 _apply_sample_tagging: Found {len(nearby_features)} nearby features within {radius}m")
+        
+        # Apply each tag mapping
+        for i, tag_mapping in enumerate(tag_mappings):
+            osm_key = tag_mapping.get("osmKey")
+            field_name = tag_mapping.get("fieldName")
+            field_type = tag_mapping.get("fieldType", "string")
+            
+            print(f"🔍 _apply_sample_tagging: Mapping {i+1}: {osm_key} -> {field_name} ({field_type})")
+            
+            if not osm_key or not field_name:
+                print(f"🔍 _apply_sample_tagging: Skipping mapping {i+1} - missing osm_key or field_name")
+                continue
+            
+            # Find the best matching feature for this tag
+            best_value = None
+            for feature in nearby_features:
+                if "tags" in feature and osm_key in feature["tags"]:
+                    best_value = feature["tags"][osm_key]
+                    print(f"🔍 _apply_sample_tagging: Found value '{best_value}' for key '{osm_key}'")
+                    break
+            
+            if best_value is not None:
+                # Convert value based on field type
+                converted_value = self._convert_value(best_value, field_type, tag_mapping)
+                print(f"🔍 _apply_sample_tagging: Setting {field_name} = {converted_value} (type: {type(converted_value)})")
+                sample[field_name] = converted_value
+            else:
+                print(f"🔍 _apply_sample_tagging: No value found for key '{osm_key}'")
+        
+        print(f"🔍 _apply_sample_tagging: Saving sample {sample.id}")
+        sample.save()
+
+    def _apply_field_mapping(self, sample, osm_data: list, mapping_config: dict, lon: float, lat: float):
+        """Apply field mapping."""
+        field_mappings = mapping_config.get("fieldMappings", [])
+        
+        print(f"🔍 _apply_field_mapping: Sample {sample.id}, field_mappings: {len(field_mappings)}")
+        
+        if not field_mappings:
+            print(f"🔍 _apply_field_mapping: No field mappings configured")
+            return
+        
+        # Find nearby OSM features
+        nearby_features = self._find_nearby_features(osm_data, lon, lat, 100)  # Default radius
+        print(f"🔍 _apply_field_mapping: Found {len(nearby_features)} nearby features within 100m")
+        
+        # Apply each field mapping
+        for i, field_mapping in enumerate(field_mappings):
+            osm_key = field_mapping.get("osmKey")
+            field_name = field_mapping.get("fieldName")
+            field_type = field_mapping.get("fieldType", "string")
+            
+            print(f"🔍 _apply_field_mapping: Mapping {i+1}: {osm_key} -> {field_name} ({field_type})")
+            
+            if not osm_key or not field_name:
+                print(f"🔍 _apply_field_mapping: Skipping mapping {i+1} - missing osm_key or field_name")
+                continue
+            
+            # Find the best matching feature for this tag
+            best_value = None
+            for feature in nearby_features:
+                if "tags" in feature and osm_key in feature["tags"]:
+                    best_value = feature["tags"][osm_key]
+                    print(f"🔍 _apply_field_mapping: Found value '{best_value}' for key '{osm_key}'")
+                    break
+            
+            if best_value is not None:
+                # Convert value based on field type
+                converted_value = self._convert_value(best_value, field_type, field_mapping)
+                print(f"🔍 _apply_field_mapping: Setting {field_name} = {converted_value} (type: {type(converted_value)})")
+                sample[field_name] = converted_value
+            else:
+                print(f"🔍 _apply_field_mapping: No value found for key '{osm_key}'")
+        
+        print(f"🔍 _apply_field_mapping: Saving sample {sample.id}")
+        sample.save()
+
+    def _apply_metadata(self, sample, osm_data: list, mapping_config: dict, lon: float, lat: float):
+        """Apply metadata mapping - store ALL OSM features from the cell as metadata."""
+        metadata_field = mapping_config.get("metadataFieldName", "osm_metadata")
+        
+        print(f"🔍 _apply_metadata: Sample {sample.id}, metadata_field: {metadata_field}")
+        print(f"🔍 _apply_metadata: OSM data count: {len(osm_data)}")
+        
+        # For metadata, we want ALL OSM features from the entire cell, not just nearby ones
+        # Store the entire osm_data as metadata
+        if osm_data:
+            print(f"🔍 _apply_metadata: Storing {len(osm_data)} OSM features as metadata for sample {sample.id}")
+            sample[metadata_field] = osm_data
+            print(f"🔍 _apply_metadata: Saving sample {sample.id}")
+            sample.save()
+            print(f"🔍 _apply_metadata: Successfully stored metadata for sample {sample.id}")
+        else:
+            print(f"🔍 _apply_metadata: No OSM data to store for sample {sample.id}")
+
+    def _find_nearby_features(self, osm_data: list, lon: float, lat: float, radius: float) -> list:
+        """Find OSM features within the specified radius of the location."""
+        nearby_features = []
+        
+        for feature in osm_data:
+            feature_lon, feature_lat = self._get_feature_location(feature)
+            if feature_lon is not None and feature_lat is not None:
+                # Calculate distance (simplified - assumes small distances)
+                distance = ((lon - feature_lon) ** 2 + (lat - feature_lat) ** 2) ** 0.5
+                # Convert to meters (rough approximation)
+                distance_meters = distance * 111000  # Rough conversion
+                
+                if distance_meters <= radius:
+                    nearby_features.append(feature)
+        
+        return nearby_features
+
+    def _get_feature_location(self, feature: dict) -> tuple:
+        """Extract longitude and latitude from an OSM feature."""
+        if "lat" in feature and "lon" in feature:
+            return feature["lon"], feature["lat"]
+        elif "geometry" in feature:
+            geometry = feature["geometry"]
+            if geometry.get("type") == "Point" and "coordinates" in geometry:
+                coords = geometry["coordinates"]
+                if len(coords) >= 2:
+                    return coords[0], coords[1]  # [lon, lat]
+        return None, None
+
+    def _convert_value(self, value: str, field_type: str, mapping_config: dict):
+        """Convert a string value to the specified field type."""
+        print(f"🔍 _convert_value: Converting '{value}' to type '{field_type}'")
+        
+        if field_type == "string":
+            result = str(value)
+            print(f"🔍 _convert_value: String conversion: '{value}' -> '{result}'")
+            return result
+        elif field_type == "int":
+            try:
+                result = int(float(value))
+                print(f"🔍 _convert_value: Int conversion: '{value}' -> {result}")
+                return result
+            except (ValueError, TypeError) as e:
+                print(f"🔍 _convert_value: Int conversion failed for '{value}': {e}, returning 0")
+                return 0
+        elif field_type == "float":
+            try:
+                result = float(value)
+                print(f"🔍 _convert_value: Float conversion: '{value}' -> {result}")
+                return result
+            except (ValueError, TypeError) as e:
+                print(f"🔍 _convert_value: Float conversion failed for '{value}': {e}, returning 0.0")
+                return 0.0
+        elif field_type == "bool":
+            bool_true = mapping_config.get("boolTrueValue", "yes")
+            bool_false = mapping_config.get("boolFalseValue", "no")
+            print(f"🔍 _convert_value: Bool conversion - true='{bool_true}', false='{bool_false}'")
+            
+            if str(value).lower() == str(bool_true).lower():
+                print(f"🔍 _convert_value: Bool conversion: '{value}' -> True (matches true value)")
+                return True
+            elif str(value).lower() == str(bool_false).lower():
+                print(f"🔍 _convert_value: Bool conversion: '{value}' -> False (matches false value)")
+                return False
+            else:
+                result = bool(value)  # Fallback
+                print(f"🔍 _convert_value: Bool conversion: '{value}' -> {result} (fallback)")
+                return result
+        else:
+            result = str(value)
+            print(f"🔍 _convert_value: Unknown type '{field_type}', returning as string: '{result}'")
+            return result
+
+    def _update_enrichment_progress(self, ctx: ExecutionContext, processed: int, total: int):
+        """Update the enrichment progress in the store."""
+        enrichment_job = ctx.store("metageo").get("enrichment_job")
+        if enrichment_job:
+            enrichment_job["processed_samples"] = processed
+            enrichment_job["total_samples"] = total
+            enrichment_job["progress_percent"] = (processed / total) * 100 if total > 0 else 0
+            ctx.store("metageo").set("enrichment_job", enrichment_job)
+
+    def get_enrichment_status(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Get the status of the enrichment process."""
+        try:
+            enrichment_job = ctx.store("metageo").get("enrichment_job")
+            if not enrichment_job:
+                return {
+                    "status": "success",
+                    "enrichment_status": "not_started",
+                    "message": "No enrichment job found",
+                }
+            
+            return {
+                "status": "success",
+                "enrichment_status": enrichment_job.get("status", "unknown"),
+                "job_info": enrichment_job,
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error getting enrichment status: {str(e)}",
+            }
+
+    def get_field_mappings(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Get current field mappings for validation"""
+        try:
+            # Get current mapping configuration from the store
+            mapping_config = ctx.store("metageo").get("mapping_config")
+            if not mapping_config:
+                return {
+                    "status": "success",
+                    "field_mappings": [],
+                    "used_field_names": [],
+                }
+            
+            field_mappings = mapping_config.get("fieldMappings", [])
+            used_field_names = [mapping.get("fieldName") for mapping in field_mappings if mapping.get("fieldName")]
+            
+            return {
+                "status": "success",
+                "field_mappings": field_mappings,
+                "used_field_names": used_field_names,
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error retrieving field mappings: {str(e)}",
+                "field_mappings": [],
+                "used_field_names": [],
+            }
+
+    def save_mapping_config(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Save the mapping configuration to the execution store."""
+        try:
+            mapping_config = ctx.params.get("mapping_config")
+            if not mapping_config:
+                return {
+                    "status": "error",
+                    "message": "No mapping configuration provided",
+                }
+            
+            # Save to execution store
+            ctx.store("metageo").set("mapping_config", mapping_config)
+            
+            return {
+                "status": "success",
+                "message": "Mapping configuration saved successfully",
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error saving mapping configuration: {str(e)}",
+            }
+
+    def get_mapping_config(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Get the mapping configuration from the execution store."""
+        try:
+            mapping_config = ctx.store("metageo").get("mapping_config")
+            
+            return {
+                "status": "success",
+                "mapping_config": mapping_config,
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error getting mapping configuration: {str(e)}",
+            }
+
+    def clear_mapping_config(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Clear the mapping configuration from the execution store."""
+        try:
+            # Remove mapping configuration from store
+            ctx.store("metageo").delete("mapping_config")
+            
+            return {
+                "status": "success",
+                "message": "Mapping configuration cleared successfully",
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error clearing mapping configuration: {str(e)}",
+            }
+
+    def clear_enrichment_data(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Clear enrichment data from samples while keeping the mapping configuration."""
+        try:
+            # Get the mapping configuration to know which fields to clear
+            mapping_config = ctx.store("metageo").get("mapping_config")
+            if not mapping_config:
+                return {
+                    "status": "error",
+                    "message": "No mapping configuration found. Nothing to clear.",
+                }
+            
+            # Get the dataset
+            dataset = ctx.dataset
+            if not dataset:
+                return {
+                    "status": "error",
+                    "message": "No dataset found in context.",
+                }
+            
+            print(f"🔍 clear_enrichment_data: Starting to clear enrichment data from {len(dataset)} samples")
+            
+            # Collect all field names that need to be cleared
+            fields_to_clear = set()
+            
+            # Sample tagging fields
+            if mapping_config.get("enableSampleTagging", False):
+                tag_mappings = mapping_config.get("tagMappings", [])
+                for tag_mapping in tag_mappings:
+                    field_name = tag_mapping.get("fieldName")
+                    if field_name:
+                        fields_to_clear.add(field_name)
+                        print(f"🔍 clear_enrichment_data: Will clear sample tagging field: {field_name}")
+            
+            # Field mapping fields
+            if mapping_config.get("enableFieldMapping", False):
+                field_mappings = mapping_config.get("fieldMappings", [])
+                for field_mapping in field_mappings:
+                    field_name = field_mapping.get("fieldName")
+                    if field_name:
+                        fields_to_clear.add(field_name)
+                        print(f"🔍 clear_enrichment_data: Will clear field mapping field: {field_name}")
+            
+            # Metadata field
+            if mapping_config.get("includeAllTagsAsMetadata", False):
+                metadata_field = mapping_config.get("metadataFieldName", "osm_metadata")
+                fields_to_clear.add(metadata_field)
+                print(f"🔍 clear_enrichment_data: Will clear metadata field: {metadata_field}")
+            
+            # Detection field
+            if mapping_config.get("enable3DDetections", False):
+                detection_field = mapping_config.get("detectionFieldName", "detections")
+                fields_to_clear.add(detection_field)
+                print(f"🔍 clear_enrichment_data: Will clear detection field: {detection_field}")
+            
+            print(f"🔍 clear_enrichment_data: Total fields to clear: {len(fields_to_clear)}")
+            
+            # Delete the fields from the dataset schema
+            deleted_fields = []
+            for field_name in fields_to_clear:
+                try:
+                    # Check if the field exists in the dataset schema
+                    if field_name in dataset.get_field_schema():
+                        # Delete the field from the dataset schema
+                        dataset.delete_sample_field(field_name)
+                        deleted_fields.append(field_name)
+                        print(f"🔍 clear_enrichment_data: Deleted field '{field_name}' from dataset schema")
+                    else:
+                        print(f"🔍 clear_enrichment_data: Field '{field_name}' not found in dataset schema")
+                except Exception as e:
+                    print(f"🔍 clear_enrichment_data: Error deleting field '{field_name}': {e}")
+            
+            print(f"🔍 clear_enrichment_data: Successfully deleted {len(deleted_fields)} fields from dataset schema")
+            
+            return {
+                "status": "success",
+                "message": f"Enrichment fields deleted successfully from dataset schema",
+                "deleted_fields": deleted_fields,
+                "total_fields_attempted": len(fields_to_clear),
+                "total_samples": len(dataset),
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error clearing enrichment data: {str(e)}",
+            }
+
+    def get_cell_data(self, ctx: ExecutionContext) -> dict[str, any]:
+        """Get detailed data for a specific grid cell."""
+        cell_id = ctx.params.get("cell_id")
+        if not cell_id:
+            return {
+                "status": "error",
+                "message": "cell_id parameter is required",
+            }
+
+        try:
+            store = ctx.store("metageo")
+            
+            # Get cell status
+            status = store.get(f"cell_{cell_id}_status")
+            error = store.get(f"cell_{cell_id}_error")
+            osm_features = store.get(f"cell_{cell_id}_osm_features")
+            osm_data = store.get(f"cell_{cell_id}_osm_data")
+            
+            # Get cell coordinates from indexing state
+            indexing_state = store.get("indexing_state")
+            cell_info = None
+            if indexing_state and indexing_state.get("grid_cells"):
+                cell_info = next(
+                    (cell for cell in indexing_state["grid_cells"] if cell["id"] == cell_id),
+                    None
+                )
+            
+            return {
+                "status": "success",
+                "cell_id": cell_id,
+                "cell_status": status,
+                "error": error,
+                "osm_features_count": osm_features,
+                "osm_data": osm_data or [],
+                "cell_info": cell_info,
+                "coordinates": cell_info.get("coordinates") if cell_info else None,
+                "sample_count": cell_info.get("sample_count", 0) if cell_info else 0,
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error retrieving cell data: {str(e)}",
             }
 
     def on_unload(self, ctx: ExecutionContext) -> None:
@@ -1272,6 +2320,10 @@ class MetageoPanel(Panel):
             "sample_distribution": sample_distribution,
             "status": "idle",
             "execution_mode": "immediate",
+            # Store essential configuration for persistence
+            "bbox": bbox,
+            "geo_field": geo_field,
+            "grid_tiles": grid_tiles,
         }
 
         # Store in dataset-linked store for MongoDB persistence
@@ -1324,32 +2376,48 @@ class MetageoPanel(Panel):
 
     def cancel_indexing(self, ctx: ExecutionContext) -> Dict[str, Any]:
         """Cancel the current indexing operation"""
-        indexing_state = ctx.store("metageo").get("indexing_state")
-        if not indexing_state:
+        try:
+            indexing_state = ctx.store("metageo").get("indexing_state")
+            if not indexing_state:
+                return {
+                    "status": "not_found",
+                    "message": "No indexing operation to cancel",
+                }
+
+            # Set cancellation flag in the store so operators can check it
+            indexing_state["status"] = "cancelled"
+            indexing_state["cancelled_at"] = datetime.now().isoformat()
+            
+            # Clear all cell statuses to reset the grid
+            grid_cells = indexing_state.get("grid_cells", [])
+            for cell in grid_cells:
+                cell_id = cell["id"]
+                ctx.store("metageo").delete(f"cell_{cell_id}_status")
+                ctx.store("metageo").delete(f"cell_{cell_id}_error")
+                ctx.store("metageo").delete(f"cell_{cell_id}_osm_features")
+                ctx.store("metageo").delete(f"cell_{cell_id}_osm_data")
+            
+            # Clear the grid cells array to reset the grid
+            indexing_state["grid_cells"] = []
+            indexing_state["completed_cells"] = 0
+            indexing_state["failed_cells"] = 0
+            indexing_state["rate_limited_cells"] = 0
+            indexing_state["total_cells"] = 0
+            indexing_state["progress"] = 0
+            
+            # Save the updated state
+            ctx.store("metageo").set("indexing_state", indexing_state)
+
+            print("Indexing operation cancelled - all cell data cleared")
             return {
-                "status": "not_found",
-                "message": "No indexing operation to cancel",
+                "status": "cancelled",
+                "message": "Indexing operation cancelled and grid reset",
             }
-
-        # Set cancellation flag in the store so operators can check it
-        indexing_state["status"] = "cancelled"
-        indexing_state["cancelled_at"] = datetime.now().isoformat()
-        ctx.store("metageo").set("indexing_state", indexing_state)
-
-        # Clear all cell statuses to reset the grid
-        grid_cells = indexing_state.get("grid_cells", [])
-        for cell in grid_cells:
-            cell_id = cell["id"]
-            ctx.store("metageo").delete(f"cell_{cell_id}_status")
-            ctx.store("metageo").delete(f"cell_{cell_id}_error")
-            ctx.store("metageo").delete(f"cell_{cell_id}_osm_features")
-            ctx.store("metageo").delete(f"cell_{cell_id}_osm_data")
-
-        print("Indexing operation cancelled - all cell data cleared")
-        return {
-            "status": "cancelled",
-            "message": "Indexing operation cancelled and grid reset",
-        }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error cancelling indexing: {str(e)}",
+            }
 
     def debug_state(self, ctx: ExecutionContext) -> Dict[str, Any]:
         """Debug method to check current state"""
@@ -1416,6 +2484,11 @@ class MetageoPanel(Panel):
                     all_keys.append(key)
         
         print(f"🔍 get_current_indexing_state: Store keys: {all_keys}")
+        
+        # Debug: Try to get each key individually to see what's actually stored
+        for key in all_keys:
+            value = store.get(key)
+            print(f"🔍 get_current_indexing_state: Key '{key}' = {type(value).__name__}: {str(value)[:200]}...")
         
         # Try to get indexing state - it might be stored in different ways
         indexing_state = store.get("indexing_state")
@@ -1737,57 +2810,188 @@ class MetageoPanel(Panel):
         # Initialize OSM client
         osm_client = OSMClient()
 
-        for cell in indexing_state["grid_cells"]:
-            if cell["sample_count"] == 0:
-                continue
-
-            if indexing_state["status"] == "cancelled":
+        # Retry loop: continue until all cells are processed or exhausted retries
+        max_iterations = 10  # Prevent infinite loops
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            print(f"Indexing iteration {iteration}/{max_iterations}")
+            
+            # Check if we have any cells that need processing
+            cells_to_process = [
+                cell for cell in indexing_state["grid_cells"] 
+                if cell["sample_count"] > 0 and cell.get("status") in ["idle", "retrying"]
+            ]
+            
+            if not cells_to_process:
+                print("No more cells to process, breaking retry loop")
                 break
+                
+            print(f"Processing {len(cells_to_process)} cells in iteration {iteration}")
 
-            # Query OSM data for this cell
-            cell["status"] = "running"
-            cell["progress"] = 25
+            for cell in cells_to_process:
+                if cell["sample_count"] == 0:
+                    # Ensure empty cells are marked as "empty"
+                    cell["status"] = "empty"
+                    print(f"Cell {cell['id']}: Marked as empty (0 samples)")
+                    continue
 
-            try:
-                # Query OSM data for this cell's bounding box
-                osm_result = osm_client.query_bbox(cell["coordinates"])
+                if indexing_state["status"] == "cancelled":
+                    print(f"Cell {cell['id']}: Skipped due to cancellation")
+                    break
 
-                if "error" in osm_result:
+                # Initialize retry tracking for this cell
+                if "retry_count" not in cell:
+                    cell["retry_count"] = 0
+                if "max_retries" not in cell:
+                    cell["max_retries"] = 3  # Default max retries per cell
+
+                # Query OSM data for this cell
+                print(f"Cell {cell['id']}: Starting processing (samples: {cell['sample_count']}, retry: {cell['retry_count']}/{cell['max_retries']})")
+                
+                # Set status based on retry count
+                if cell["retry_count"] > 0:
+                    cell["status"] = "retrying"
+                    cell["progress"] = 25
+                    print(f"Cell {cell['id']}: Retrying (attempt {cell['retry_count'] + 1})")
+                else:
+                    cell["status"] = "running"
+                    cell["progress"] = 25
+
+                try:
+                    # Query OSM data for this cell's bounding box with retry logic
+                    osm_result = osm_client.query_bbox(
+                        cell["coordinates"], 
+                        max_retries=cell["max_retries"] - cell["retry_count"],
+                        base_delay=2.0,  # Start with 2 second delay
+                        max_delay=30.0   # Max 30 second delay
+                    )
+
+                    if "error" in osm_result:
+                        error_msg = osm_result["error"]
+                        attempts = osm_result.get("attempts", 1)
+                        
+                        # Check if this was a rate limiting error that exhausted retries
+                        if (
+                            "rate limit" in error_msg.lower()
+                            or "server load too high" in error_msg.lower()
+                            or "too many requests" in error_msg.lower()
+                        ):
+                            # Update retry count
+                            cell["retry_count"] += attempts
+                            
+                            if cell["retry_count"] >= cell["max_retries"]:
+                                # Exhausted all retries, mark as rate_limited
+                                cell["status"] = "rate_limited"
+                                cell["error"] = f"{error_msg} (exhausted {cell['retry_count']} retries)"
+                                cell["progress"] = 0
+                                indexing_state["rate_limited_cells"] = indexing_state.get("rate_limited_cells", 0) + 1
+                                
+                                # Save cell status to store for frontend synchronization
+                                ctx.store("metageo").set(f"cell_{cell['id']}_status", "rate_limited")
+                                ctx.store("metageo").set(f"cell_{cell['id']}_error", cell["error"])
+                                
+                                print(f"Cell {cell['id']}: Rate limited after {cell['retry_count']} retries")
+                            else:
+                                # Still have retries left, mark as retrying and continue to next cell
+                                cell["status"] = "retrying"
+                                cell["error"] = f"{error_msg} (retry {cell['retry_count']}/{cell['max_retries']})"
+                                cell["progress"] = 0
+                                
+                                # Save cell status to store for frontend synchronization
+                                ctx.store("metageo").set(f"cell_{cell['id']}_status", "retrying")
+                                ctx.store("metageo").set(f"cell_{cell['id']}_error", cell["error"])
+                                
+                                print(f"Cell {cell['id']}: Rate limited, will retry later (attempt {cell['retry_count']}/{cell['max_retries']})")
+                                continue  # Skip to next cell, this one will be retried later
+                        else:
+                            # Non-rate-limiting error, mark as failed
+                            cell["status"] = "failed"
+                            cell["error"] = error_msg
+                            cell["progress"] = 0
+                            indexing_state["failed_cells"] += 1
+                            
+                            # Save cell status to store for frontend synchronization
+                            ctx.store("metageo").set(f"cell_{cell['id']}_status", "failed")
+                            ctx.store("metageo").set(f"cell_{cell['id']}_error", error_msg)
+                            
+                            print(f"Cell {cell['id']}: Failed with error: {error_msg}")
+                    else:
+                        # Success! Store OSM data in cell
+                        cell["osm_data"] = osm_result
+                        cell["osm_feature_count"] = osm_result["count"]
+                        cell["osm_statistics"] = osm_client.get_feature_statistics(
+                            osm_result["features"]
+                        )
+
+                        cell["status"] = "completed"
+                        cell["progress"] = 100
+                        cell["retry_count"] = 0  # Reset retry count on success
+                        indexing_state["completed_cells"] += 1
+                        
+                        # Save cell status to store for frontend synchronization
+                        ctx.store("metageo").set(f"cell_{cell['id']}_status", "completed")
+                        ctx.store("metageo").set(f"cell_{cell['id']}_osm_features", osm_result["count"])
+
+                        print(
+                            f"Cell {cell['id']}: Retrieved {osm_result['count']} OSM features (after {osm_result.get('attempts', 1)} attempts)"
+                        )
+
+                except Exception as e:
                     cell["status"] = "failed"
-                    cell["error"] = osm_result["error"]
+                    cell["error"] = str(e)
                     cell["progress"] = 0
                     indexing_state["failed_cells"] += 1
-                else:
-                    # Store OSM data in cell
-                    cell["osm_data"] = osm_result
-                    cell["osm_feature_count"] = osm_result["count"]
-                    cell["osm_statistics"] = osm_client.get_feature_statistics(
-                        osm_result["features"]
-                    )
+                    
+                    # Save cell status to store for frontend synchronization
+                    ctx.store("metageo").set(f"cell_{cell['id']}_status", "failed")
+                    ctx.store("metageo").set(f"cell_{cell['id']}_error", str(e))
+                    
+                    print(f"Error processing cell {cell['id']}: {e}")
+            
+            # Add a small delay between iterations to be respectful to the API
+            if iteration < max_iterations:
+                print("Waiting 5 seconds before next iteration...")
+                time.sleep(5)
 
-                    cell["status"] = "success"
-                    cell["progress"] = 100
-                    indexing_state["completed_cells"] += 1
-
-                    print(
-                        f"Cell {cell['id']}: Retrieved {osm_result['count']} OSM features"
-                    )
-
-            except Exception as e:
-                cell["status"] = "failed"
-                cell["error"] = str(e)
-                cell["progress"] = 0
-                indexing_state["failed_cells"] += 1
-                print(f"Error processing cell {cell['id']}: {e}")
-
-        indexing_state["status"] = "completed"
+        # Check if all active cells have been processed
+        # Only count active cells (exclude empty cells from total)
+        active_cells = [c for c in indexing_state["grid_cells"] if c.get("status") != "empty"]
+        total_active_cells = len(active_cells)
+        
+        # Processed cells includes only completed, failed, rate_limited (not empty, not retrying)
+        # Retrying cells are still being worked on, so they don't count as processed
+        processed_cells = len([
+            c for c in active_cells 
+            if c.get("status") in ["completed", "failed", "rate_limited"]
+        ])
+        
+        # Count retrying cells for debugging
+        retrying_cells = len([
+            c for c in active_cells 
+            if c.get("status") == "retrying"
+        ])
+        
+        # Debug: Print cell statuses
+        print(f"COMPLETION CHECK: total_active_cells={total_active_cells}, processed_cells={processed_cells}, retrying_cells={retrying_cells}")
+        for cell in indexing_state["grid_cells"]:
+            print(f"  Cell {cell['id']}: status={cell.get('status')}, sample_count={cell.get('sample_count')}, retry_count={cell.get('retry_count', 0)}")
+        
+        if total_active_cells == 0 or processed_cells == total_active_cells:
+            indexing_state["status"] = "completed"
+            print("Indexing marked as COMPLETED")
+        else:
+            indexing_state["status"] = "running"  # Still processing
+            print(f"Indexing still RUNNING - {total_active_cells - processed_cells} active cells remaining ({retrying_cells} retrying)")
+            
         ctx.store("metageo").set("indexing_state", indexing_state)
 
         # Calculate final statistics
         total_features = sum(
             cell.get("osm_feature_count", 0)
             for cell in indexing_state["grid_cells"]
-            if cell.get("status") == "success"
+            if cell.get("status") == "completed"
         )
 
         return {
@@ -1952,6 +3156,13 @@ class MetageoPanel(Panel):
                 cancel_indexing=self.cancel_indexing,
                 test_osm_client=self.test_osm_client,
                 get_available_osm_tags=self.get_available_osm_tags,
+                get_field_mappings=self.get_field_mappings,
+                save_mapping_config=self.save_mapping_config,
+                get_mapping_config=self.get_mapping_config,
+                clear_mapping_config=self.clear_mapping_config,
+                clear_enrichment_data=self.clear_enrichment_data,
+                enrich_dataset_async=self.enrich_dataset_async,
+                get_enrichment_status=self.get_enrichment_status,
                 get_geo_fields=self.get_geo_fields,
                 enrich=self.enrich,
                 cleanup_index=self.cleanup_index,

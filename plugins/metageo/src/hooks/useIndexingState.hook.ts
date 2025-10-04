@@ -49,6 +49,7 @@ export function useIndexingState() {
         canStartIndexing: false,
         canCalculateDistribution: false,
         progress: 0,
+        hasExistingIndex: false,
       },
     };
   }
@@ -122,11 +123,11 @@ export function useIndexingState() {
         }));
       },
 
-      resetIndexing: () => {
+      resetIndexing: (status: IndexingState["indexingStatus"] = "idle") => {
         setIndexingState((prev) => ({
           ...prev,
           gridCells: [],
-          indexingStatus: "idle",
+          indexingStatus: status,
           quadtreeCells: [],
           realSampleDistribution: {},
         }));
@@ -171,6 +172,9 @@ export function useIndexingState() {
               (cell) => cell.status === "completed"
             ).length / indexingState.gridCells.length
           : 0,
+      hasExistingIndex: 
+        (indexingState.gridCells && indexingState.gridCells.length > 0) ||
+        (indexingState.indexingStatus !== "idle" && indexingState.indexingStatus !== "cancelled"),
     }),
     [indexingState]
   );

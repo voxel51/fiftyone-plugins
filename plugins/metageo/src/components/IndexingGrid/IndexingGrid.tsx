@@ -8,7 +8,7 @@ import {
   useTheme,
   alpha,
 } from "@mui/material";
-import type { CellStatus, GridCell, QuadtreeCell } from "../../types";
+import type { CellStatus, GridCell, QuadtreeCell } from "../../types/index";
 
 export interface IndexingGridProps {
   bbox: [number, number, number, number] | null;
@@ -34,11 +34,36 @@ export function IndexingGrid({
   const theme = useTheme();
 
   const progress = useMemo(() => {
+    gridCells.forEach(cell => {
+      console.log(`  Cell ${cell.id}: status=${cell.status}, sample_count=${cell.sample_count}`);
+    });
     if (gridCells.length === 0) return 0;
-    const completedCells = gridCells.filter(
-      (cell) => cell.status === "completed"
+    
+    // Exclude empty cells from total count (they don't need processing)
+    const activeCells = gridCells.filter(cell => cell.status !== "empty");
+    if (activeCells.length === 0) return 1; // All cells are empty, consider 100% complete
+    
+    // Count processed cells (completed, failed, rate_limited, retrying)
+    const processedCells = activeCells.filter(
+      (cell) => cell.status === "completed" || cell.status === "failed" || cell.status === "rate_limited" || cell.status === "retrying"
     ).length;
-    return completedCells / gridCells.length;
+    
+    // Debug: Log cell statuses
+    console.log("🔍 Progress calculation debug:");
+    console.log(`  Total cells: ${gridCells.length}`);
+    console.log(`  Active cells: ${activeCells.length}`);
+    console.log(`  Processed cells: ${processedCells}`);
+    console.log(`  Progress: ${(processedCells / activeCells.length * 100).toFixed(1)}%`);
+    console.log(`  Indexing status: ${indexingStatus}`);
+    
+    
+    // Check for idle cells
+    const idleCells = activeCells.filter(cell => cell.status === "idle");
+    if (idleCells.length > 0) {
+      console.warn(`⚠️ Found ${idleCells.length} idle cells that should be processed:`, idleCells.map(c => c.id));
+    }
+    
+    return processedCells / activeCells.length;
   }, [gridCells]);
 
   const statusCounts = useMemo(() => {
@@ -48,11 +73,15 @@ export function IndexingGrid({
       completed: 0,
       failed: 0,
       rate_limited: 0,
+      retrying: 0,
+      cancelled: 0,
+      empty: 0,
       unknown: 0,
     };
 
     gridCells.forEach((cell) => {
-      counts[cell.status] = (counts[cell.status] || 0) + 1;
+      const status = cell.status as keyof typeof counts;
+      counts[status] = (counts[status] || 0) + 1;
     });
 
     return counts;
@@ -66,6 +95,53 @@ export function IndexingGrid({
   const gridSize = useQuadtree
     ? Math.sqrt(quadtreeCells.length)
     : Math.sqrt(gridCells.length);
+
+
+  // If no grid cells, don't render the grid
+  if (gridCells.length === 0 && quadtreeCells.length === 0) {
+    return (
+      <Paper
+        elevation={1}
+        sx={{
+          p: 3,
+          mb: 3,
+          background: alpha(theme.palette.warning.main, 0.02),
+          border: `1px solid ${alpha(theme.palette.warning.main, 0.1)}`,
+          borderRadius: 2,
+        }}
+      >
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+          No Grid Data
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          No grid cells found. Please complete the Index Configuration step first.
+        </Typography>
+      </Paper>
+    );
+  }
+
+  // If grid size is invalid, don't render
+  if (isNaN(gridSize) || gridSize <= 0) {
+    return (
+      <Paper
+        elevation={1}
+        sx={{
+          p: 3,
+          mb: 3,
+          background: alpha(theme.palette.error.main, 0.02),
+          border: `1px solid ${alpha(theme.palette.error.main, 0.1)}`,
+          borderRadius: 2,
+        }}
+      >
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+          Invalid Grid Size
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Grid size is invalid: {gridSize}. Please check your configuration.
+        </Typography>
+      </Paper>
+    );
+  }
 
   return (
     <Paper
@@ -81,12 +157,22 @@ export function IndexingGrid({
       <Typography
         variant="h6"
         sx={{
-          mb: 2,
+          mb: 1,
           fontWeight: 600,
           color: theme.palette.text.primary,
         }}
       >
         Geo Index Status
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          mb: 2,
+          color: theme.palette.text.secondary,
+          fontStyle: "italic",
+        }}
+      >
+        💡 Click on any cell to view detailed OSM data
       </Typography>
 
       {/* Progress Bar */}
@@ -152,6 +238,24 @@ export function IndexingGrid({
           variant="outlined"
           sx={{ borderColor: theme.palette.warning.main }}
         />
+        <Chip
+          label={`Retrying: ${statusCounts.retrying}`}
+          size="small"
+          variant="outlined"
+          sx={{ borderColor: theme.palette.info.main }}
+        />
+        <Chip
+          label={`Cancelled: ${statusCounts.cancelled}`}
+          size="small"
+          variant="outlined"
+          sx={{ borderColor: theme.palette.grey[500] }}
+        />
+        <Chip
+          label={`Empty: ${statusCounts.empty}`}
+          size="small"
+          variant="outlined"
+          sx={{ borderColor: theme.palette.grey[400] }}
+        />
       </Box>
 
       {/* Grid Visualization */}
@@ -172,6 +276,7 @@ export function IndexingGrid({
           const sampleCount = realSampleCounts[cellId] || 0;
           const status = cell?.status || "unknown";
 
+
           const getStatusColor = (status: CellStatus) => {
             switch (status) {
               case "completed":
@@ -182,6 +287,12 @@ export function IndexingGrid({
                 return theme.palette.error.main;
               case "rate_limited":
                 return theme.palette.warning.main;
+              case "retrying":
+                return theme.palette.info.light;
+              case "cancelled":
+                return theme.palette.grey[500];
+              case "empty":
+                return theme.palette.grey[400];
               case "idle":
                 return theme.palette.grey[600];
               default:
@@ -199,6 +310,12 @@ export function IndexingGrid({
                 return "✗";
               case "rate_limited":
                 return "⏱";
+              case "retrying":
+                return "↻";
+              case "cancelled":
+                return "⊘";
+              case "empty":
+                return "·";
               case "idle":
                 return sampleCount > 0 ? "○" : "·";
               default:
@@ -223,8 +340,9 @@ export function IndexingGrid({
                 cursor: "pointer",
                 transition: "all 0.2s ease",
                 "&:hover": {
-                  transform: "scale(1.2)",
+                  transform: "scale(1.3)",
                   zIndex: 1,
+                  boxShadow: `0 0 10px ${alpha(theme.palette.primary.main, 0.5)}`,
                 },
               }}
               title={`Cell ${cellId}: ${status} (${sampleCount} samples)`}

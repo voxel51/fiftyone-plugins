@@ -19,6 +19,7 @@ import { useMetageoFlow, STEPS } from "./hooks/useMetageoFlow.hook";
 import IndexConfigurationStep from "./components/IndexConfigurationStep/IndexConfigurationStep";
 import IndexingStep from "./components/IndexingStep/IndexingStep";
 import MappingStep from "./components/MappingStep/MappingStep";
+import EnrichStep from "./components/EnrichStep/EnrichStep";
 
 const stepLabels = [
   "Index Configuration",
@@ -32,6 +33,8 @@ export default function MetageoView() {
   const theme = useTheme();
   const { state, actions, derived } = useMetageoFlow();
   const hasLoadedRef = useRef(false);
+  
+  console.log("🔍 MetageoView render: state =", state, "derived =", derived);
 
   useEffect(() => {
     // Load existing state when component mounts (only once)
@@ -40,11 +43,46 @@ export default function MetageoView() {
         "🔍 MetageoView: useEffect triggered, calling loadCurrentIndexingState"
       );
       hasLoadedRef.current = true;
-      actions.loadCurrentIndexingState();
+      
+      // Call loadCurrentIndexingState and handle the result
+      actions.loadCurrentIndexingState().then((result) => {
+        console.log("🔍 MetageoView: loadCurrentIndexingState result:", result);
+        if (result?.success && result?.hasExistingIndex) {
+          console.log("🔍 MetageoView: Found existing index, should show indexing step");
+        } else {
+          console.log("🔍 MetageoView: No existing index found");
+        }
+      }).catch((error) => {
+        console.error("🔍 MetageoView: Error loading current indexing state:", error);
+      });
     }
   }, []); // Empty dependency array since we use hasLoadedRef to ensure it only runs once
 
-  if (!state.hasStarted) {
+  if (state.isLoadingState) {
+    return (
+      <Box>
+        <Paper
+          elevation={1}
+          sx={{
+            p: 6,
+            textAlign: "center",
+            borderRadius: 2,
+            backgroundColor: theme.palette.background.paper,
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Loading Metageo Configuration...
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Please wait while we check for existing indexing data.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
+  if (!state.hasStarted && !derived.hasExistingIndex) {
+    console.log("🔍 MetageoView: Showing Configuration Required - hasStarted =", state.hasStarted, "hasExistingIndex =", derived.hasExistingIndex);
     return (
       <Box>
         <Paper
@@ -194,7 +232,7 @@ export default function MetageoView() {
           borderRadius: 2,
         }}
       >
-        <Stepper activeStep={state.activeStep as number} alternativeLabel>
+        <Stepper activeStep={derived.effectiveStep as number} alternativeLabel>
           {stepLabels.map((label, index) => (
             <Step key={label}>
               <StepLabel
@@ -214,37 +252,17 @@ export default function MetageoView() {
 
       {/* Step Content */}
       <Box sx={{ mb: 4 }}>
-        {state.activeStep === STEPS.INDEX_CONFIGURATION && (
+        {derived.effectiveStep === STEPS.INDEX_CONFIGURATION && (
           <IndexConfigurationStep />
         )}
 
-        {state.activeStep === STEPS.INDEXING && <IndexingStep />}
+        {derived.effectiveStep === STEPS.INDEXING && <IndexingStep />}
 
-        {state.activeStep === STEPS.MAPPING && <MappingStep />}
+        {derived.effectiveStep === STEPS.MAPPING && <MappingStep />}
 
-        {state.activeStep === STEPS.ENRICH && (
-          <Paper
-            elevation={1}
-            sx={{
-              p: 6,
-              textAlign: "center",
-              background: alpha(theme.palette.info.main, 0.02),
-              border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
-              borderRadius: 2,
-            }}
-          >
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-              🚧 Enrich Step
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              This step will be implemented next. It will allow you to enrich
-              your samples with the OSM data based on your mapping
-              configuration.
-            </Typography>
-          </Paper>
-        )}
+        {derived.effectiveStep === STEPS.ENRICH && <EnrichStep />}
 
-        {state.activeStep === STEPS.SEARCH_CLEANUP && (
+        {derived.effectiveStep === STEPS.SEARCH_CLEANUP && (
           <Paper
             elevation={1}
             sx={{

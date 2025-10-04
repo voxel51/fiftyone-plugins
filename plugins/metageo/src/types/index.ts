@@ -27,6 +27,9 @@ export type CellStatus =
   | "completed"
   | "failed"
   | "rate_limited"
+  | "retrying"
+  | "cancelled"
+  | "empty"
   | "unknown";
 
 export interface QuadtreeCell {
@@ -64,22 +67,33 @@ export interface IndexingState {
 }
 
 export interface MappingConfig {
-  radius: number;
+  // Basic configuration
   geoField: string;
+  useYamlConfig: boolean;
+  yamlConfig: string;
+  
+  // 3D Detections configuration
   enable3DDetections: boolean;
   threeDSlice: string;
   detectionFieldName: string;
   detectionLabelTag: string;
+  detectionRadius: number;
+  
+  // Sample tagging configuration
   enableSampleTagging: boolean;
   tagSlice: string;
   tagMappings: TagMapping[];
   tagRadius: number;
   renderOn3D: boolean;
   renderOn2D: boolean;
+  
+  // Field mapping configuration
   enableFieldMapping: boolean;
   fieldMappings: FieldMapping[];
-  useYamlConfig: boolean;
-  yamlConfig: string;
+  
+  // Metadata configuration
+  includeAllTagsAsMetadata: boolean;
+  metadataFieldName: string;
 }
 
 export interface TagMapping {
@@ -91,11 +105,19 @@ export interface TagMapping {
 }
 
 export interface FieldMapping {
+  id: string; // Unique identifier for the mapping
   osmKey: string;
   fieldName: string;
-  fieldType: "string" | "int" | "float" | "bool";
+  fieldType: "string" | "int" | "float" | "bool" | "enum";
+  // Boolean mapping
   boolTrueValue?: string;
   boolFalseValue?: string;
+  // Enum mapping
+  enumMappings?: { [osmValue: string]: string };
+  // Default value when OSM tag is not found
+  defaultValue?: string;
+  // Description for documentation
+  description?: string;
 }
 
 export interface StepData {
@@ -145,6 +167,16 @@ export interface MetageoClient {
   watch_indexing: (params: { indexing_id: string }) => Promise<any>;
   get_current_indexing_state: () => Promise<any>;
   drop_index: () => Promise<any>;
+  cancel_indexing: (params: {}) => Promise<any>;
   get_available_osm_tags: () => Promise<any>;
+  get_field_mappings: () => Promise<any>;
+  save_mapping_config: (params: { mapping_config: any }) => Promise<any>;
+  get_mapping_config: () => Promise<any>;
+  clear_mapping_config: () => Promise<any>;
+  clear_enrichment_data: () => Promise<any>;
+  enrich_dataset_async: () => Promise<any>;
+  get_enrichment_status: () => Promise<any>;
   get_geo_fields: () => Promise<any>;
+  get_cell_data: (params: { cell_id: string }) => Promise<any>;
+  reset_metageo: () => Promise<any>;
 }

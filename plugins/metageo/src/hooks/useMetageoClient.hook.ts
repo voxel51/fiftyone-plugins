@@ -76,10 +76,70 @@ export function useMetageoClient(): MetageoClient {
       "@voxel51/metageo/metageo_panel#get_available_osm_tags"
     ),
 
+    get_field_mappings: createOperatorCall(
+      handleEvent,
+      "get_field_mappings",
+      "@voxel51/metageo/metageo_panel#get_field_mappings"
+    ),
+
+    save_mapping_config: createOperatorCall(
+      handleEvent,
+      "save_mapping_config",
+      "@voxel51/metageo/metageo_panel#save_mapping_config"
+    ),
+
+    get_mapping_config: createOperatorCall(
+      handleEvent,
+      "get_mapping_config",
+      "@voxel51/metageo/metageo_panel#get_mapping_config"
+    ),
+
+    clear_mapping_config: createOperatorCall(
+      handleEvent,
+      "clear_mapping_config",
+      "@voxel51/metageo/metageo_panel#clear_mapping_config"
+    ),
+
+    clear_enrichment_data: createOperatorCall(
+      handleEvent,
+      "clear_enrichment_data",
+      "@voxel51/metageo/metageo_panel#clear_enrichment_data"
+    ),
+
+    enrich_dataset_async: createOperatorCall(
+      handleEvent,
+      "enrich_dataset_async",
+      "@voxel51/metageo/metageo_panel#enrich_dataset_async"
+    ),
+
+    get_enrichment_status: createOperatorCall(
+      handleEvent,
+      "get_enrichment_status",
+      "@voxel51/metageo/metageo_panel#get_enrichment_status"
+    ),
+
     get_geo_fields: createOperatorCall(
       handleEvent,
       "get_geo_fields",
       "@voxel51/metageo/metageo_panel#get_geo_fields"
+    ),
+
+    get_cell_data: createOperatorCall(
+      handleEvent,
+      "get_cell_data",
+      "@voxel51/metageo/metageo_panel#get_cell_data"
+    ),
+
+    cancel_indexing: createOperatorCall(
+      handleEvent,
+      "cancel_indexing",
+      "@voxel51/metageo/metageo_panel#cancel_indexing"
+    ),
+
+    reset_metageo: createOperatorCall(
+      handleEvent,
+      "reset_metageo",
+      "@voxel51/metageo/reset_metageo"
     ),
   }), [handleEvent]);
 
