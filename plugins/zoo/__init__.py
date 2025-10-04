@@ -51,6 +51,11 @@ class LoadZooDataset(foo.Operator):
 
         dataset_name = _get_zoo_dataset_name(ctx)
 
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         dataset = foz.load_zoo_dataset(
             name,
             splits=splits,
@@ -649,6 +654,13 @@ class ApplyZooModel(foo.Operator):
         if not ctx.delegated:
             num_workers = 0
 
+        kwargs = {}
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         if task == "EMBEDDINGS":
             if storage_method == "SIMILARITY_INDEX":
                 _inject_brain_secrets(ctx)
@@ -667,6 +679,7 @@ class ApplyZooModel(foo.Operator):
                     skip_existing=skip_existing,
                     skip_failures=skip_failures,
                     warn_existing=False,
+                    **kwargs,
                 )
 
                 similarity_index.add_to_index(
@@ -689,6 +702,7 @@ class ApplyZooModel(foo.Operator):
                     batch_size=batch_size,
                     num_workers=num_workers,
                     skip_failures=skip_failures,
+                    **kwargs,
                 )
             else:
                 if skip_existing:
@@ -702,6 +716,7 @@ class ApplyZooModel(foo.Operator):
                     batch_size=batch_size,
                     num_workers=num_workers,
                     skip_failures=skip_failures,
+                    **kwargs,
                 )
         else:
             if skip_existing:
@@ -717,6 +732,7 @@ class ApplyZooModel(foo.Operator):
                 skip_failures=skip_failures,
                 output_dir=output_dir,
                 rel_dir=rel_dir,
+                **kwargs,
             )
 
         if not ctx.delegated:

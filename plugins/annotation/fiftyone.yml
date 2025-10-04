@@ -1,6 +1,6 @@
 name: "@voxel51/annotation"
 description: Utilities for integrating FiftyOne with annotation tools
-version: 1.0.3
+version: 1.1.0
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/annotation

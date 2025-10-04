@@ -262,9 +262,20 @@ def _manage_delegated_operations_actions(ctx, inputs):
                 default=op.context.request_params.get("dataset_name", None),
                 view=types.MarkdownView(read_only=True, space=space1),
             )
+
+        state = op.run_state.capitalize()
+        if (
+            op.run_state == fooe.ExecutionRunState.RUNNING
+            and op.status is not None
+        ):
+            if op.status.progress is not None:
+                state += f" ({op.status.progress:.0%})"
+            elif op.status.label is not None:
+                state += f" ({op.status.label})"
+
         obj.str(
             "state",
-            default=op.run_state.capitalize(),
+            default=state,
             view=types.MarkdownView(read_only=True, space=space2),
         )
         obj.str(

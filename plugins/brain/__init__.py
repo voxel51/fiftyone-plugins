@@ -78,6 +78,12 @@ class ComputeVisualization(foo.Operator):
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         fob.compute_visualization(
             target_view,
             patches_field=patches_field,
@@ -328,6 +334,12 @@ class ComputeSimilarity(foo.Operator):
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         fob.compute_similarity(
             target_view,
             patches_field=patches_field,
@@ -1213,6 +1225,14 @@ class ComputeUniqueness(foo.Operator):
             num_workers = 0
 
         target_view = _get_target_view(ctx, target)
+
+        kwargs = {}
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         fob.compute_uniqueness(
             target_view,
             uniqueness_field=uniqueness_field,
@@ -1222,6 +1242,7 @@ class ComputeUniqueness(foo.Operator):
             batch_size=batch_size,
             num_workers=num_workers,
             skip_failures=skip_failures,
+            **kwargs,
         )
 
         if not ctx.delegated:
@@ -1298,6 +1319,12 @@ class ComputeMistakenness(foo.Operator):
         mistakenness_field = kwargs.pop("mistakenness_field")
 
         target_view = _get_target_view(ctx, target)
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         fob.compute_mistakenness(
             target_view,
             pred_field,
@@ -1471,10 +1498,19 @@ class ComputeHardness(foo.Operator):
         hardness_field = ctx.params.get("hardness_field")
 
         target_view = _get_target_view(ctx, target)
+
+        kwargs = {}
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
         fob.compute_hardness(
             target_view,
             label_field,
             hardness_field=hardness_field,
+            **kwargs,
         )
 
         if not ctx.delegated:
