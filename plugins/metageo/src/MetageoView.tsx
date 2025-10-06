@@ -20,6 +20,7 @@ import IndexConfigurationStep from "./components/IndexConfigurationStep/IndexCon
 import IndexingStep from "./components/IndexingStep/IndexingStep";
 import MappingStep from "./components/MappingStep/MappingStep";
 import EnrichStep from "./components/EnrichStep/EnrichStep";
+import SearchCleanupStep from "./components/SearchCleanupStep/SearchCleanupStep";
 
 const stepLabels = [
   "Index Configuration",
@@ -33,7 +34,7 @@ export default function MetageoView() {
   const theme = useTheme();
   const { state, actions, derived } = useMetageoFlow();
   const hasLoadedRef = useRef(false);
-  
+
   console.log("🔍 MetageoView render: state =", state, "derived =", derived);
 
   useEffect(() => {
@@ -43,20 +44,52 @@ export default function MetageoView() {
         "🔍 MetageoView: useEffect triggered, calling loadCurrentIndexingState"
       );
       hasLoadedRef.current = true;
-      
+
       // Call loadCurrentIndexingState and handle the result
-      actions.loadCurrentIndexingState().then((result) => {
-        console.log("🔍 MetageoView: loadCurrentIndexingState result:", result);
-        if (result?.success && result?.hasExistingIndex) {
-          console.log("🔍 MetageoView: Found existing index, should show indexing step");
-        } else {
-          console.log("🔍 MetageoView: No existing index found");
-        }
-      }).catch((error) => {
-        console.error("🔍 MetageoView: Error loading current indexing state:", error);
-      });
+      actions
+        .loadCurrentIndexingState()
+        .then((result) => {
+          console.log(
+            "🔍 MetageoView: loadCurrentIndexingState result:",
+            result
+          );
+          if (result?.success && result?.hasExistingIndex) {
+            console.log(
+              "🔍 MetageoView: Found existing index, should show indexing step"
+            );
+          } else {
+            console.log("🔍 MetageoView: No existing index found");
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "🔍 MetageoView: Error loading current indexing state:",
+            error
+          );
+        });
     }
   }, []); // Empty dependency array since we use hasLoadedRef to ensure it only runs once
+
+  // Watch for reset operations and allow reload
+  useEffect(() => {
+    // If we're on the first step and haven't started, allow reload
+    if (state.activeStep === 0 && !state.hasStarted) {
+      hasLoadedRef.current = false;
+      // Trigger a reload of the current state
+      console.log("🔍 MetageoView: Reset detected, reloading state...");
+      actions
+        .loadCurrentIndexingState()
+        .then((result) => {
+          console.log("🔍 MetageoView: State reloaded after reset:", result);
+        })
+        .catch((error) => {
+          console.error(
+            "🔍 MetageoView: Error reloading state after reset:",
+            error
+          );
+        });
+    }
+  }, [state.activeStep, state.hasStarted, actions]);
 
   if (state.isLoadingState) {
     return (
@@ -82,7 +115,12 @@ export default function MetageoView() {
   }
 
   if (!state.hasStarted && !derived.hasExistingIndex) {
-    console.log("🔍 MetageoView: Showing Configuration Required - hasStarted =", state.hasStarted, "hasExistingIndex =", derived.hasExistingIndex);
+    console.log(
+      "🔍 MetageoView: Showing Configuration Required - hasStarted =",
+      state.hasStarted,
+      "hasExistingIndex =",
+      derived.hasExistingIndex
+    );
     return (
       <Box>
         <Paper
@@ -263,24 +301,7 @@ export default function MetageoView() {
         {derived.effectiveStep === STEPS.ENRICH && <EnrichStep />}
 
         {derived.effectiveStep === STEPS.SEARCH_CLEANUP && (
-          <Paper
-            elevation={1}
-            sx={{
-              p: 6,
-              textAlign: "center",
-              background: alpha(theme.palette.success.main, 0.02),
-              border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`,
-              borderRadius: 2,
-            }}
-          >
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-              🎉 Search & Cleanup
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              This step will be implemented next. It will provide search
-              capabilities and data cleanup tools for your enriched dataset.
-            </Typography>
-          </Paper>
+          <SearchCleanupStep />
         )}
       </Box>
 

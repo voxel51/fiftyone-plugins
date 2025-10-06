@@ -28,9 +28,6 @@ export interface MappingConfig {
     boolTrueValue?: string;
     boolFalseValue?: string;
   }>;
-  tagRadius: number;
-  renderOn3D: boolean;
-  renderOn2D: boolean;
   enableFieldMapping: boolean;
   fieldMappings: Array<{
     osmKey: string;
@@ -127,5 +124,3 @@ export function hasStoredState(): boolean {
     getStoredMappingConfig() !== null
   );
 }
-
-

@@ -71,26 +71,23 @@ export interface MappingConfig {
   geoField: string;
   useYamlConfig: boolean;
   yamlConfig: string;
-  
+
   // 3D Detections configuration
   enable3DDetections: boolean;
   threeDSlice: string;
   detectionFieldName: string;
   detectionLabelTag: string;
   detectionRadius: number;
-  
+
   // Sample tagging configuration
   enableSampleTagging: boolean;
   tagSlice: string;
   tagMappings: TagMapping[];
-  tagRadius: number;
-  renderOn3D: boolean;
-  renderOn2D: boolean;
-  
+
   // Field mapping configuration
   enableFieldMapping: boolean;
   fieldMappings: FieldMapping[];
-  
+
   // Metadata configuration
   includeAllTagsAsMetadata: boolean;
   metadataFieldName: string;
@@ -99,9 +96,9 @@ export interface MappingConfig {
 export interface TagMapping {
   osmKey: string;
   fieldName: string;
-  fieldType: "string" | "int" | "float" | "bool";
-  boolTrueValue?: string;
-  boolFalseValue?: string;
+  fieldType: "bool"; // Always boolean since we're tagging presence/absence
+  boolFalseValues?: string; // Comma-separated list of values to consider as false
+  distance?: number; // Distance threshold in meters for this specific tag mapping
 }
 
 export interface FieldMapping {
@@ -111,7 +108,7 @@ export interface FieldMapping {
   fieldType: "string" | "int" | "float" | "bool" | "enum";
   // Boolean mapping
   boolTrueValue?: string;
-  boolFalseValue?: string;
+  boolFalseValues?: string; // Comma-separated list of values to consider as false
   // Enum mapping
   enumMappings?: { [osmValue: string]: string };
   // Default value when OSM tag is not found
@@ -177,6 +174,8 @@ export interface MetageoClient {
   enrich_dataset_async: () => Promise<any>;
   get_enrichment_status: () => Promise<any>;
   get_geo_fields: () => Promise<any>;
+  get_dataset_info: () => Promise<any>;
+  get_sample_geo_points: (params: { geo_field: string }) => Promise<any>;
   get_cell_data: (params: { cell_id: string }) => Promise<any>;
   reset_metageo: () => Promise<any>;
 }

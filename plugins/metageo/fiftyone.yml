@@ -8,3 +8,5 @@ panels:
 operators:
   - index_grid
   - watch_indexing
+  - watch_enrichment_progress
+  - reset_metageo

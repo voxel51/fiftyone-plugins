@@ -47,7 +47,7 @@ interface FieldMappingFormData {
   fieldName: string;
   fieldType: "string" | "int" | "float" | "bool" | "enum";
   boolTrueValue: string;
-  boolFalseValue: string;
+  boolFalseValues: string; // Comma-separated list
   enumMappings: { [key: string]: string };
   defaultValue: string;
   description: string;
@@ -60,7 +60,6 @@ const FIELD_TYPE_OPTIONS = [
   { value: "bool", label: "Boolean", description: "True/False values" },
   { value: "enum", label: "Enum", description: "Categorical values" },
 ];
-
 
 export default function FieldMappingConfig({
   fieldMappings,
@@ -97,7 +96,7 @@ export default function FieldMappingConfig({
     fieldName: "",
     fieldType: "string",
     boolTrueValue: "yes",
-    boolFalseValue: "no",
+    boolFalseValues: "false, no",
     enumMappings: {},
     defaultValue: "",
     description: "",
@@ -111,7 +110,7 @@ export default function FieldMappingConfig({
         fieldName: mapping.fieldName,
         fieldType: mapping.fieldType,
         boolTrueValue: mapping.boolTrueValue || "yes",
-        boolFalseValue: mapping.boolFalseValue || "no",
+        boolFalseValues: mapping.boolFalseValues || "false, no",
         enumMappings: mapping.enumMappings || {},
         defaultValue: mapping.defaultValue || "",
         description: mapping.description || "",
@@ -123,7 +122,7 @@ export default function FieldMappingConfig({
         fieldName: "",
         fieldType: "string",
         boolTrueValue: "yes",
-        boolFalseValue: "no",
+        boolFalseValues: "false, no",
         enumMappings: {},
         defaultValue: "",
         description: "",
@@ -140,13 +139,19 @@ export default function FieldMappingConfig({
 
   const handleSave = () => {
     const mapping: FieldMapping = {
-      id: editingIndex !== null ? fieldMappings[editingIndex].id : `mapping_${Date.now()}`,
+      id:
+        editingIndex !== null
+          ? fieldMappings[editingIndex].id
+          : `mapping_${Date.now()}`,
       osmKey: formData.osmKey,
       fieldName: formData.fieldName,
       fieldType: formData.fieldType,
-      boolTrueValue: formData.fieldType === "bool" ? formData.boolTrueValue : undefined,
-      boolFalseValue: formData.fieldType === "bool" ? formData.boolFalseValue : undefined,
-      enumMappings: formData.fieldType === "enum" ? formData.enumMappings : undefined,
+      boolTrueValue:
+        formData.fieldType === "bool" ? formData.boolTrueValue : undefined,
+      boolFalseValues:
+        formData.fieldType === "bool" ? formData.boolFalseValues : undefined,
+      enumMappings:
+        formData.fieldType === "enum" ? formData.enumMappings : undefined,
       defaultValue: formData.defaultValue || undefined,
       description: formData.description || undefined,
     };
@@ -161,7 +166,7 @@ export default function FieldMappingConfig({
   };
 
   const handleAddEnumMapping = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       enumMappings: {
         ...prev.enumMappings,
@@ -170,8 +175,12 @@ export default function FieldMappingConfig({
     }));
   };
 
-  const handleUpdateEnumMapping = (key: string, newKey: string, value: string) => {
-    setFormData(prev => {
+  const handleUpdateEnumMapping = (
+    key: string,
+    newKey: string,
+    value: string
+  ) => {
+    setFormData((prev) => {
       const newMappings = { ...prev.enumMappings };
       delete newMappings[key];
       newMappings[newKey] = value;
@@ -183,7 +192,7 @@ export default function FieldMappingConfig({
   };
 
   const handleRemoveEnumMapping = (key: string) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const newMappings = { ...prev.enumMappings };
       delete newMappings[key];
       return {
@@ -194,7 +203,7 @@ export default function FieldMappingConfig({
   };
 
   const getFieldTypeDescription = (fieldType: string) => {
-    const option = FIELD_TYPE_OPTIONS.find(opt => opt.value === fieldType);
+    const option = FIELD_TYPE_OPTIONS.find((opt) => opt.value === fieldType);
     return option?.description || "";
   };
 
@@ -205,9 +214,21 @@ export default function FieldMappingConfig({
       building: ["yes", "house", "apartments", "commercial", "industrial"],
       highway: ["primary", "secondary", "residential", "footway", "cycleway"],
       amenity: ["restaurant", "school", "hospital", "bank", "fuel"],
-      landuse: ["residential", "commercial", "industrial", "forest", "farmland"],
+      landuse: [
+        "residential",
+        "commercial",
+        "industrial",
+        "forest",
+        "farmland",
+      ],
       natural: ["water", "wood", "grassland", "scrub", "bare_rock"],
-      leisure: ["park", "playground", "sports_centre", "swimming_pool", "golf_course"],
+      leisure: [
+        "park",
+        "playground",
+        "sports_centre",
+        "swimming_pool",
+        "golf_course",
+      ],
       shop: ["supermarket", "bakery", "clothes", "electronics", "books"],
       tourism: ["hotel", "museum", "attraction", "information", "guest_house"],
     };
@@ -218,7 +239,13 @@ export default function FieldMappingConfig({
     <Box>
       <Stack spacing={2}>
         {/* Header */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Field Mappings ({fieldMappings.length})
           </Typography>
@@ -235,7 +262,8 @@ export default function FieldMappingConfig({
         {/* Mappings List */}
         {fieldMappings.length === 0 ? (
           <Alert severity="info" sx={{ mb: 2 }}>
-            No field mappings configured. Click "Add Mapping" to create your first mapping.
+            No field mappings configured. Click "Add Mapping" to create your
+            first mapping.
           </Alert>
         ) : (
           <Stack spacing={1}>
@@ -275,7 +303,11 @@ export default function FieldMappingConfig({
                       />
                     </Stack>
                     {mapping.description && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 0.5, display: "block" }}
+                      >
                         {mapping.description}
                       </Typography>
                     )}
@@ -321,15 +353,15 @@ export default function FieldMappingConfig({
             {/* OSM Key */}
             <Autocomplete
               freeSolo
-              options={osmTags.map(tag => tag.key)}
+              options={osmTags.map((tag) => tag.key)}
               value={formData.osmKey}
               onChange={(_, value) => {
                 const osmKey = value || "";
-                setFormData(prev => ({ 
-                  ...prev, 
+                setFormData((prev) => ({
+                  ...prev,
                   osmKey,
                   // Auto-populate field name with the same value as OSM key
-                  fieldName: osmKey
+                  fieldName: osmKey,
                 }));
               }}
               renderInput={(params) => (
@@ -342,12 +374,21 @@ export default function FieldMappingConfig({
                 />
               )}
               renderOption={(props, option) => {
-                const tag = osmTags.find(t => t.key === option);
+                const tag = osmTags.find((t) => t.key === option);
                 return (
                   <Box component="li" {...props}>
                     <Box sx={{ width: "100%" }}>
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{option}</Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          mb: 0.5,
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {option}
+                        </Typography>
                         {tag && (
                           <Typography variant="caption" color="text.secondary">
                             {tag.count} features
@@ -355,22 +396,28 @@ export default function FieldMappingConfig({
                         )}
                       </Box>
                       {tag && tag.examples && tag.examples.length > 0 && (
-                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                        <Box
+                          sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
+                        >
                           {tag.examples.slice(0, 3).map((example, index) => (
                             <Chip
                               key={index}
                               label={example}
                               size="small"
                               variant="outlined"
-                              sx={{ 
-                                fontSize: "0.7rem", 
+                              sx={{
+                                fontSize: "0.7rem",
                                 height: 20,
-                                "& .MuiChip-label": { px: 0.5 }
+                                "& .MuiChip-label": { px: 0.5 },
                               }}
                             />
                           ))}
                           {tag.examples.length > 3 && (
-                            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ alignSelf: "center" }}
+                            >
                               +{tag.examples.length - 3} more
                             </Typography>
                           )}
@@ -386,31 +433,45 @@ export default function FieldMappingConfig({
             <TextField
               label="Dataset Field Name"
               value={formData.fieldName}
-              onChange={(e) => setFormData(prev => ({ ...prev, fieldName: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, fieldName: e.target.value }))
+              }
               placeholder="e.g., building_type, road_type"
               helperText="The field name in your FiftyOne dataset"
               required
-              error={usedFieldNames.includes(formData.fieldName) && formData.fieldName !== ""}
+              error={
+                usedFieldNames.includes(formData.fieldName) &&
+                formData.fieldName !== ""
+              }
               InputProps={{
-                endAdornment: usedFieldNames.includes(formData.fieldName) && formData.fieldName !== "" ? (
-                  <Tooltip title="This field name is already used">
-                    <InfoIcon color="error" fontSize="small" />
-                  </Tooltip>
-                ) : null,
+                endAdornment:
+                  usedFieldNames.includes(formData.fieldName) &&
+                  formData.fieldName !== "" ? (
+                    <Tooltip title="This field name is already used">
+                      <InfoIcon color="error" fontSize="small" />
+                    </Tooltip>
+                  ) : null,
               }}
             />
-            {usedFieldNames.includes(formData.fieldName) && formData.fieldName !== "" && (
-              <Alert severity="error" size="small">
-                Field name "{formData.fieldName}" is already used in another mapping.
-              </Alert>
-            )}
+            {usedFieldNames.includes(formData.fieldName) &&
+              formData.fieldName !== "" && (
+                <Alert severity="error" size="small">
+                  Field name "{formData.fieldName}" is already used in another
+                  mapping.
+                </Alert>
+              )}
 
             {/* Field Type */}
             <FormControl fullWidth>
               <InputLabel>Field Type</InputLabel>
               <Select
                 value={formData.fieldType}
-                onChange={(e) => setFormData(prev => ({ ...prev, fieldType: e.target.value as any }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    fieldType: e.target.value as any,
+                  }))
+                }
                 label="Field Type"
               >
                 {FIELD_TYPE_OPTIONS.map((option) => (
@@ -436,15 +497,26 @@ export default function FieldMappingConfig({
                   <TextField
                     label="True Value"
                     value={formData.boolTrueValue}
-                    onChange={(e) => setFormData(prev => ({ ...prev, boolTrueValue: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        boolTrueValue: e.target.value,
+                      }))
+                    }
                     helperText="OSM value that maps to true"
                     size="small"
                   />
                   <TextField
-                    label="False Value"
-                    value={formData.boolFalseValue}
-                    onChange={(e) => setFormData(prev => ({ ...prev, boolFalseValue: e.target.value }))}
-                    helperText="OSM value that maps to false"
+                    label="False Values"
+                    value={formData.boolFalseValues}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        boolFalseValues: e.target.value,
+                      }))
+                    }
+                    helperText="Comma-separated list of OSM values that map to false (case-insensitive)"
+                    placeholder="false, no, off, 0"
                     size="small"
                   />
                 </Stack>
@@ -453,7 +525,13 @@ export default function FieldMappingConfig({
 
             {formData.fieldType === "enum" && (
               <Stack spacing={2}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <Typography variant="subtitle2">Enum Mappings</Typography>
                   <Button
                     size="small"
@@ -465,11 +543,18 @@ export default function FieldMappingConfig({
                 </Box>
                 <Stack spacing={1}>
                   {Object.entries(formData.enumMappings).map(([key, value]) => (
-                    <Stack key={key} direction="row" spacing={1} alignItems="center">
+                    <Stack
+                      key={key}
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                    >
                       <TextField
                         label="OSM Value"
                         value={key}
-                        onChange={(e) => handleUpdateEnumMapping(key, e.target.value, value)}
+                        onChange={(e) =>
+                          handleUpdateEnumMapping(key, e.target.value, value)
+                        }
                         size="small"
                         sx={{ flex: 1 }}
                       />
@@ -479,7 +564,9 @@ export default function FieldMappingConfig({
                       <TextField
                         label="Dataset Value"
                         value={value}
-                        onChange={(e) => handleUpdateEnumMapping(key, key, e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateEnumMapping(key, key, e.target.value)
+                        }
                         size="small"
                         sx={{ flex: 1 }}
                       />
@@ -496,7 +583,8 @@ export default function FieldMappingConfig({
                 {formData.osmKey && (
                   <Alert severity="info">
                     <Typography variant="body2">
-                      Common values for <strong>{formData.osmKey}</strong>: {getOsmTagExamples(formData.osmKey).join(", ")}
+                      Common values for <strong>{formData.osmKey}</strong>:{" "}
+                      {getOsmTagExamples(formData.osmKey).join(", ")}
                     </Typography>
                   </Alert>
                 )}
@@ -507,7 +595,12 @@ export default function FieldMappingConfig({
             <TextField
               label="Default Value"
               value={formData.defaultValue}
-              onChange={(e) => setFormData(prev => ({ ...prev, defaultValue: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  defaultValue: e.target.value,
+                }))
+              }
               helperText="Value to use when OSM tag is not found"
               placeholder="e.g., unknown, null, 0"
             />
@@ -516,7 +609,12 @@ export default function FieldMappingConfig({
             <TextField
               label="Description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
               helperText="Optional description for documentation"
               multiline
               rows={2}
@@ -529,10 +627,12 @@ export default function FieldMappingConfig({
             onClick={handleSave}
             variant="contained"
             disabled={
-              !formData.osmKey || 
-              !formData.fieldName || 
-              (usedFieldNames.includes(formData.fieldName) && 
-               (editingIndex === null || fieldMappings[editingIndex]?.fieldName !== formData.fieldName))
+              !formData.osmKey ||
+              !formData.fieldName ||
+              (usedFieldNames.includes(formData.fieldName) &&
+                (editingIndex === null ||
+                  fieldMappings[editingIndex]?.fieldName !==
+                    formData.fieldName))
             }
           >
             {editingIndex !== null ? "Update" : "Add"} Mapping

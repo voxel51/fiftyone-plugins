@@ -19,84 +19,89 @@ import {
 } from "@mui/icons-material";
 import { useMappingConfig } from "../../hooks/useMappingConfig.hook";
 import { useMetageoClient } from "../../hooks/useMetageoClient.hook";
+import { useEnrichmentState } from "../../hooks/useEnrichmentState.hook";
 
 export default function EnrichStep() {
   const { state: mappingConfig } = useMappingConfig();
   const client = useMetageoClient();
+  const { state: enrichmentState, actions: enrichmentActions } =
+    useEnrichmentState();
   const [clearingEnrichmentData, setClearingEnrichmentData] = useState(false);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
-  const [enrichmentStatus, setEnrichmentStatus] = useState<string>("not_started");
-  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
 
   // Get list of fields that will be cleared
   const getFieldsToBeCleared = () => {
     const fields = new Set<string>();
-    
+
     // Sample tagging fields
     if (mappingConfig.enableSampleTagging) {
-      mappingConfig.tagMappings.forEach(mapping => {
+      mappingConfig.tagMappings.forEach((mapping) => {
         if (mapping.fieldName) {
           fields.add(mapping.fieldName);
         }
       });
     }
-    
+
     // Field mapping fields
     if (mappingConfig.enableFieldMapping) {
-      mappingConfig.fieldMappings.forEach(mapping => {
+      mappingConfig.fieldMappings.forEach((mapping) => {
         if (mapping.fieldName) {
           fields.add(mapping.fieldName);
         }
       });
     }
-    
+
     // Metadata field
     if (mappingConfig.includeAllTagsAsMetadata) {
       fields.add(mappingConfig.metadataFieldName || "osm_metadata");
     }
-    
+
     // Detection field
     if (mappingConfig.enable3DDetections) {
       fields.add(mappingConfig.detectionFieldName || "detections");
     }
-    
+
     return Array.from(fields);
   };
 
   // Get detailed information about fields that will be enriched
   const getFieldsToBeEnriched = () => {
     const fields = [];
-    
+
     // Sample tagging fields
     if (mappingConfig.enableSampleTagging) {
-      mappingConfig.tagMappings.forEach(mapping => {
+      mappingConfig.tagMappings.forEach((mapping) => {
         if (mapping.fieldName) {
           fields.push({
             name: mapping.fieldName,
             type: mapping.fieldType || "string",
             category: "Sample Tagging",
-            description: `OSM tag "${mapping.osmKey}" → ${mapping.fieldType || "string"} field`,
+            description: `OSM tag "${mapping.osmKey}" → ${
+              mapping.fieldType || "string"
+            } field`,
             enabled: true,
           });
         }
       });
     }
-    
+
     // Field mapping fields
     if (mappingConfig.enableFieldMapping) {
-      mappingConfig.fieldMappings.forEach(mapping => {
+      mappingConfig.fieldMappings.forEach((mapping) => {
         if (mapping.fieldName) {
           fields.push({
             name: mapping.fieldName,
             type: mapping.fieldType || "string",
             category: "Field Mapping",
-            description: `OSM tag "${mapping.osmKey}" → ${mapping.fieldType || "string"} field`,
+            description: `OSM tag "${mapping.osmKey}" → ${
+              mapping.fieldType || "string"
+            } field`,
             enabled: true,
           });
         }
       });
     }
-    
+
     // Metadata field
     if (mappingConfig.includeAllTagsAsMetadata) {
       fields.push({
@@ -107,18 +112,20 @@ export default function EnrichStep() {
         enabled: true,
       });
     }
-    
+
     // Detection field
     if (mappingConfig.enable3DDetections) {
       fields.push({
         name: mappingConfig.detectionFieldName || "detections",
         type: "list",
         category: "3D Detections",
-        description: `3D detections using "${mappingConfig.detectionLabelTag || "type"}" tag`,
+        description: `3D detections using "${
+          mappingConfig.detectionLabelTag || "type"
+        }" tag`,
         enabled: true,
       });
     }
-    
+
     return fields;
   };
 
@@ -128,9 +135,15 @@ export default function EnrichStep() {
     try {
       const result = await client.clear_enrichment_data();
       if (result?.result?.status === "success") {
-        console.log("Enrichment data cleared successfully:", result.result.message);
+        console.log(
+          "Enrichment data cleared successfully:",
+          result.result.message
+        );
       } else {
-        console.error("Failed to clear enrichment data:", result?.result?.message);
+        console.error(
+          "Failed to clear enrichment data:",
+          result?.result?.message
+        );
       }
     } catch (error) {
       console.error("Error clearing enrichment data:", error);
@@ -142,29 +155,29 @@ export default function EnrichStep() {
 
   const handleStartEnrichment = async () => {
     if (!client) return;
-    
-    setEnrichmentLoading(true);
-    setEnrichmentStatus("starting");
-    
+
     try {
       // Save the mapping configuration first
       await client.save_mapping_config({ mapping_config: mappingConfig });
-      
+
       // Start the enrichment process
       const result = await client.enrich_dataset_async();
-      
+
       if (result?.result?.status === "success") {
-        setEnrichmentStatus("running");
+        // Get the enrichment ID from the result
+        const enrichmentId =
+          result.result.enrichment_id || `enrichment_${Date.now()}`;
+        const totalSamples = result.result.total_samples || 0;
+
+        // Start watching the enrichment progress
+        await enrichmentActions.startEnrichment(enrichmentId, totalSamples);
+
         console.log("Enrichment started successfully");
       } else {
-        setEnrichmentStatus("failed");
         console.error("Failed to start enrichment:", result?.result?.message);
       }
     } catch (error) {
-      setEnrichmentStatus("failed");
       console.error("Error starting enrichment:", error);
-    } finally {
-      setEnrichmentLoading(false);
     }
   };
 
@@ -173,10 +186,11 @@ export default function EnrichStep() {
       <Typography variant="h5" sx={{ mb: 3, fontWeight: 600 }}>
         Step 4: Dataset Enrichment
       </Typography>
-      
+
       <Typography variant="body1" sx={{ mb: 3, color: "text.secondary" }}>
-        Apply your mapping configuration to enrich the dataset with OpenStreetMap data.
-        This process runs asynchronously and supports multi-dashboard environments.
+        Apply your mapping configuration to enrich the dataset with
+        OpenStreetMap data. This process runs asynchronously and supports
+        multi-dashboard environments.
       </Typography>
 
       {/* Clear Enrichment Data Button */}
@@ -184,7 +198,13 @@ export default function EnrichStep() {
         <Button
           variant="outlined"
           color="info"
-          startIcon={clearingEnrichmentData ? <CircularProgress size={20} /> : <DeleteIcon />}
+          startIcon={
+            clearingEnrichmentData ? (
+              <CircularProgress size={20} />
+            ) : (
+              <DeleteIcon />
+            )
+          }
           onClick={() => setShowClearConfirmation(true)}
           disabled={clearingEnrichmentData}
           sx={{ minWidth: 200 }}
@@ -211,16 +231,22 @@ export default function EnrichStep() {
         </Stack>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Start the enrichment process to apply your mapping configuration to the dataset.
-          This process runs asynchronously and supports multi-dashboard environments.
+          Start the enrichment process to apply your mapping configuration to
+          the dataset. This process runs asynchronously and supports
+          multi-dashboard environments.
         </Typography>
 
         {/* Enrichment Summary */}
         {getFieldsToBeEnriched().length > 0 && (
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
-              <strong>Ready to enrich {getFieldsToBeEnriched().length} field{getFieldsToBeEnriched().length !== 1 ? 's' : ''}</strong> across your dataset. 
-              Each sample will be enriched with OpenStreetMap data based on its geographic location and your configured mappings.
+              <strong>
+                Ready to enrich {getFieldsToBeEnriched().length} field
+                {getFieldsToBeEnriched().length !== 1 ? "s" : ""}
+              </strong>{" "}
+              across your dataset. Each sample will be enriched with
+              OpenStreetMap data based on its geographic location and your
+              configured mappings.
             </Typography>
           </Alert>
         )}
@@ -239,13 +265,13 @@ export default function EnrichStep() {
           <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
             📋 Enrichment Preview
           </Typography>
-          
+
           {getFieldsToBeEnriched().length > 0 ? (
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 The following fields will be populated in your dataset:
               </Typography>
-              
+
               {/* Group fields by category */}
               {Object.entries(
                 getFieldsToBeEnriched().reduce((acc, field) => {
@@ -255,10 +281,20 @@ export default function EnrichStep() {
                 }, {} as Record<string, any[]>)
               ).map(([category, fields]) => (
                 <Box key={category} sx={{ mb: 2 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: "primary.main", display: "block", mb: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: "primary.main",
+                      display: "block",
+                      mb: 1,
+                    }}
+                  >
                     {category}
                   </Typography>
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, ml: 1 }}>
+                  <Box
+                    sx={{ display: "flex", flexWrap: "wrap", gap: 1, ml: 1 }}
+                  >
                     {fields.map((field, index) => (
                       <Chip
                         key={index}
@@ -272,14 +308,19 @@ export default function EnrichStep() {
                   </Box>
                 </Box>
               ))}
-              
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>
+
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 2, display: "block" }}
+              >
                 💡 Hover over field chips to see detailed mapping information
               </Typography>
             </Box>
           ) : (
             <Alert severity="info" sx={{ mb: 0 }}>
-              No enrichment fields are configured. Please go back to the Mapping step to configure field mappings.
+              No enrichment fields are configured. Please go back to the Mapping
+              step to configure field mappings.
             </Alert>
           )}
         </Paper>
@@ -288,33 +329,55 @@ export default function EnrichStep() {
           <Button
             variant="contained"
             onClick={handleStartEnrichment}
-            disabled={enrichmentLoading || enrichmentStatus === "running" || getFieldsToBeEnriched().length === 0}
+            disabled={
+              enrichmentState.status === "running" ||
+              getFieldsToBeEnriched().length === 0
+            }
             sx={{ minWidth: 200 }}
           >
-            {enrichmentLoading
-              ? "Starting..."
-              : enrichmentStatus === "running"
+            {enrichmentState.status === "running"
               ? "Enrichment Running..."
               : getFieldsToBeEnriched().length === 0
               ? "No Fields Configured"
               : "Start Enrichment"}
           </Button>
 
-          {enrichmentStatus === "running" && (
-            <Typography variant="body2" color="primary">
-              Enrichment in progress... This may take several minutes for large datasets.
-            </Typography>
+          {enrichmentState.status === "running" && (
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" color="primary" sx={{ mb: 1 }}>
+                Enrichment in progress... {enrichmentState.processedSamples}/
+                {enrichmentState.totalSamples} samples processed (
+                {enrichmentState.progress.toFixed(1)}%)
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <CircularProgress size={20} />
+                <Typography variant="caption" color="text.secondary">
+                  {enrichmentState.failedSamples > 0 &&
+                    `${enrichmentState.failedSamples} failed`}
+                </Typography>
+              </Box>
+            </Box>
           )}
 
-          {enrichmentStatus === "completed" && (
+          {enrichmentState.status === "completed" && (
             <Alert severity="success" sx={{ flex: 1 }}>
-              Dataset enrichment completed successfully!
+              Dataset enrichment completed successfully!{" "}
+              {enrichmentState.processedSamples} samples processed.
+              {enrichmentState.failedSamples > 0 &&
+                ` ${enrichmentState.failedSamples} samples failed.`}
             </Alert>
           )}
 
-          {enrichmentStatus === "failed" && (
+          {enrichmentState.status === "failed" && (
             <Alert severity="error" sx={{ flex: 1 }}>
-              Dataset enrichment failed. Please check the logs for details.
+              Dataset enrichment failed:{" "}
+              {enrichmentState.error || "Unknown error"}
+            </Alert>
+          )}
+
+          {enrichmentState.status === "cancelled" && (
+            <Alert severity="warning" sx={{ flex: 1 }}>
+              Dataset enrichment was cancelled.
             </Alert>
           )}
         </Stack>
@@ -323,7 +386,9 @@ export default function EnrichStep() {
       {/* Clear Enrichment Data Confirmation Dialog */}
       <Dialog
         open={showClearConfirmation}
-        onClose={() => !clearingEnrichmentData && setShowClearConfirmation(false)}
+        onClose={() =>
+          !clearingEnrichmentData && setShowClearConfirmation(false)
+        }
         maxWidth="sm"
         fullWidth
       >
@@ -335,9 +400,10 @@ export default function EnrichStep() {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            This action will permanently delete all enrichment data from the following fields:
+            This action will permanently delete all enrichment data from the
+            following fields:
           </Typography>
-          
+
           {getFieldsToBeCleared().length > 0 ? (
             <Box sx={{ mb: 2 }}>
               {getFieldsToBeCleared().map((fieldName, index) => (
@@ -353,12 +419,14 @@ export default function EnrichStep() {
             </Box>
           ) : (
             <Alert severity="info" sx={{ mb: 2 }}>
-              No enrichment fields are currently configured. Nothing will be cleared.
+              No enrichment fields are currently configured. Nothing will be
+              cleared.
             </Alert>
           )}
-          
+
           <Alert severity="warning" sx={{ mt: 2 }}>
-            <strong>Warning:</strong> This action cannot be undone. All data in these fields will be permanently removed from your dataset.
+            <strong>Warning:</strong> This action cannot be undone. All data in
+            these fields will be permanently removed from your dataset.
           </Alert>
         </DialogContent>
         <DialogActions>
@@ -372,8 +440,16 @@ export default function EnrichStep() {
             onClick={handleClearEnrichmentData}
             color="error"
             variant="contained"
-            disabled={clearingEnrichmentData || getFieldsToBeCleared().length === 0}
-            startIcon={clearingEnrichmentData ? <CircularProgress size={20} /> : <DeleteIcon />}
+            disabled={
+              clearingEnrichmentData || getFieldsToBeCleared().length === 0
+            }
+            startIcon={
+              clearingEnrichmentData ? (
+                <CircularProgress size={20} />
+              ) : (
+                <DeleteIcon />
+              )
+            }
           >
             {clearingEnrichmentData ? "Clearing..." : "Clear Data"}
           </Button>

@@ -21,31 +21,28 @@ export function useMappingConfig() {
       geoField: "",
       useYamlConfig: false,
       yamlConfig: "",
-      
+
       // 3D Detections configuration
       enable3DDetections: false,
       threeDSlice: "",
       detectionFieldName: "",
       detectionLabelTag: "",
       detectionRadius: 100,
-      
+
       // Sample tagging configuration
       enableSampleTagging: false,
       tagSlice: "",
       tagMappings: [],
-      tagRadius: 100,
-      renderOn3D: true,
-      renderOn2D: false,
-      
+
       // Field mapping configuration
       enableFieldMapping: false,
       fieldMappings: [],
-      
+
       // Metadata configuration
       includeAllTagsAsMetadata: false,
       metadataFieldName: "osm_metadata",
     };
-    
+
     return {
       state: defaultState,
       actions: {
@@ -75,7 +72,7 @@ export function useMappingConfig() {
       },
     };
   }
-  
+
   console.log("🔍 useMappingConfig: mappingConfig =", mappingConfig);
   console.log(
     "🔍 useMappingConfig: mappingConfig.tagMappings =",
@@ -87,31 +84,46 @@ export function useMappingConfig() {
   );
 
   // Auto-save mapping config to backend on changes
-  const saveMappingConfig = useCallback(async (config: MappingConfig) => {
-    if (!client || !hasLoaded) return;
-    
-    try {
-      console.log("🔍 useMappingConfig: Auto-saving mapping config:", config);
-      await client.save_mapping_config({ mapping_config: config });
-    } catch (error) {
-      console.error("🔍 useMappingConfig: Error auto-saving mapping config:", error);
-    }
-  }, [client, hasLoaded]);
+  const saveMappingConfig = useCallback(
+    async (config: MappingConfig) => {
+      if (!client || !hasLoaded) return;
+
+      try {
+        console.log("🔍 useMappingConfig: Auto-saving mapping config:", config);
+        await client.save_mapping_config({ mapping_config: config });
+      } catch (error) {
+        console.error(
+          "🔍 useMappingConfig: Error auto-saving mapping config:",
+          error
+        );
+      }
+    },
+    [client, hasLoaded]
+  );
 
   // Load mapping config from backend on mount
   const loadMappingConfig = useCallback(async () => {
     if (!client || hasLoaded) return;
-    
+
     try {
       console.log("🔍 useMappingConfig: Loading mapping config from backend");
       const result = await client.get_mapping_config();
-      
-      if (result?.result?.status === "success" && result.result.mapping_config) {
-        console.log("🔍 useMappingConfig: Loaded mapping config:", result.result.mapping_config);
+
+      if (
+        result?.result?.status === "success" &&
+        result.result.mapping_config
+      ) {
+        console.log(
+          "🔍 useMappingConfig: Loaded mapping config:",
+          result.result.mapping_config
+        );
         setMappingConfig(result.result.mapping_config);
       }
     } catch (error) {
-      console.error("🔍 useMappingConfig: Error loading mapping config:", error);
+      console.error(
+        "🔍 useMappingConfig: Error loading mapping config:",
+        error
+      );
     } finally {
       setHasLoaded(true);
     }
@@ -179,18 +191,6 @@ export function useMappingConfig() {
         setMappingConfig((prev) => ({ ...prev, tagSlice: slice }));
       },
 
-      setTagRadius: (radius: number) => {
-        setMappingConfig((prev) => ({ ...prev, tagRadius: radius }));
-      },
-
-      setRenderOn3D: (render: boolean) => {
-        setMappingConfig((prev) => ({ ...prev, renderOn3D: render }));
-      },
-
-      setRenderOn2D: (render: boolean) => {
-        setMappingConfig((prev) => ({ ...prev, renderOn2D: render }));
-      },
-
       // Tag Mappings
       addTagMapping: (mapping: TagMapping) => {
         setMappingConfig((prev) => ({
@@ -246,7 +246,10 @@ export function useMappingConfig() {
 
       // Metadata configuration
       setIncludeAllTagsAsMetadata: (include: boolean) => {
-        setMappingConfig((prev) => ({ ...prev, includeAllTagsAsMetadata: include }));
+        setMappingConfig((prev) => ({
+          ...prev,
+          includeAllTagsAsMetadata: include,
+        }));
       },
 
       setMetadataFieldName: (fieldName: string) => {
@@ -260,14 +263,14 @@ export function useMappingConfig() {
           geoField: "",
           useYamlConfig: false,
           yamlConfig: "",
-          
+
           // 3D Detections configuration
           enable3DDetections: false,
           threeDSlice: "",
           detectionFieldName: "",
           detectionLabelTag: "",
           detectionRadius: 100,
-          
+
           // Sample tagging configuration
           enableSampleTagging: false,
           tagSlice: "",
@@ -275,11 +278,11 @@ export function useMappingConfig() {
           tagRadius: 100,
           renderOn3D: true,
           renderOn2D: false,
-          
+
           // Field mapping configuration
           enableFieldMapping: false,
           fieldMappings: [],
-          
+
           // Metadata configuration
           includeAllTagsAsMetadata: false,
           metadataFieldName: "osm_metadata",
@@ -288,11 +291,13 @@ export function useMappingConfig() {
 
       clearMappingConfig: async () => {
         if (!client) return;
-        
+
         try {
-          console.log("🔍 useMappingConfig: Clearing mapping config from backend");
+          console.log(
+            "🔍 useMappingConfig: Clearing mapping config from backend"
+          );
           await client.clear_mapping_config();
-          
+
           // Reset local state
           setMappingConfig((prev) => ({
             ...prev,
@@ -300,32 +305,32 @@ export function useMappingConfig() {
             geoField: "",
             useYamlConfig: false,
             yamlConfig: "",
-            
+
             // 3D Detections configuration
             enable3DDetections: false,
             threeDSlice: "",
             detectionFieldName: "",
             detectionLabelTag: "",
             detectionRadius: 100,
-            
+
             // Sample tagging configuration
             enableSampleTagging: false,
             tagSlice: "",
             tagMappings: [],
-            tagRadius: 100,
-            renderOn3D: true,
-            renderOn2D: false,
-            
+
             // Field mapping configuration
             enableFieldMapping: false,
             fieldMappings: [],
-            
+
             // Metadata configuration
             includeAllTagsAsMetadata: false,
             metadataFieldName: "osm_metadata",
           }));
         } catch (error) {
-          console.error("🔍 useMappingConfig: Error clearing mapping config:", error);
+          console.error(
+            "🔍 useMappingConfig: Error clearing mapping config:",
+            error
+          );
         }
       },
     }),

@@ -25,11 +25,46 @@ import {
   Clear as ClearIcon,
 } from "@mui/icons-material";
 import { QuadtreeConfiguration } from "../QuadtreeConfiguration/QuadtreeConfiguration";
+// import DatasetBoundsMap from "../DatasetBoundsMap/DatasetBoundsMap";
 import { useIndexingState } from "../../hooks/useIndexingState.hook";
 import { useMappingConfig } from "../../hooks/useMappingConfig.hook";
 import { useMetageoFlow } from "../../hooks/useMetageoFlow.hook";
 import { useGeoFields } from "../../hooks/useGeoFields.hook";
-import type { QuadtreeCell } from "../../types";
+import { useDatasetGeoPoints } from "../../hooks/useDatasetGeoPoints.hook";
+import type { QuadtreeCell, BoundingBox } from "../../types";
+
+// Helper functions for geographic calculations
+const calculateAreaKm2 = (bbox: BoundingBox): number => {
+  // Convert degrees to approximate kilometers
+  // 1 degree latitude ≈ 111 km
+  // 1 degree longitude varies by latitude, using average approximation
+  const latCenter = (bbox.minLat + bbox.maxLat) / 2;
+  const latKm = 111.0;
+  const lonKm = 111.0 * Math.cos((latCenter * Math.PI) / 180);
+
+  const widthKm = (bbox.maxLon - bbox.minLon) * lonKm;
+  const heightKm = (bbox.maxLat - bbox.minLat) * latKm;
+
+  return widthKm * heightKm;
+};
+
+const calculateDimensions = (bbox: BoundingBox): string => {
+  const latCenter = (bbox.minLat + bbox.maxLat) / 2;
+  const latKm = 111.0;
+  const lonKm = 111.0 * Math.cos((latCenter * Math.PI) / 180);
+
+  const widthKm = (bbox.maxLon - bbox.minLon) * lonKm;
+  const heightKm = (bbox.maxLat - bbox.minLat) * latKm;
+
+  return `${widthKm.toFixed(1)} km × ${heightKm.toFixed(1)} km`;
+};
+
+const calculateCenterPoint = (bbox: BoundingBox): string => {
+  const centerLon = (bbox.minLon + bbox.maxLon) / 2;
+  const centerLat = (bbox.minLat + bbox.maxLat) / 2;
+
+  return `${centerLat.toFixed(4)}°, ${centerLon.toFixed(4)}°`;
+};
 
 export default function IndexConfigurationStep() {
   const theme = useTheme();
@@ -37,6 +72,9 @@ export default function IndexConfigurationStep() {
   const { state: mappingConfig, actions: mappingActions } = useMappingConfig();
   const { actions: flowActions } = useMetageoFlow();
   const { geoFields, loading: geoFieldsLoading } = useGeoFields();
+  const { geoPoints, loading: geoPointsLoading } = useDatasetGeoPoints(
+    mappingConfig.geoField
+  );
 
   const handleAutoBbox = async () => {
     if (!mappingConfig.geoField) return;
@@ -155,13 +193,15 @@ export default function IndexConfigurationStep() {
 
         {!geoFieldsLoading && geoFields.length === 0 && (
           <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
-            No geographic fields found in the dataset. Please ensure your dataset contains fields with geographic data.
+            No geographic fields found in the dataset. Please ensure your
+            dataset contains fields with geographic data.
           </Typography>
         )}
 
         {!geoFieldsLoading && geoFields.length > 0 && (
           <Typography variant="body2" color="success.main" sx={{ mb: 2 }}>
-            Found {geoFields.length} geographic field{geoFields.length !== 1 ? 's' : ''}: {geoFields.join(', ')}
+            Found {geoFields.length} geographic field
+            {geoFields.length !== 1 ? "s" : ""}: {geoFields.join(", ")}
           </Typography>
         )}
       </Paper>
@@ -218,6 +258,45 @@ export default function IndexConfigurationStep() {
             Auto-detect BBox
           </Button>
         </Stack>
+
+        {/* Geographic Area Information */}
+        {mappingConfig.geoField && indexingState.bbox && (
+          <Box
+            sx={{
+              p: 2,
+              mb: 2,
+              backgroundColor: alpha(theme.palette.info.main, 0.05),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+              borderRadius: 1,
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 600, mb: 1, color: "info.main" }}
+            >
+              📏 Geographic Coverage Area
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Area Size:</strong>{" "}
+              {calculateAreaKm2(indexingState.bbox).toFixed(2)} km²
+              <br />
+              <strong>Dimensions:</strong>{" "}
+              {calculateDimensions(indexingState.bbox)}
+              <br />
+              <strong>Center Point:</strong>{" "}
+              {calculateCenterPoint(indexingState.bbox)}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 1, display: "block" }}
+            >
+              💡 This area will be divided into {indexingState.gridTiles} grid
+              tiles for OSM data indexing. Larger areas may take longer to
+              process and require more API requests.
+            </Typography>
+          </Box>
+        )}
 
         {/* Manual BBox Inputs */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -451,7 +530,7 @@ export default function IndexConfigurationStep() {
                 }}
               />
               <strong>Sample distribution calculated!</strong> The grid now
-              shows real sample counts for each geographic region.
+              shows sample counts for each geographic region.
             </Typography>
           </Box>
         )}

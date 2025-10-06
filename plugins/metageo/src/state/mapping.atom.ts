@@ -7,26 +7,23 @@ const defaultMappingConfig: MappingConfig = {
   geoField: "",
   useYamlConfig: false,
   yamlConfig: "",
-  
+
   // 3D Detections configuration
   enable3DDetections: false,
   threeDSlice: "",
   detectionFieldName: "",
   detectionLabelTag: "",
   detectionRadius: 100,
-  
+
   // Sample tagging configuration
   enableSampleTagging: false,
   tagSlice: "",
   tagMappings: [],
-  tagRadius: 100,
-  renderOn3D: true,
-  renderOn2D: false,
-  
+
   // Field mapping configuration
   enableFieldMapping: false,
   fieldMappings: [],
-  
+
   // Metadata configuration
   includeAllTagsAsMetadata: false,
   metadataFieldName: "osm_metadata",

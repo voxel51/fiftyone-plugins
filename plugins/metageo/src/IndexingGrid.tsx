@@ -90,6 +90,8 @@ export default function IndexingGrid({
   indexingStatus,
   gridCells = [],
 }: IndexingGridProps) {
+  console.log("🔍 IndexingGrid: realSampleCounts =", realSampleCounts);
+  console.log("🔍 IndexingGrid: gridCells =", gridCells);
   const theme = useTheme();
   const [cells, setCells] = useState<GridCell[]>([]);
 
@@ -247,20 +249,25 @@ export default function IndexingGrid({
 
   // Update cells when props change
   useEffect(() => {
-    console.log("useEffect triggered - regenerating cells");
-    console.log("realSampleCounts:", realSampleCounts);
-    console.log("isLoading:", isLoading);
-    console.log("useQuadtree:", useQuadtree);
-    console.log("quadtreeCells:", quadtreeCells);
-    console.log("gridCells from backend:", gridCells);
-    console.log("indexingStatus:", indexingStatus);
+    console.log("🔍 IndexingGrid useEffect triggered - regenerating cells");
+    console.log("🔍 realSampleCounts:", realSampleCounts);
+    console.log("🔍 isLoading:", isLoading);
+    console.log("🔍 useQuadtree:", useQuadtree);
+    console.log("🔍 quadtreeCells:", quadtreeCells);
+    console.log("🔍 gridCells from backend:", gridCells);
+    console.log("🔍 indexingStatus:", indexingStatus);
 
     if (gridCells && gridCells.length > 0) {
-      console.log("Using gridCells from backend");
+      console.log(
+        "🔍 Using gridCells from backend - sample counts:",
+        gridCells.map((c) => ({ id: c.id, sample_count: c.sample_count }))
+      );
       setCells(gridCells);
     } else if (useQuadtree && quadtreeCells.length > 0) {
+      console.log("🔍 Using quadtree cells");
       setCells(generateQuadtreeDisplayCells());
     } else {
+      console.log("🔍 Using generated fixed grid cells");
       setCells(generateFixedGridCells());
     }
   }, [
@@ -433,10 +440,10 @@ export default function IndexingGrid({
     const processed = completed + failed + rateLimited;
     const progress = total > 0 ? (processed / total) * 100 : 0;
 
-    // Calculate total features from completed cells
+    // Calculate total samples from completed cells
     const features = gridCells
       .filter((cell) => cell.status === "completed")
-      .reduce((sum, cell) => sum + (cell.osm_feature_count || 0), 0);
+      .reduce((sum, cell) => sum + (cell.sample_count || 0), 0);
 
     return {
       progress,
@@ -451,6 +458,16 @@ export default function IndexingGrid({
 
   const progressInfo = calculateProgress();
   const isIndexing = indexingStatus === "running";
+
+  // Debug: Log the final cells state
+  console.log(
+    "🔍 IndexingGrid render - final cells state:",
+    cells.map((c) => ({
+      id: c.id,
+      sample_count: c.sample_count,
+      status: c.status,
+    }))
+  );
 
   // Calculate time estimate
   const calculateTimeEstimate = () => {
@@ -569,8 +586,8 @@ export default function IndexingGrid({
               sx={{ display: "flex", alignItems: "center", gap: 1 }}
             >
               <CheckCircleIcon fontSize="small" color="success" />
-              <strong>{progressInfo.features.toLocaleString()}</strong> OSM
-              features found so far
+              <strong>{progressInfo.features.toLocaleString()}</strong> samples
+              processed so far
             </Typography>
           )}
         </Box>
@@ -597,7 +614,7 @@ export default function IndexingGrid({
         )}
         {progressInfo.features > 0 && (
           <Chip
-            label={`${progressInfo.features.toLocaleString()} features`}
+            label={`${progressInfo.features.toLocaleString()} samples`}
             size="small"
             color="success"
             variant="outlined"
@@ -681,7 +698,7 @@ export default function IndexingGrid({
               }}
             >
               {/* Show sample count if available, otherwise show status icon */}
-              {cell.sample_count > 0 ? (
+              {cell.sample_count >= 0 ? (
                 <Typography
                   variant="caption"
                   sx={{
@@ -699,10 +716,10 @@ export default function IndexingGrid({
                 getStatusIcon(cell.status)
               )}
 
-              {/* Show OSM feature count for completed cells */}
+              {/* Show sample count for completed cells */}
               {cell.status === "completed" &&
-                cell.osm_features &&
-                cell.osm_features > 0 && (
+                cell.sample_count &&
+                cell.sample_count > 0 && (
                   <Typography
                     variant="caption"
                     sx={{
@@ -716,7 +733,7 @@ export default function IndexingGrid({
                       lineHeight: 1,
                     }}
                   >
-                    {cell.osm_features} OSM
+                    {cell.sample_count} samples
                   </Typography>
                 )}
             </Box>
