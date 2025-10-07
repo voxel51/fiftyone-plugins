@@ -534,7 +534,7 @@ export function useMetageoFlow() {
     [client, indexingActions, setActiveStep, setHasStarted]
   );
 
-  const actions = {
+  const actions = useMemo(() => ({
     start,
     next,
     back,
@@ -546,7 +546,19 @@ export function useMetageoFlow() {
     cancelIndexing,
     loadCurrentIndexingState,
     resetMetageo,
-  };
+  }), [
+    start,
+    next,
+    back,
+    goToStep,
+    autoDetectBbox,
+    calculateSampleDistribution,
+    startIndexing,
+    dropIndex,
+    cancelIndexing,
+    loadCurrentIndexingState,
+    resetMetageo,
+  ]);
 
   const derived = useMemo(
     () => {

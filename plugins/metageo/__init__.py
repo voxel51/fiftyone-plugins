@@ -1528,9 +1528,6 @@ class MetageoPanel(Panel):
                 if osm_data:
                     for feature in osm_data:
                         if isinstance(feature, dict) and "tags" in feature:
-                            print(
-                                f"get_available_osm_tags: Feature tags: {feature['tags']}"
-                            )
                             for tag_key, tag_value in feature["tags"].items():
                                 all_tags.add(tag_key)
                                 tag_counts[tag_key] = (
@@ -2026,8 +2023,8 @@ class MetageoPanel(Panel):
                     f"🔍 _define_dataset_fields: Added metadata field '{metadata_field}' as ListField"
                 )
 
-            # Define detection field if 3D detections are enabled
-            if mapping_config.get("enable3DDetections", False):
+            # Define detection field if 3D detections are enabled - DISABLED
+            if False and mapping_config.get("enable3DDetections", False):
                 detection_field = mapping_config.get(
                     "detectionFieldName", "detections"
                 )
@@ -2125,30 +2122,27 @@ class MetageoPanel(Panel):
     ):
         """Apply the mapping configuration to a sample using nearby OSM data."""
         try:
-            print(
-                f"🔍 _apply_mapping_to_sample: Applying mappings to sample {sample.id}"
-            )
-            print(
-                f"🔍 _apply_mapping_to_sample: OSM data count: {len(osm_data)}"
-            )
-            print(
-                f"🔍 _apply_mapping_to_sample: Mapping config enabled features:"
-            )
-            print(
-                f"  - 3D Detections: {mapping_config.get('enable3DDetections', False)}"
-            )
-            print(
-                f"  - Sample Tagging: {mapping_config.get('enableSampleTagging', False)}"
-            )
-            print(
-                f"  - Field Mapping: {mapping_config.get('enableFieldMapping', False)}"
-            )
-            print(
-                f"  - Metadata: {mapping_config.get('includeAllTagsAsMetadata', False)}"
-            )
+            print(f"🔍 _apply_mapping_to_sample: ===== APPLYING MAPPINGS TO SAMPLE =====")
+            print(f"🔍 _apply_mapping_to_sample: Sample ID: {sample.id}")
+            print(f"🔍 _apply_mapping_to_sample: Location: ({lon:.6f}, {lat:.6f})")
+            print(f"🔍 _apply_mapping_to_sample: OSM data available: {len(osm_data)} features")
+            print(f"🔍 _apply_mapping_to_sample: 📋 ENABLED FEATURES:")
+            print(f"  - 3D Detections: {mapping_config.get('enable3DDetections', False)}")
+            print(f"  - Sample Tagging: {mapping_config.get('enableSampleTagging', False)}")
+            print(f"  - Field Mapping: {mapping_config.get('enableFieldMapping', False)}")
+            print(f"  - Metadata: {mapping_config.get('includeAllTagsAsMetadata', False)}")
+            
+            # Reduced debug output to prevent browser crashes
+            if mapping_config.get('enableSampleTagging', False):
+                tag_mappings = mapping_config.get('tagMappings', [])
+                print(f"🔍 _apply_mapping_to_sample: Sample tagging enabled with {len(tag_mappings)} mappings")
+            
+            if mapping_config.get('enableFieldMapping', False):
+                field_mappings = mapping_config.get('fieldMappings', [])
+                print(f"🔍 _apply_mapping_to_sample: Field mapping enabled with {len(field_mappings)} mappings")
 
-            # 3D Detections
-            if mapping_config.get("enable3DDetections", False):
+            # 3D Detections - DISABLED
+            if False and mapping_config.get("enable3DDetections", False):
                 print(
                     f"🔍 _apply_mapping_to_sample: Applying 3D detections to sample {sample.id}"
                 )
@@ -2183,12 +2177,11 @@ class MetageoPanel(Panel):
                     sample, osm_data, mapping_config, lon, lat
                 )
 
-        except Exception as e:
-            print(
-                f"🔍 _apply_mapping_to_sample: Error applying mappings to sample {sample.id}: {e}"
-            )
-            import traceback
+            print(f"🔍 _apply_mapping_to_sample: ===== MAPPING COMPLETE FOR SAMPLE {sample.id} =====")
 
+        except Exception as e:
+            print(f"🔍 _apply_mapping_to_sample: ❌ ERROR applying mappings to sample {sample.id}: {e}")
+            import traceback
             traceback.print_exc()
 
     def _apply_3d_detections(
@@ -2241,67 +2234,111 @@ class MetageoPanel(Panel):
         tag_slice = mapping_config.get("tagSlice", "default")
         tag_mappings = mapping_config.get("tagMappings", [])
 
-        print(
-            f"🔍 _apply_sample_tagging: Sample {sample.id}, tag_mappings: {len(tag_mappings)}"
-        )
+        print(f"🔍 _apply_sample_tagging: ===== STARTING SAMPLE TAGGING =====")
+        print(f"🔍 _apply_sample_tagging: Sample ID: {sample.id}")
+        print(f"🔍 _apply_sample_tagging: Location: ({lon:.6f}, {lat:.6f})")
+        print(f"🔍 _apply_sample_tagging: Tag slice: {tag_slice}")
+        print(f"🔍 _apply_sample_tagging: OSM data available: {len(osm_data)} features")
+        print(f"🔍 _apply_sample_tagging: Tag mappings configured: {len(tag_mappings)}")
+        
+        # Reduced debug output to prevent browser crashes
+        print(f"🔍 _apply_sample_tagging: Processing {len(tag_mappings)} tag mappings")
 
         if not tag_mappings:
-            print(f"🔍 _apply_sample_tagging: No tag mappings configured")
+            print(f"🔍 _apply_sample_tagging: ❌ No tag mappings configured - skipping sample tagging")
             return
 
-        # Apply each tag mapping with its own distance threshold
+        # Print detailed mapping configuration
+        print(f"🔍 _apply_sample_tagging: 📋 MAPPING CONFIGURATION:")
         for i, tag_mapping in enumerate(tag_mappings):
+            print(f"  Mapping {i+1}:")
+            print(f"    OSM Key: '{tag_mapping.get('osmKey', 'MISSING')}'")
+            print(f"    Field Name: '{tag_mapping.get('fieldName', 'MISSING')}'")
+            print(f"    Field Type: '{tag_mapping.get('fieldType', 'string')}'")
+            print(f"    Distance: {tag_mapping.get('distance', 100)}m")
+            print(f"    Bool True Value: '{tag_mapping.get('boolTrueValue', 'N/A')}'")
+            print(f"    Bool False Values: '{tag_mapping.get('boolFalseValues', 'N/A')}'")
+
+        # Apply each tag mapping with its own distance threshold
+        tags_added = 0
+        for i, tag_mapping in enumerate(tag_mappings):
+            print(f"🔍 _apply_sample_tagging: 🔄 PROCESSING MAPPING {i+1}/{len(tag_mappings)}")
+            
             osm_key = tag_mapping.get("osmKey")
             field_name = tag_mapping.get("fieldName")
             field_type = tag_mapping.get("fieldType", "string")
-            distance = tag_mapping.get(
-                "distance", 100
-            )  # Use per-tag distance, default 100m
+            distance = tag_mapping.get("distance", 100)  # Use per-tag distance, default 100m
 
-            print(
-                f"🔍 _apply_sample_tagging: Mapping {i+1}: {osm_key} -> {field_name} ({field_type}) within {distance}m"
-            )
+            print(f"🔍 _apply_sample_tagging:   OSM Key: '{osm_key}'")
+            print(f"🔍 _apply_sample_tagging:   Target Field: '{field_name}'")
+            print(f"🔍 _apply_sample_tagging:   Field Type: '{field_type}'")
+            print(f"🔍 _apply_sample_tagging:   Search Distance: {distance}m")
+            
+            # Reduced debug output to prevent browser crashes
 
             if not osm_key or not field_name:
-                print(
-                    f"🔍 _apply_sample_tagging: Skipping mapping {i+1} - missing osm_key or field_name"
-                )
+                print(f"🔍 _apply_sample_tagging:   ❌ SKIPPING - missing osm_key or field_name")
                 continue
 
             # Find nearby OSM features for this specific tag mapping
-            nearby_features = self._find_nearby_features(
-                osm_data, lon, lat, distance
-            )
-            print(
-                f"🔍 _apply_sample_tagging: Found {len(nearby_features)} nearby features within {distance}m for {osm_key}"
-            )
+            nearby_features = self._find_nearby_features(osm_data, lon, lat, distance)
+            print(f"🔍 _apply_sample_tagging:   📍 Found {len(nearby_features)} nearby features within {distance}m")
+
+            if len(nearby_features) == 0:
+                print(f"🔍 _apply_sample_tagging:   ⚠️  No OSM features found within {distance}m - skipping")
+                continue
+
+            # Reduced debug output to prevent browser crashes
+            features_with_key = 0
+            for feature in nearby_features:
+                feature_tags = feature.get("tags", {})
+                if osm_key in feature_tags:
+                    features_with_key += 1
+            
+            print(f"🔍 _apply_sample_tagging:   🔍 Found {features_with_key} features with '{osm_key}' key out of {len(nearby_features)} nearby features")
 
             # Find the best matching feature for this tag
             best_value = None
+            best_feature = None
             for feature in nearby_features:
                 if "tags" in feature and osm_key in feature["tags"]:
                     best_value = feature["tags"][osm_key]
-                    print(
-                        f"🔍 _apply_sample_tagging: Found value '{best_value}' for key '{osm_key}' within {distance}m"
-                    )
+                    best_feature = feature
                     break
 
             if best_value is not None:
                 # Convert value based on field type
-                converted_value = self._convert_value(
-                    best_value, field_type, tag_mapping
-                )
-                print(
-                    f"🔍 _apply_sample_tagging: Setting {field_name} = {converted_value} (type: {type(converted_value)})"
-                )
-                sample[field_name] = converted_value
+                converted_value = self._convert_value(best_value, field_type, tag_mapping)
+                print(f"🔍 _apply_sample_tagging:   ✅ FOUND VALUE: '{best_value}' -> converted to '{converted_value}' ({type(converted_value).__name__})")
+                
+                # Create the tag value and add it to the sample using FiftyOne's tagging system
+                # For boolean True values, just use the field name. For other values, use field_name:value format
+                if field_type == "bool" and converted_value is True:
+                    tag_value = field_name
+                else:
+                    tag_value = f"{field_name}:{converted_value}"
+                
+                print(f"🔍 _apply_sample_tagging:   💾 ADDING TAG: {tag_value}")
+                sample.tags.append(tag_value)
+                tags_added += 1
+                
+                # Show feature details
+                if best_feature:
+                    feature_id = best_feature.get("id", "unknown")
+                    feature_type = best_feature.get("type", "unknown")
+                    print(f"🔍 _apply_sample_tagging:   📍 Source: OSM {feature_type} {feature_id}")
             else:
-                print(
-                    f"🔍 _apply_sample_tagging: No value found for key '{osm_key}' within {distance}m"
-                )
+                print(f"🔍 _apply_sample_tagging:   ❌ NO VALUE FOUND for OSM key '{osm_key}' within {distance}m")
 
-        print(f"🔍 _apply_sample_tagging: Saving sample {sample.id}")
-        sample.save()
+        print(f"🔍 _apply_sample_tagging: ===== SAMPLE TAGGING COMPLETE =====")
+        print(f"🔍 _apply_sample_tagging: Tags added to sample {sample.id}: {tags_added}/{len(tag_mappings)}")
+        
+        if tags_added > 0:
+            print(f"🔍 _apply_sample_tagging: 💾 Saving sample {sample.id} with {tags_added} new tags")
+            sample.save()
+            print(f"🔍 _apply_sample_tagging: ✅ Sample saved successfully with tags: {sample.tags}")
+        else:
+            print(f"🔍 _apply_sample_tagging: ⚠️  No tags were added - sample not saved")
 
     def _apply_field_mapping(
         self,
@@ -2412,11 +2449,15 @@ class MetageoPanel(Panel):
         self, osm_data: list, lon: float, lat: float, radius: float
     ) -> list:
         """Find OSM features within the specified radius of the location."""
+        # Reduced debug output to prevent browser crashes
         nearby_features = []
+        features_with_location = 0
+        features_without_location = 0
 
-        for feature in osm_data:
+        for i, feature in enumerate(osm_data):
             feature_lon, feature_lat = self._get_feature_location(feature)
             if feature_lon is not None and feature_lat is not None:
+                features_with_location += 1
                 # Calculate distance (simplified - assumes small distances)
                 distance = (
                     (lon - feature_lon) ** 2 + (lat - feature_lat) ** 2
@@ -2426,6 +2467,11 @@ class MetageoPanel(Panel):
 
                 if distance_meters <= radius:
                     nearby_features.append(feature)
+            else:
+                features_without_location += 1
+
+        # Only show summary, not detailed per-feature info
+        print(f"🔍 _find_nearby_features: Found {len(nearby_features)} features within {radius}m (searched {len(osm_data)} total)")
 
         return nearby_features
 
@@ -2707,8 +2753,8 @@ class MetageoPanel(Panel):
                     f"🔍 clear_enrichment_data: Will clear metadata field: {metadata_field}"
                 )
 
-            # Detection field
-            if mapping_config.get("enable3DDetections", False):
+            # Detection field - DISABLED
+            if False and mapping_config.get("enable3DDetections", False):
                 detection_field = mapping_config.get(
                     "detectionFieldName", "detections"
                 )
@@ -2804,8 +2850,8 @@ class MetageoPanel(Panel):
                     )
                     fields_to_clear.add(metadata_field)
 
-                # Detection field
-                if mapping_config.get("enable3DDetections", False):
+                # Detection field - DISABLED
+                if False and mapping_config.get("enable3DDetections", False):
                     detection_field = mapping_config.get(
                         "detectionFieldName", "detections"
                     )
@@ -3131,9 +3177,23 @@ class MetageoPanel(Panel):
         active_cells = existing_state["active_cells"]
         total_cells = existing_state["total_cells"]
 
+        # Reset failed cells to idle status for retry
+        failed_cells = [cell for cell in grid_cells if cell.get("status") == "failed"]
+        if failed_cells:
+            print(f"Found {len(failed_cells)} failed cells, resetting to idle for retry")
+            for cell in failed_cells:
+                cell["status"] = "idle"
+                cell["progress"] = 0
+                cell["error"] = None
+                if "retry_count" not in cell:
+                    cell["retry_count"] = 0
+                cell["retry_count"] += 1
+                print(f"  - Reset cell {cell['id']} to idle (retry #{cell['retry_count']})")
+
         print(f"Starting indexing with existing grid:")
         print(f"  - Total cells: {total_cells}")
         print(f"  - Active cells: {active_cells}")
+        print(f"  - Failed cells reset: {len(failed_cells)}")
 
         # Generate unique indexing ID
         indexing_id = f"indexing_{datetime.now().strftime('%Y%m%d_%H%M%S')}"

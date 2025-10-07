@@ -48,6 +48,10 @@ export default function IndexingStep() {
   };
 
   const handleRetryIndexing = async () => {
+    // First reset failed cells to idle status
+    indexingActions.retryFailedCells();
+    
+    // Then start indexing again
     const result = await flowActions.startIndexing();
     if (result.success) {
       // Success handled by the hook

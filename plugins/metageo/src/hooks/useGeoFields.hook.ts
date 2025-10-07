@@ -52,7 +52,7 @@ export function useGeoFields() {
     if (client) {
       fetchGeoFields();
     }
-  }, [fetchGeoFields, client]);
+  }, [client]); // Remove fetchGeoFields dependency to prevent infinite loop
 
   return {
     geoFields,

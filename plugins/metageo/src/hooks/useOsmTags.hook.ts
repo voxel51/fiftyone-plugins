@@ -70,7 +70,7 @@ export function useOsmTags() {
       console.log("🔍 useOsmTags: Auto-loading OSM tags on mount");
       loadOsmTags();
     }
-  }, [client, hasLoaded, loading, loadOsmTags]);
+  }, [client, hasLoaded, loading]); // Remove loadOsmTags dependency to prevent infinite loop
 
   return {
     osmTags,

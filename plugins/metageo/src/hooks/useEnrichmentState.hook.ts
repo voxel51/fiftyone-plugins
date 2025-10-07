@@ -183,7 +183,7 @@ export function useEnrichmentState() {
       "🔍 useEnrichmentState: useEffect triggered, loading current state"
     );
     actions.loadCurrentEnrichmentState();
-  }, [actions.loadCurrentEnrichmentState]);
+  }, []); // Remove dependency to prevent infinite loop
 
   // Note: Polling removed - now using direct browser operator calls from Python WatchEnrichmentOperator
 

@@ -132,14 +132,14 @@ export function useMappingConfig() {
   // Load mapping config on mount
   useEffect(() => {
     loadMappingConfig();
-  }, [loadMappingConfig]);
+  }, []); // Remove dependency to prevent infinite loop
 
   // Auto-save when mapping config changes (but not on initial load)
   useEffect(() => {
     if (hasLoaded && mappingConfig) {
       saveMappingConfig(mappingConfig);
     }
-  }, [mappingConfig, hasLoaded, saveMappingConfig]);
+  }, [mappingConfig, hasLoaded]); // Remove saveMappingConfig dependency to prevent infinite loop
 
   const actions = useMemo(
     () => ({

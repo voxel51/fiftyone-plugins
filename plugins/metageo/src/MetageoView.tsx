@@ -89,7 +89,7 @@ export default function MetageoView() {
           );
         });
     }
-  }, [state.activeStep, state.hasStarted, actions]);
+  }, [state.activeStep, state.hasStarted]); // Remove actions dependency to prevent infinite loop
 
   if (state.isLoadingState) {
     return (

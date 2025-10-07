@@ -161,37 +161,44 @@ export default function MappingStep() {
 
       {/* Configuration Sections */}
 
-      {/* 3D Detections Configuration */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          mb: 3,
-          border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-          borderRadius: 1,
-        }}
-      >
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-          <SettingsIcon color="primary" />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            3D Detections
-          </Typography>
-        </Stack>
+      {/* 3D Detections Configuration - DISABLED */}
+      {false && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 3,
+            border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+            borderRadius: 1,
+          }}
+        >
+        {/* 3D Detection section disabled for now */}
+        {false && (
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+            <SettingsIcon color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              3D Detections
+            </Typography>
+          </Stack>
+        )}
 
-        <FormControlLabel
-          control={
-            <Switch
-              checked={mappingConfig.enable3DDetections}
-              onChange={(e) =>
-                mappingActions.setEnable3DDetections(e.target.checked)
-              }
-            />
-          }
-          label="Enable 3D detections"
-          sx={{ mb: 2 }}
-        />
+        {/* 3D Detection mapping disabled for now */}
+        {false && (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={mappingConfig.enable3DDetections}
+                onChange={(e) =>
+                  mappingActions.setEnable3DDetections(e.target.checked)
+                }
+              />
+            }
+            label="Enable 3D detections"
+            sx={{ mb: 2 }}
+          />
+        )}
 
-        {mappingConfig.enable3DDetections && (
+        {false && mappingConfig.enable3DDetections && (
           <Stack spacing={3}>
             <TextField
               label="3D Slice"
@@ -297,7 +304,8 @@ export default function MappingStep() {
             />
           </Stack>
         )}
-      </Paper>
+        </Paper>
+      )}
 
       {/* Sample Tagging Configuration */}
       <Paper
