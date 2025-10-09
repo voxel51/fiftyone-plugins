@@ -22,6 +22,9 @@ export function useMappingConfig() {
       useYamlConfig: false,
       yamlConfig: "",
 
+      // Global distance threshold
+      globalDistanceThreshold: 100,
+
       // 3D Detections configuration
       enable3DDetections: false,
       threeDSlice: "",
@@ -41,6 +44,7 @@ export function useMappingConfig() {
       // Metadata configuration
       includeAllTagsAsMetadata: false,
       metadataFieldName: "osm_metadata",
+      metadataDistanceThreshold: 100,
     };
 
     return {
@@ -68,6 +72,9 @@ export function useMappingConfig() {
         updateFieldMapping: () => {},
         setIncludeAllTagsAsMetadata: () => {},
         setMetadataFieldName: () => {},
+        setGlobalDistanceThreshold: () => {},
+        setMetadataDistanceThreshold: () => {},
+        clearMappingConfig: () => Promise.resolve(),
         resetMapping: () => {},
       },
     };
@@ -256,6 +263,14 @@ export function useMappingConfig() {
         setMappingConfig((prev) => ({ ...prev, metadataFieldName: fieldName }));
       },
 
+      setGlobalDistanceThreshold: (threshold: number) => {
+        setMappingConfig((prev) => ({ ...prev, globalDistanceThreshold: threshold }));
+      },
+
+      setMetadataDistanceThreshold: (threshold: number) => {
+        setMappingConfig((prev) => ({ ...prev, metadataDistanceThreshold: threshold }));
+      },
+
       resetMapping: () => {
         setMappingConfig((prev) => ({
           ...prev,
@@ -263,6 +278,9 @@ export function useMappingConfig() {
           geoField: "",
           useYamlConfig: false,
           yamlConfig: "",
+
+          // Global distance threshold
+          globalDistanceThreshold: 100,
 
           // 3D Detections configuration
           enable3DDetections: false,
@@ -275,9 +293,6 @@ export function useMappingConfig() {
           enableSampleTagging: false,
           tagSlice: "",
           tagMappings: [],
-          tagRadius: 100,
-          renderOn3D: true,
-          renderOn2D: false,
 
           // Field mapping configuration
           enableFieldMapping: false,
@@ -286,6 +301,7 @@ export function useMappingConfig() {
           // Metadata configuration
           includeAllTagsAsMetadata: false,
           metadataFieldName: "osm_metadata",
+          metadataDistanceThreshold: 100,
         }));
       },
 

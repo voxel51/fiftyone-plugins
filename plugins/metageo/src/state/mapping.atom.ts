@@ -8,6 +8,9 @@ const defaultMappingConfig: MappingConfig = {
   useYamlConfig: false,
   yamlConfig: "",
 
+  // Global distance threshold (meters) - applies to all mappings unless overridden
+  globalDistanceThreshold: 100,
+
   // 3D Detections configuration
   enable3DDetections: false,
   threeDSlice: "",
@@ -27,6 +30,7 @@ const defaultMappingConfig: MappingConfig = {
   // Metadata configuration
   includeAllTagsAsMetadata: false,
   metadataFieldName: "osm_metadata",
+  metadataDistanceThreshold: 100,
 };
 
 export const mappingConfigAtom = atom<MappingConfig>({

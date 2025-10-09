@@ -10,22 +10,14 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  CircularProgress,
 } from "@mui/material";
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   ContentCopy as CopyIcon,
   PlayArrow as PlayIcon,
-  Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 import { useMappingConfig } from "../../hooks/useMappingConfig.hook";
-import { useMetageoClient } from "../../hooks/useMetageoClient.hook";
 
 interface SearchExample {
   title: string;
@@ -36,9 +28,6 @@ interface SearchExample {
 
 export default function SearchCleanupStep() {
   const { state: mappingConfig } = useMappingConfig();
-  const client = useMetageoClient();
-  const [showStartOverDialog, setShowStartOverDialog] = useState(false);
-  const [startingOver, setStartingOver] = useState(false);
 
   // Generate search examples based on the current mapping configuration
   const getSearchExamples = (): SearchExample[] => {
@@ -152,25 +141,6 @@ export default function SearchCleanupStep() {
     return examples;
   };
 
-  const handleStartOver = async () => {
-    if (!client || startingOver) return;
-    setStartingOver(true);
-    try {
-      // Call the reset operator to clear everything
-      const result = await client.reset_metageo();
-      if (result?.status === "success") {
-        console.log("Successfully started over:", result.message);
-        // The flow will automatically redirect to the first step
-      } else {
-        console.error("Failed to start over:", result?.message);
-      }
-    } catch (error) {
-      console.error("Error starting over:", error);
-    } finally {
-      setStartingOver(false);
-      setShowStartOverDialog(false);
-    }
-  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -191,39 +161,6 @@ export default function SearchCleanupStep() {
         sidebar to find samples that match your criteria.
       </Typography>
 
-      {/* Start Over Section */}
-      <Paper
-        elevation={1}
-        sx={{
-          p: 3,
-          mb: 3,
-          border: `1px solid rgba(255, 152, 0, 0.3)`,
-          borderRadius: 1,
-          backgroundColor: "rgba(255, 152, 0, 0.05)",
-        }}
-      >
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-          <RefreshIcon color="warning" />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Start Over
-          </Typography>
-        </Stack>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Clear all metageo data and return to the beginning. This will remove
-          the index, configuration, and all enriched data from your dataset.
-        </Typography>
-
-        <Button
-          variant="outlined"
-          color="warning"
-          startIcon={<RefreshIcon />}
-          onClick={() => setShowStartOverDialog(true)}
-          sx={{ minWidth: 200 }}
-        >
-          Start Over
-        </Button>
-      </Paper>
 
       {/* Search Examples */}
       <Paper
@@ -342,88 +279,6 @@ export default function SearchCleanupStep() {
         )}
       </Paper>
 
-      {/* Start Over Confirmation Dialog */}
-      <Dialog
-        open={showStartOverDialog}
-        onClose={() => !startingOver && setShowStartOverDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <WarningIcon color="warning" />
-            Confirm Start Over
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            This action will permanently delete all metageo data and return you
-            to the beginning:
-          </Typography>
-
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-              The following will be cleared:
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, ml: 2 }}>
-              <Chip
-                label="Index Configuration"
-                color="error"
-                variant="outlined"
-                size="small"
-              />
-              <Chip
-                label="Grid Index"
-                color="error"
-                variant="outlined"
-                size="small"
-              />
-              <Chip
-                label="Mapping Configuration"
-                color="error"
-                variant="outlined"
-                size="small"
-              />
-              <Chip
-                label="Enriched Data"
-                color="error"
-                variant="outlined"
-                size="small"
-              />
-              <Chip
-                label="All Persisted State"
-                color="error"
-                variant="outlined"
-                size="small"
-              />
-            </Box>
-          </Box>
-
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            <strong>Warning:</strong> This action cannot be undone. All metageo
-            work will be lost and you will need to start from the beginning.
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setShowStartOverDialog(false)}
-            disabled={startingOver}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleStartOver}
-            color="error"
-            variant="contained"
-            disabled={startingOver}
-            startIcon={
-              startingOver ? <CircularProgress size={20} /> : <RefreshIcon />
-            }
-          >
-            {startingOver ? "Starting Over..." : "Start Over"}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

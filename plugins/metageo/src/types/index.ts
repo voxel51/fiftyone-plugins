@@ -72,6 +72,9 @@ export interface MappingConfig {
   useYamlConfig: boolean;
   yamlConfig: string;
 
+  // Global distance threshold (meters) - applies to all mappings unless overridden
+  globalDistanceThreshold: number;
+
   // 3D Detections configuration
   enable3DDetections: boolean;
   threeDSlice: string;
@@ -91,6 +94,7 @@ export interface MappingConfig {
   // Metadata configuration
   includeAllTagsAsMetadata: boolean;
   metadataFieldName: string;
+  metadataDistanceThreshold: number; // Distance threshold for metadata mapping
 }
 
 export interface TagMapping {
@@ -115,6 +119,8 @@ export interface FieldMapping {
   defaultValue?: string;
   // Description for documentation
   description?: string;
+  // Distance threshold in meters - OSM tag will only be mapped if within this distance
+  distance?: number;
 }
 
 export interface StepData {

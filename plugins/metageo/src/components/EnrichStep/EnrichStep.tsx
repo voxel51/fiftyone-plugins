@@ -12,6 +12,11 @@ import {
   DialogContent,
   DialogActions,
   Chip,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from "@mui/material";
 import {
   Settings as SettingsIcon,
@@ -28,6 +33,7 @@ export default function EnrichStep() {
     useEnrichmentState();
   const [clearingEnrichmentData, setClearingEnrichmentData] = useState(false);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const [executionMode, setExecutionMode] = useState<"immediate" | "delegated">("immediate");
 
   // Get list of fields that will be cleared
   const getFieldsToBeCleared = () => {
@@ -161,7 +167,7 @@ export default function EnrichStep() {
       await client.save_mapping_config({ mapping_config: mappingConfig });
 
       // Start the enrichment process
-      const result = await client.enrich_dataset_async();
+      const result = await client.enrich_dataset_async({ execution_mode: executionMode });
 
       if (result?.result?.status === "success") {
         // Get the enrichment ID from the result
@@ -324,6 +330,38 @@ export default function EnrichStep() {
             </Alert>
           )}
         </Paper>
+
+        {/* Execution Mode Selection */}
+        {getFieldsToBeEnriched().length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <FormControl component="fieldset">
+              <FormLabel component="legend" sx={{ mb: 1, fontWeight: 600 }}>
+                Execution Mode
+              </FormLabel>
+              <RadioGroup
+                row
+                value={executionMode}
+                onChange={(e) => setExecutionMode(e.target.value as "immediate" | "delegated")}
+              >
+                <FormControlLabel
+                  value="immediate"
+                  control={<Radio />}
+                  label="Immediate (Local)"
+                />
+                <FormControlLabel
+                  value="delegated"
+                  control={<Radio />}
+                  label="Delegated (Remote)"
+                />
+              </RadioGroup>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                {executionMode === "immediate" 
+                  ? "Runs locally with real-time progress updates" 
+                  : "Runs on remote worker with better resource management"}
+              </Typography>
+            </FormControl>
+          </Box>
+        )}
 
         <Stack direction="row" spacing={2} alignItems="center">
           <Button

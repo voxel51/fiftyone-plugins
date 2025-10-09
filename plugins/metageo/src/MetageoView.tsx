@@ -252,7 +252,7 @@ export default function MetageoView() {
             WebkitTextFillColor: "transparent",
           }}
         >
-          Metageo Plugin
+          Metageo
         </Typography>
         <Typography variant="body1" color="text.secondary">
           OpenStreetMap Data Enrichment for FiftyOne
@@ -340,6 +340,22 @@ export default function MetageoView() {
           </Button>
 
           <Box sx={{ display: "flex", gap: 2 }}>
+            <Button
+              onClick={actions.startOver}
+              startIcon={<span>🔄</span>}
+              variant="outlined"
+              color="warning"
+              size="large"
+              sx={{
+                px: 4,
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 600,
+              }}
+            >
+              Start Over
+            </Button>
             <Button
               onClick={actions.next}
               disabled={!derived.canGoNext}

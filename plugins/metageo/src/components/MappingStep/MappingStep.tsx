@@ -75,6 +75,36 @@ export default function MappingStep() {
         include metadata.
       </Typography>
 
+      {/* Global Distance Threshold */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          mb: 3,
+          border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+          borderRadius: 1,
+        }}
+      >
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+          <SettingsIcon color="primary" />
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Global Distance Threshold
+          </Typography>
+        </Stack>
+
+        <TextField
+          label="Default Distance Threshold (meters)"
+          type="number"
+          value={mappingConfig.globalDistanceThreshold}
+          onChange={(e) =>
+            mappingActions.setGlobalDistanceThreshold(parseFloat(e.target.value) || 100)
+          }
+          helperText="Default distance threshold for all OSM tag mappings. Individual mappings can override this value. OSM tags will only be mapped to samples if the OSM feature is within this distance from the sample's location."
+          inputProps={{ min: 1, max: 10000, step: 1 }}
+          fullWidth
+        />
+      </Paper>
+
       {/* Clear Configuration Button */}
       <Box sx={{ mb: 3, display: "flex", justifyContent: "flex-end" }}>
         <Button
@@ -465,16 +495,29 @@ export default function MappingStep() {
         />
 
         {mappingConfig.includeAllTagsAsMetadata && (
-          <TextField
-            label="Metadata Field Name"
-            value={mappingConfig.metadataFieldName}
-            onChange={(e) =>
-              mappingActions.setMetadataFieldName(e.target.value)
-            }
-            placeholder="e.g., osm_metadata, tags, properties"
-            helperText="The field name where all OSM tags will be stored as metadata"
-            fullWidth
-          />
+          <Stack spacing={2}>
+            <TextField
+              label="Metadata Field Name"
+              value={mappingConfig.metadataFieldName}
+              onChange={(e) =>
+                mappingActions.setMetadataFieldName(e.target.value)
+              }
+              placeholder="e.g., osm_metadata, tags, properties"
+              helperText="The field name where all OSM tags will be stored as metadata"
+              fullWidth
+            />
+            <TextField
+              label="Distance Threshold (meters)"
+              type="number"
+              value={mappingConfig.metadataDistanceThreshold}
+              onChange={(e) =>
+                mappingActions.setMetadataDistanceThreshold(parseFloat(e.target.value) || 100)
+              }
+              helperText="OSM tags will only be included as metadata if the OSM feature is within this distance threshold from the sample's location. This ensures spatial relevance of the metadata."
+              inputProps={{ min: 1, max: 10000, step: 1 }}
+              fullWidth
+            />
+          </Stack>
         )}
       </Paper>
 

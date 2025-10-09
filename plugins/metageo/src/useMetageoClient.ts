@@ -28,6 +28,9 @@ export type MetageoClient = {
     radius_m: number;
     prefetch_id: string;
   }) => Promise<any>;
+  enrich_dataset_async: (params?: {
+    execution_mode?: "immediate" | "delegated";
+  }) => Promise<any>;
   cleanup_index: (params: { prefetch_id?: string }) => Promise<any>;
   cleanup_enriched_data: (params?: any) => Promise<any>;
   create_filters: (params: {
@@ -264,6 +267,26 @@ export function useMetageoClient(props: any): MetageoClient {
           handleEvent(props.id, {
             operator: "@voxel51/metageo/metageo_panel#enrich",
             params,
+            panelId: props.id,
+            callback: (result: any) => {
+              if (result?.error) {
+                reject(new Error(result.error));
+              } else {
+                resolve(result);
+              }
+            },
+          });
+        });
+      },
+      [handleEvent, props.id]
+    ),
+
+    enrich_dataset_async: useCallback(
+      async (params?: { execution_mode?: "immediate" | "delegated" }) => {
+        return new Promise<any>((resolve, reject) => {
+          handleEvent(props.id, {
+            operator: "@voxel51/metageo/metageo_panel#enrich_dataset_async",
+            params: params || {},
             panelId: props.id,
             callback: (result: any) => {
               if (result?.error) {

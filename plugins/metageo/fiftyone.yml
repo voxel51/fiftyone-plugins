@@ -10,3 +10,5 @@ operators:
   - watch_indexing
   - watch_enrichment_progress
   - reset_metageo
+  - delegated_indexing
+  - delegated_enrichment

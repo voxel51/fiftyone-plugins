@@ -212,7 +212,7 @@ export function useMetageoFlow() {
   );
 
   const startIndexing = useMemo(() => 
-    async () => {
+    async (executionMode: "immediate" | "delegated" = "immediate") => {
       if (!client) {
         return { success: false, error: "Client not available" };
       }
@@ -238,11 +238,15 @@ export function useMetageoFlow() {
           bbox: bboxArray,
           grid_tiles: indexingState.gridTiles,
           geo_field: mappingConfig.geoField,
-          execution_mode: "immediate",
+          execution_mode: executionMode,
         });
 
+        if (result?.result?.status === "error") {
+          return { success: false, error: result.result.message };
+        }
+
         if (result?.result?.indexing_id) {
-          // Start watching the indexing progress
+          // Start watching the indexing progress (works for both immediate and delegated)
           client.watch_indexing({ indexing_id: result.result.indexing_id });
           return { success: true, indexingId: result.result.indexing_id };
         }
@@ -501,15 +505,21 @@ export function useMetageoFlow() {
   const resetMetageo = useMemo(() => 
     async () => {
       if (!client) {
+        console.error("🔍 resetMetageo: Client not available");
         return { success: false, error: "Client not available" };
       }
       try {
         console.log("🔍 resetMetageo: Starting complete reset...");
+        console.log("🔍 resetMetageo: Client available:", !!client);
+        console.log("🔍 resetMetageo: reset_metageo method available:", !!client.reset_metageo);
         
         // Call the reset operator
         const result = await client.reset_metageo();
+        console.log("🔍 resetMetageo: Result from client.reset_metageo():", result);
+        console.log("🔍 resetMetageo: Result.result:", result?.result);
+        console.log("🔍 resetMetageo: Result.result.status:", result?.result?.status);
         
-        if (result?.status === "success") {
+        if (result?.result?.status === "success") {
           // Reset all local state
           indexingActions.resetIndexing();
           setActiveStep(STEPS.INDEX_CONFIGURATION);
@@ -518,10 +528,10 @@ export function useMetageoFlow() {
           clearStoredFlowState();
           
           console.log("🔍 resetMetageo: Successfully reset all metageo state");
-          return { success: true, message: result.message };
+          return { success: true, message: result.result.message };
         } else {
           console.error("🔍 resetMetageo: Reset failed:", result);
-          return { success: false, error: result?.message || "Reset failed" };
+          return { success: false, error: result?.result?.message || "Reset failed" };
         }
       } catch (error) {
         console.error("🔍 resetMetageo: Error during reset:", error);
@@ -532,6 +542,14 @@ export function useMetageoFlow() {
       }
     },
     [client, indexingActions, setActiveStep, setHasStarted]
+  );
+
+  const startOver = useMemo(() => 
+    async () => {
+      console.log("🔍 startOver: Calling resetMetageo...");
+      return await resetMetageo();
+    },
+    [resetMetageo]
   );
 
   const actions = useMemo(() => ({
@@ -546,6 +564,7 @@ export function useMetageoFlow() {
     cancelIndexing,
     loadCurrentIndexingState,
     resetMetageo,
+    startOver,
   }), [
     start,
     next,
@@ -558,6 +577,7 @@ export function useMetageoFlow() {
     cancelIndexing,
     loadCurrentIndexingState,
     resetMetageo,
+    startOver,
   ]);
 
   const derived = useMemo(

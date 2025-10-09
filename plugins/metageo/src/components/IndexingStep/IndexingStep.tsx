@@ -8,11 +8,12 @@ import {
   useTheme,
   alpha,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Alert,
 } from "@mui/material";
 import {
   LocationOn as LocationOnIcon,
@@ -28,15 +29,15 @@ import CellDataPreview from "../CellDataPreview/CellDataPreview";
 
 export default function IndexingStep() {
   const theme = useTheme();
-  const { state: indexingState, derived: indexingDerived } = useIndexingState();
+  const { state: indexingState, derived: indexingDerived, actions: indexingActions } = useIndexingState();
   const { state: flowState, actions: flowActions, derived: flowDerived } = useMetageoFlow();
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [executionMode, setExecutionMode] = useState<"immediate" | "delegated">("immediate");
 
 
   const handleStartIndexing = async () => {
-    const result = await flowActions.startIndexing();
+    const result = await flowActions.startIndexing(executionMode);
     if (result.success) {
       // Success handled by the hook
     }
@@ -52,7 +53,7 @@ export default function IndexingStep() {
     indexingActions.retryFailedCells();
     
     // Then start indexing again
-    const result = await flowActions.startIndexing();
+    const result = await flowActions.startIndexing(executionMode);
     if (result.success) {
       // Success handled by the hook
     }
@@ -75,21 +76,6 @@ export default function IndexingStep() {
     }
   };
 
-  const handleStartOver = () => {
-    setResetDialogOpen(true);
-  };
-
-  const handleConfirmReset = async () => {
-    setResetDialogOpen(false);
-    const result = await flowActions.resetMetageo();
-    if (result.success) {
-      // Success handled by the hook
-    }
-  };
-
-  const handleCancelReset = () => {
-    setResetDialogOpen(false);
-  };
 
   const handleCellClick = (cellId: string, status: string) => {
     setSelectedCellId(cellId);
@@ -279,10 +265,55 @@ export default function IndexingStep() {
               </Box>
             )}
 
+            {/* Grid Status Warning */}
+            {(!indexingState.gridCells || indexingState.gridCells.length === 0) && (
+              <Alert severity="warning" sx={{ mb: 3 }}>
+                <Typography variant="body2">
+                  <strong>Grid not calculated yet.</strong> Please go back to the Index Configuration step 
+                  and click "Calculate Sample Distribution" to create the indexing grid before starting indexing.
+                </Typography>
+              </Alert>
+            )}
+
+            {/* Execution Mode Selection */}
+            <Box sx={{ mb: 3 }}>
+              <FormControl component="fieldset">
+                <FormLabel component="legend" sx={{ mb: 1, fontWeight: 600 }}>
+                  Execution Mode
+                </FormLabel>
+                <RadioGroup
+                  row
+                  value={executionMode}
+                  onChange={(e) => setExecutionMode(e.target.value as "immediate" | "delegated")}
+                >
+                  <FormControlLabel
+                    value="immediate"
+                    control={<Radio />}
+                    label="Immediate (Local)"
+                  />
+                  <FormControlLabel
+                    value="delegated"
+                    control={<Radio />}
+                    label="Delegated (Remote)"
+                  />
+                </RadioGroup>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                  {executionMode === "immediate" 
+                    ? "Runs locally with real-time progress updates" 
+                    : "Runs on remote worker with better resource management"}
+                </Typography>
+              </FormControl>
+            </Box>
+
             <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
               <Button
                 onClick={handleStartIndexing}
-                disabled={!indexingState.bbox || indexingDerived.isIndexing}
+                disabled={
+                  !indexingState.bbox || 
+                  indexingDerived.isIndexing ||
+                  !indexingState.gridCells ||
+                  indexingState.gridCells.length === 0
+                }
                 startIcon={<span>▶️</span>}
                 variant="contained"
                 color="success"
@@ -297,6 +328,8 @@ export default function IndexingStep() {
               >
                 {indexingDerived.isIndexing
                   ? "Indexing..."
+                  : !indexingState.gridCells || indexingState.gridCells.length === 0
+                  ? "Calculate Grid First"
                   : indexingDerived.hasExistingIndex
                   ? "Resume Indexing"
                   : "Start Indexing"}
@@ -357,22 +390,6 @@ export default function IndexingStep() {
                 Cancel & Clear
               </Button>
 
-              <Button
-                onClick={handleStartOver}
-                startIcon={<span>🔄</span>}
-                variant="outlined"
-                color="warning"
-                size="large"
-                sx={{
-                  px: 4,
-                  py: 1.5,
-                  borderRadius: 2,
-                  textTransform: "none",
-                  fontWeight: 600,
-                }}
-              >
-                Start Over
-              </Button>
             </Stack>
           </Paper>
         </>
@@ -422,37 +439,6 @@ export default function IndexingStep() {
         cellId={selectedCellId || ""}
       />
 
-      {/* Reset Confirmation Dialog */}
-      <Dialog
-        open={resetDialogOpen}
-        onClose={handleCancelReset}
-        aria-labelledby="reset-dialog-title"
-        aria-describedby="reset-dialog-description"
-      >
-        <DialogTitle id="reset-dialog-title">
-          Start Over - Reset All Metageo Data
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="reset-dialog-description">
-            This will completely reset all Metageo configuration and indexing data. 
-            You will lose:
-            <br />• All indexing progress and OSM data
-            <br />• Grid configuration and sample distribution
-            <br />• Mapping configuration
-            <br />• Any completed indexing results
-            <br /><br />
-            This action cannot be undone. Are you sure you want to start over?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCancelReset} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleConfirmReset} color="error" variant="contained">
-            Yes, Start Over
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

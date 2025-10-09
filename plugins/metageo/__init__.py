@@ -103,17 +103,7 @@ class OSMClient:
                 # Execute query with rate limiting
                 time.sleep(self.rate_limit_delay)
 
-                # Test with a simple query first to debug coordinate issues
-                test_query = f"node({south},{west},{north},{east});out body;"
-                print(f"TEST QUERY: {test_query}")
-                test_result = self.api.query(test_query)
-                print(f"TEST RESULT: nodes={len(test_result.nodes)}")
-
                 result = self.api.query(query)
-
-                print(
-                    f"RAW RESULT: nodes={len(result.nodes)}, ways={len(result.ways)}, relations={len(result.relations)}"
-                )
 
                 # Debug: Check if we have any results at all
                 if (
@@ -1028,6 +1018,545 @@ class WatchEnrichmentOperator(foo.Operator):
             time.sleep(1)
 
 
+class DelegatedIndexingOperator(foo.Operator):
+    """Operator for delegated indexing of OSM data"""
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delegated_indexing",
+            label="Delegated Indexing",
+            execute_as_generator=False,
+            allow_delegated_execution=True,
+            allow_immediate_execution=False,
+        )
+
+    def execute(self, ctx: ExecutionContext):
+        """Execute indexing operation in delegated mode"""
+        try:
+            print("DelegatedIndexingOperator.execute() called!")
+            print(f"DelegatedIndexingOperator params: {ctx.params}")
+
+            bbox = ctx.params.get("bbox")
+            grid_tiles = ctx.params.get("grid_tiles", 10)
+            geo_field = ctx.params.get("geo_field")
+            indexing_id = ctx.params.get("indexing_id")
+
+            if not bbox:
+                raise ValueError("'bbox' is required")
+            if not geo_field:
+                raise ValueError("'geo_field' is required")
+            if not indexing_id:
+                raise ValueError("'indexing_id' is required")
+
+            # Test OSM client availability
+            test_client = OSMClient()
+            if not test_client.api:
+                raise RuntimeError(
+                    "OSM API client not available. Please install 'overpy' package."
+                )
+
+            # Get existing indexing state from store
+            existing_state = ctx.store("metageo").get("indexing_state")
+            if not existing_state or not existing_state.get("grid_cells"):
+                return {
+                    "status": "error",
+                    "message": "No grid found. Please calculate sample distribution first.",
+                    "error_type": "no_grid",
+                }
+
+            grid_cells = existing_state["grid_cells"]
+            active_cells = existing_state["active_cells"]
+            total_cells = existing_state["total_cells"]
+
+            # Reset failed cells to idle status for retry
+            failed_cells = [cell for cell in grid_cells if cell.get("status") == "failed"]
+            if failed_cells:
+                print(f"Found {len(failed_cells)} failed cells, resetting to idle for retry")
+                for cell in failed_cells:
+                    cell["status"] = "idle"
+                    cell["progress"] = 0
+                    cell["error"] = None
+                    if "retry_count" not in cell:
+                        cell["retry_count"] = 0
+                    cell["retry_count"] += 1
+
+            # Update indexing state
+            indexing_state = {
+                **existing_state,
+                "indexing_id": indexing_id,
+                "status": "running",
+                "start_time": datetime.now().isoformat(),
+                "execution_mode": "delegated",
+            }
+
+            # Store updated state
+            ctx.store("metageo").set("indexing_state", indexing_state)
+
+            # Execute the actual indexing process
+            result = self._execute_indexing_delegated(ctx, indexing_state)
+
+            return result
+
+        except Exception as e:
+            print(f"DelegatedIndexingOperator: Error during indexing: {e}")
+            return {
+                "status": "error",
+                "message": f"Failed to execute delegated indexing: {str(e)}",
+            }
+
+    def _execute_indexing_delegated(self, ctx: ExecutionContext, indexing_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute the actual indexing process in delegated mode"""
+        try:
+            print(f"DelegatedIndexingOperator: Starting delegated indexing for {indexing_state['total_cells']} cells")
+            
+            # Initialize OSM client
+            osm_client = OSMClient()
+            if not osm_client.api:
+                raise RuntimeError(
+                    "OSM client not available - please install overpy: pip install overpy"
+                )
+            
+            # Use the existing indexing logic from the panel
+            grid_cells = indexing_state["grid_cells"]
+            completed_cells = 0
+            failed_cells = 0
+            
+            print(f"DelegatedIndexingOperator: Found {len(grid_cells)} total grid cells")
+            
+            # Debug: Check cell statuses
+            idle_cells = [cell for cell in grid_cells if cell.get("status") == "idle"]
+            print(f"DelegatedIndexingOperator: Found {len(idle_cells)} idle cells to process")
+            
+            if len(idle_cells) == 0:
+                print("DelegatedIndexingOperator: No idle cells found! Checking all cell statuses:")
+                for i, cell in enumerate(grid_cells[:5]):  # Show first 5 cells
+                    print(f"  Cell {i}: id={cell.get('id')}, status={cell.get('status')}, sample_count={cell.get('sample_count', 0)}")
+            
+            # Process cells in parallel using ThreadPoolExecutor
+            import concurrent.futures
+            import threading
+            
+            # Create thread-safe counters
+            completed_cells_counter = [0]  # Use list to make it mutable
+            failed_cells_counter = [0]     # Use list to make it mutable
+            completed_cells_lock = threading.Lock()
+            failed_cells_lock = threading.Lock()
+            
+            def process_cell(cell):
+                """Process a single cell - designed to run in parallel"""
+                cell_id = cell["id"]
+                try:
+                    print(f"DelegatedIndexingOperator: Processing idle cell {cell_id}")
+                    
+                    # Process this cell
+                    cell["status"] = "processing"
+                    cell["progress"] = 0
+                    
+                    # Store individual cell status for watch operator
+                    ctx.store("metageo").set(f"cell_{cell_id}_status", "processing")
+                    
+                    # Actually query OSM data for this cell (not mock data!)
+                    cell_coordinates = cell.get("coordinates")
+                    if cell_coordinates:
+                        print(f"DelegatedIndexingOperator: Querying OSM data for cell {cell_id} with coordinates {cell_coordinates}")
+                        
+                        # Create a new OSM client for this thread
+                        thread_osm_client = OSMClient()
+                        
+                        # Query OSM data for this cell's bounding box with more conservative retry settings
+                        osm_result = thread_osm_client.query_bbox(
+                            cell_coordinates,
+                            max_retries=5,  # Increased retries
+                            base_delay=2.0,  # Increased base delay
+                            max_delay=60.0,  # Increased max delay
+                        )
+                        
+                        if "error" in osm_result:
+                            cell["status"] = "failed"
+                            cell["error"] = osm_result["error"]
+                            ctx.store("metageo").set(f"cell_{cell_id}_status", "failed")
+                            ctx.store("metageo").set(f"cell_{cell_id}_error", osm_result["error"])
+                            
+                            with failed_cells_lock:
+                                failed_cells_counter[0] += 1
+                            
+                            print(f"DelegatedIndexingOperator: OSM query failed for cell {cell_id}: {osm_result['error']}")
+                            return {"cell_id": cell_id, "status": "failed", "error": osm_result["error"]}
+                        else:
+                            # Store the actual OSM data
+                            osm_data = osm_result.get("features", [])
+                            ctx.store("metageo").set(f"cell_{cell_id}_osm_data", osm_data)
+                            ctx.store("metageo").set(f"cell_{cell_id}_osm_features", len(osm_data))
+                            
+                            cell["status"] = "completed"
+                            cell["progress"] = 100
+                            cell["osm_feature_count"] = len(osm_data)
+                            ctx.store("metageo").set(f"cell_{cell_id}_status", "completed")
+                            
+                            with completed_cells_lock:
+                                completed_cells_counter[0] += 1
+                            
+                            print(f"DelegatedIndexingOperator: Successfully processed cell {cell_id} with {len(osm_data)} OSM features")
+                            return {"cell_id": cell_id, "status": "completed", "features": len(osm_data)}
+                    else:
+                        cell["status"] = "failed"
+                        cell["error"] = "Invalid coordinates"
+                        ctx.store("metageo").set(f"cell_{cell_id}_status", "failed")
+                        ctx.store("metageo").set(f"cell_{cell_id}_error", "Invalid coordinates")
+                        
+                        with failed_cells_lock:
+                            failed_cells_counter[0] += 1
+                        
+                        print(f"DelegatedIndexingOperator: Cell {cell_id} has invalid coordinates")
+                        return {"cell_id": cell_id, "status": "failed", "error": "Invalid coordinates"}
+                        
+                except Exception as e:
+                    cell["status"] = "failed"
+                    cell["error"] = str(e)
+                    ctx.store("metageo").set(f"cell_{cell_id}_status", "failed")
+                    ctx.store("metageo").set(f"cell_{cell_id}_error", str(e))
+                    
+                    with failed_cells_lock:
+                        failed_cells_counter[0] += 1
+                    
+                    print(f"DelegatedIndexingOperator: Failed to process cell {cell_id}: {e}")
+                    return {"cell_id": cell_id, "status": "failed", "error": str(e)}
+            
+            # Filter to only idle cells
+            idle_cells = [cell for cell in grid_cells if cell.get("status") == "idle"]
+            print(f"DelegatedIndexingOperator: Processing {len(idle_cells)} idle cells in parallel")
+            
+            # Use ThreadPoolExecutor to process cells in parallel
+            # Further reduce concurrent threads to avoid rate limiting
+            max_workers = min(2, len(idle_cells))  # Reduced to 2 concurrent threads
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all cells for processing with staggered delays to avoid rate limiting
+                future_to_cell = {}
+                for i, cell in enumerate(idle_cells):
+                    # Add a delay between submissions to spread out requests and avoid rate limiting
+                    import time
+                    if i > 0:
+                        time.sleep(2.0)  # 2 second delay between thread starts
+                    future_to_cell[executor.submit(process_cell, cell)] = cell
+                
+                # Process completed futures and update progress
+                for future in concurrent.futures.as_completed(future_to_cell):
+                    cell = future_to_cell[future]
+                    try:
+                        result = future.result()
+                        # Update progress after each cell completes
+                        indexing_state["completed_cells"] = completed_cells_counter[0]
+                        indexing_state["failed_cells"] = failed_cells_counter[0]
+                        ctx.store("metageo").set("indexing_state", indexing_state)
+                        
+                        print(f"DelegatedIndexingOperator: Cell {result['cell_id']} completed with status: {result['status']}")
+                    except Exception as e:
+                        print(f"DelegatedIndexingOperator: Error processing cell {cell['id']}: {e}")
+            
+            # Log any cells that were skipped
+            for cell in grid_cells:
+                if cell.get("status") != "idle" and cell.get("status") not in ["completed", "failed", "processing"]:
+                    print(f"DelegatedIndexingOperator: Skipping cell {cell['id']} with status '{cell.get('status')}'")
+            
+            # Update final counters
+            completed_cells = completed_cells_counter[0]
+            failed_cells = failed_cells_counter[0]
+
+            # Update final state
+            indexing_state["status"] = "completed"
+            indexing_state["completed_cells"] = completed_cells
+            indexing_state["failed_cells"] = failed_cells
+            indexing_state["completed_at"] = datetime.now().isoformat()
+            
+            ctx.store("metageo").set("indexing_state", indexing_state)
+
+            return {
+                "status": "success",
+                "message": f"Delegated indexing completed. {completed_cells} cells processed, {failed_cells} failed.",
+                "completed_cells": completed_cells,
+                "failed_cells": failed_cells,
+                "total_cells": len(grid_cells),
+            }
+
+        except Exception as e:
+            print(f"DelegatedIndexingOperator: Error in delegated execution: {e}")
+            indexing_state["status"] = "failed"
+            indexing_state["error"] = str(e)
+            indexing_state["failed_at"] = datetime.now().isoformat()
+            ctx.store("metageo").set("indexing_state", indexing_state)
+            
+            return {
+                "status": "error",
+                "message": f"Delegated indexing failed: {str(e)}",
+            }
+
+
+
+class DelegatedEnrichmentOperator(foo.Operator):
+    """Operator for delegated enrichment of samples with OSM data"""
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="delegated_enrichment",
+            label="Delegated Enrichment",
+            execute_as_generator=False,
+            allow_delegated_execution=True,
+            allow_immediate_execution=False,
+        )
+
+    def execute(self, ctx: ExecutionContext):
+        """Execute enrichment operation in delegated mode"""
+        try:
+            print("DelegatedEnrichmentOperator.execute() called!")
+            print(f"DelegatedEnrichmentOperator params: {ctx.params}")
+
+            enrichment_id = ctx.params.get("enrichment_id")
+            geo_field = ctx.params.get("geo_field")
+            mapping_config = ctx.params.get("mapping_config")
+
+            if not enrichment_id:
+                raise ValueError("'enrichment_id' is required")
+            if not geo_field:
+                raise ValueError("'geo_field' is required")
+            if not mapping_config:
+                raise ValueError("'mapping_config' is required")
+
+            # Get the dataset
+            dataset = ctx.dataset
+            if not dataset:
+                raise ValueError("No dataset available in context")
+
+            # Get indexing state
+            indexing_state = ctx.store("metageo").get("indexing_state")
+            if not indexing_state:
+                raise RuntimeError("No indexing state found. Please run indexing first.")
+
+            # Create enrichment job
+            enrichment_job = {
+                "enrichment_id": enrichment_id,
+                "status": "running",
+                "start_time": datetime.now().isoformat(),
+                "execution_mode": "delegated",
+                "total_samples": len(dataset),
+                "processed_samples": 0,
+                "failed_samples": 0,
+            }
+            ctx.store("metageo").set("enrichment_job", enrichment_job)
+
+            # Execute the actual enrichment process
+            result = self._execute_enrichment_delegated(ctx, dataset, mapping_config, indexing_state, enrichment_job)
+
+            return result
+
+        except Exception as e:
+            print(f"DelegatedEnrichmentOperator: Error during enrichment: {e}")
+            return {
+                "status": "error",
+                "message": f"Failed to execute delegated enrichment: {str(e)}",
+            }
+
+    def _execute_enrichment_delegated(self, ctx: ExecutionContext, dataset, mapping_config: dict, indexing_state: dict, enrichment_job: dict) -> Dict[str, Any]:
+        """Execute the actual enrichment process in delegated mode"""
+        try:
+            print(f"DelegatedEnrichmentOperator: Starting delegated enrichment for {len(dataset)} samples")
+            
+            # Get the geo field from mapping config
+            geo_field = mapping_config.get("geoField", "location")
+            
+            # Define new fields in the dataset schema
+            self._define_dataset_fields(dataset, mapping_config)
+            
+            # Get all OSM data from the index
+            store = ctx.store("metageo")
+            all_osm_data = {}
+            
+            # Collect all OSM data from grid cells
+            grid_cells = indexing_state.get("grid_cells", [])
+            for cell in grid_cells:
+                cell_id = cell["id"]
+                osm_data = store.get(f"cell_{cell_id}_osm_data")
+                if osm_data:
+                    all_osm_data[cell_id] = osm_data
+            
+            # Process samples by iterating through grid cells
+            processed_count = 0
+            failed_count = 0
+            total_samples = len(dataset)
+            
+            # Process each grid cell
+            for cell in grid_cells:
+                cell_id = cell["id"]
+                cell_coordinates = cell.get("coordinates")
+                sample_count = cell.get("sample_count", 0)
+                
+                if not cell_coordinates or len(cell_coordinates) != 4 or sample_count == 0:
+                    continue
+                
+                # Get OSM data for this cell
+                cell_osm_data = all_osm_data.get(cell_id, [])
+                if not cell_osm_data:
+                    continue
+                
+                # Extract cell boundaries
+                min_lon, min_lat, max_lon, max_lat = cell_coordinates
+                
+                # Find samples that fall within this cell's boundaries
+                cell_samples = []
+                for sample in dataset:
+                    try:
+                        if geo_field not in sample:
+                            continue
+                        
+                        geo_location = sample[geo_field]
+                        if not geo_location:
+                            continue
+                        
+                        # Convert to lat/lon
+                        lon, lat = self._extract_coordinates(geo_location)
+                        if lon is None or lat is None:
+                            continue
+                        
+                        # Check if sample falls within this cell
+                        if (min_lon <= lon <= max_lon and min_lat <= lat <= max_lat):
+                            cell_samples.append((sample, lon, lat))
+                            
+                    except Exception as e:
+                        print(f"DelegatedEnrichmentOperator: Error checking sample {sample.id}: {e}")
+                        continue
+                
+                # Process samples in this cell
+                for sample, lon, lat in cell_samples:
+                    try:
+                        self._apply_mapping_to_sample(sample, cell_osm_data, mapping_config, lon, lat)
+                        processed_count += 1
+                        
+                        # Update progress every 100 samples
+                        if processed_count % 100 == 0:
+                            self._update_enrichment_progress(ctx, processed_count, total_samples, failed_count)
+                            
+                    except Exception as e:
+                        failed_count += 1
+                        print(f"DelegatedEnrichmentOperator: Error processing sample {sample.id}: {e}")
+                        continue
+            
+            # Mark as completed
+            enrichment_job["status"] = "completed"
+            enrichment_job["completed_at"] = datetime.now().isoformat()
+            enrichment_job["processed_samples"] = processed_count
+            enrichment_job["failed_samples"] = failed_count
+            ctx.store("metageo").set("enrichment_job", enrichment_job)
+            
+            return {
+                "status": "success",
+                "message": f"Delegated enrichment completed. {processed_count} samples processed, {failed_count} failed.",
+                "processed_samples": processed_count,
+                "failed_samples": failed_count,
+                "total_samples": total_samples,
+            }
+
+        except Exception as e:
+            print(f"DelegatedEnrichmentOperator: Error in delegated execution: {e}")
+            enrichment_job["status"] = "failed"
+            enrichment_job["error"] = str(e)
+            enrichment_job["failed_at"] = datetime.now().isoformat()
+            ctx.store("metageo").set("enrichment_job", enrichment_job)
+            
+            return {
+                "status": "error",
+                "message": f"Delegated enrichment failed: {str(e)}",
+            }
+
+    def _define_dataset_fields(self, dataset, mapping_config: dict):
+        """Define new fields in the dataset schema based on mapping configuration."""
+        # This would be the same logic as in the panel class
+        # For brevity, I'm including a simplified version
+        if mapping_config.get("enableSampleTagging", False):
+            tag_mappings = mapping_config.get("tagMappings", [])
+            for tag_mapping in tag_mappings:
+                field_name = tag_mapping.get("fieldName")
+                field_type = tag_mapping.get("fieldType", "string")
+                if field_name:
+                    if field_type == "bool":
+                        dataset.add_sample_field(field_name, fo.BooleanField)
+                    elif field_type == "int":
+                        dataset.add_sample_field(field_name, fo.IntField)
+                    elif field_type == "float":
+                        dataset.add_sample_field(field_name, fo.FloatField)
+                    else:
+                        dataset.add_sample_field(field_name, fo.StringField)
+
+    def _extract_coordinates(self, geo_location):
+        """Extract longitude and latitude from a geo location."""
+        try:
+            if hasattr(geo_location, "coordinates"):
+                coords = geo_location.coordinates
+                if coords and len(coords) >= 2:
+                    return float(coords[0]), float(coords[1])
+            elif isinstance(geo_location, (list, tuple)) and len(geo_location) >= 2:
+                return float(geo_location[0]), float(geo_location[1])
+            elif hasattr(geo_location, "longitude") and hasattr(geo_location, "latitude"):
+                return float(geo_location.longitude), float(geo_location.latitude)
+        except Exception as e:
+            print(f"Error extracting coordinates: {e}")
+        return None, None
+
+    def _apply_mapping_to_sample(self, sample, osm_data: list, mapping_config: dict, lon: float, lat: float):
+        """Apply the mapping configuration to a sample using nearby OSM data."""
+        # This would be the same logic as in the panel class
+        # For brevity, I'm including a simplified version
+        if mapping_config.get("enableSampleTagging", False):
+            tag_mappings = mapping_config.get("tagMappings", [])
+            for tag_mapping in tag_mappings:
+                osm_key = tag_mapping.get("osmKey")
+                field_name = tag_mapping.get("fieldName")
+                distance = tag_mapping.get("distance", 100)
+                
+                if osm_key and field_name:
+                    nearby_features = self._find_nearby_features(osm_data, lon, lat, distance)
+                    for feature in nearby_features:
+                        if "tags" in feature and osm_key in feature["tags"]:
+                            value = feature["tags"][osm_key]
+                            tag_value = f"{field_name}:{value}"
+                            sample.tags.append(tag_value)
+                            break
+
+    def _find_nearby_features(self, osm_data: list, lon: float, lat: float, radius: float) -> list:
+        """Find OSM features within the specified radius of the location."""
+        nearby_features = []
+        for feature in osm_data:
+            feature_lon, feature_lat = self._get_feature_location(feature)
+            if feature_lon is not None and feature_lat is not None:
+                distance = ((lon - feature_lon) ** 2 + (lat - feature_lat) ** 2) ** 0.5
+                distance_meters = distance * 111000  # Rough conversion
+                if distance_meters <= radius:
+                    nearby_features.append(feature)
+        return nearby_features
+
+    def _get_feature_location(self, feature: dict) -> tuple:
+        """Extract longitude and latitude from an OSM feature."""
+        if "lat" in feature and "lon" in feature:
+            return feature["lon"], feature["lat"]
+        elif "geometry" in feature:
+            geometry = feature["geometry"]
+            if geometry.get("type") == "Point" and "coordinates" in geometry:
+                coords = geometry["coordinates"]
+                if len(coords) >= 2:
+                    return coords[0], coords[1]  # [lon, lat]
+        return None, None
+
+    def _update_enrichment_progress(self, ctx: ExecutionContext, processed: int, total: int, failed: int = 0):
+        """Update the enrichment progress in the store."""
+        enrichment_job = ctx.store("metageo").get("enrichment_job")
+        if enrichment_job:
+            enrichment_job["processed_samples"] = processed
+            enrichment_job["failed_samples"] = failed
+            enrichment_job["progress"] = (processed / total) * 100 if total > 0 else 0
+            ctx.store("metageo").set("enrichment_job", enrichment_job)
+
+
 class ResetMetageoOperator(foo.Operator):
     """Operator for completely resetting all metageo state and configuration"""
 
@@ -1575,6 +2104,9 @@ class MetageoPanel(Panel):
     def enrich_dataset_async(self, ctx: ExecutionContext) -> dict[str, any]:
         """Enrich dataset with OSM data asynchronously for multi-dashboard support."""
         try:
+            # Get execution mode parameter
+            execution_mode = ctx.params.get("execution_mode", "immediate")
+            
             # Get the mapping configuration
             mapping_config = ctx.store("metageo").get("mapping_config")
             print(
@@ -1632,43 +2164,68 @@ class MetageoPanel(Panel):
             }
             ctx.store("metageo").set("enrichment_state", enrichment_state)
 
-            # Start the enrichment process asynchronously
-            # Use FiftyOne's built-in async execution
-            import threading
+            if execution_mode == "delegated":
+                # Launch the delegated enrichment operator
+                enrichment_id = enrichment_job["enrichment_id"]
+                geo_field = mapping_config.get("geoField", "location")
+                
+                ctx.trigger(
+                    "@voxel51/metageo/delegated_enrichment",
+                    {
+                        "enrichment_id": enrichment_id,
+                        "geo_field": geo_field,
+                        "mapping_config": mapping_config,
+                    }
+                )
+                print("enrich_dataset_async: Successfully triggered delegated enrichment operator")
+                
+                return {
+                    "status": "success",
+                    "message": "Delegated enrichment process started successfully",
+                    "job_id": "enrichment_job",
+                    "total_samples": len(dataset),
+                    "execution_mode": "delegated",
+                    "enrichment_id": enrichment_id,
+                }
+            else:
+                # Start the enrichment process asynchronously (immediate mode)
+                # Use FiftyOne's built-in async execution
+                import threading
 
-            def run_enrichment():
-                try:
-                    self._start_enrichment_process(
-                        ctx, dataset, mapping_config, indexing_state
-                    )
-                except Exception as e:
-                    print(
-                        f"🔍 enrich_dataset_async: Background enrichment failed: {e}"
-                    )
-                    # Update job with error status
-                    enrichment_job = ctx.store("metageo").get("enrichment_job")
-                    if enrichment_job:
-                        enrichment_job["status"] = "failed"
-                        enrichment_job["error"] = str(e)
-                        enrichment_job[
-                            "failed_at"
-                        ] = datetime.now().isoformat()
-                        ctx.store("metageo").set(
-                            "enrichment_job", enrichment_job
+                def run_enrichment():
+                    try:
+                        self._start_enrichment_process(
+                            ctx, dataset, mapping_config, indexing_state
                         )
+                    except Exception as e:
+                        print(
+                            f"🔍 enrich_dataset_async: Background enrichment failed: {e}"
+                        )
+                        # Update job with error status
+                        enrichment_job = ctx.store("metageo").get("enrichment_job")
+                        if enrichment_job:
+                            enrichment_job["status"] = "failed"
+                            enrichment_job["error"] = str(e)
+                            enrichment_job[
+                                "failed_at"
+                            ] = datetime.now().isoformat()
+                            ctx.store("metageo").set(
+                                "enrichment_job", enrichment_job
+                            )
 
-            # Start enrichment in background thread
-            enrichment_thread = threading.Thread(
-                target=run_enrichment, daemon=True
-            )
-            enrichment_thread.start()
+                # Start enrichment in background thread
+                enrichment_thread = threading.Thread(
+                    target=run_enrichment, daemon=True
+                )
+                enrichment_thread.start()
 
-            return {
-                "status": "success",
-                "message": "Enrichment process started successfully",
-                "job_id": "enrichment_job",
-                "total_samples": len(dataset),
-            }
+                return {
+                    "status": "success",
+                    "message": "Enrichment process started successfully",
+                    "job_id": "enrichment_job",
+                    "total_samples": len(dataset),
+                    "execution_mode": "immediate",
+                }
 
         except Exception as e:
             return {
@@ -3169,9 +3726,11 @@ class MetageoPanel(Panel):
             )
 
         if not existing_state or not existing_state.get("grid_cells"):
-            raise RuntimeError(
-                "No grid found. Please calculate sample distribution first."
-            )
+            return {
+                "status": "error",
+                "message": "No grid found. Please calculate sample distribution first.",
+                "error_type": "no_grid",
+            }
 
         grid_cells = existing_state["grid_cells"]
         active_cells = existing_state["active_cells"]
@@ -3221,34 +3780,67 @@ class MetageoPanel(Panel):
         )
 
         try:
-            # Launch the index grid operator to process all cells
-            ctx.trigger(
-                "@voxel51/metageo/index_grid", {"indexing_id": indexing_id}
-            )
-            print("start_indexing: Successfully triggered index grid operator")
-
-            # Launch the watch operator to monitor progress
-            ctx.trigger(
-                "@voxel51/metageo/watch_indexing",
-                {
+            if execution_mode == "delegated":
+                # Launch the delegated indexing operator
+                ctx.trigger(
+                    "@voxel51/metageo/delegated_indexing",
+                    {
+                        "indexing_id": indexing_id,
+                        "bbox": bbox,
+                        "grid_tiles": grid_tiles,
+                        "geo_field": geo_field,
+                    }
+                )
+                print("start_indexing: Successfully triggered delegated indexing operator")
+                
+                # Also launch the watch operator to monitor progress for delegated indexing
+                ctx.trigger(
+                    "@voxel51/metageo/watch_indexing",
+                    {
+                        "indexing_id": indexing_id,
+                        "total_cells": total_cells,
+                        "active_cells": active_cells,
+                    },
+                )
+                print("start_indexing: Successfully triggered watch operator for delegated indexing")
+                
+                return {
+                    "status": "started",
+                    "execution_mode": "delegated",
                     "indexing_id": indexing_id,
                     "total_cells": total_cells,
                     "active_cells": active_cells,
-                },
-            )
-            print("start_indexing: Successfully triggered watch operator")
+                    "message": f"Started delegated indexing for {active_cells} active cells.",
+                }
+            else:
+                # Launch the index grid operator to process all cells (immediate mode)
+                ctx.trigger(
+                    "@voxel51/metageo/index_grid", {"indexing_id": indexing_id}
+                )
+                print("start_indexing: Successfully triggered index grid operator")
+
+                # Launch the watch operator to monitor progress
+                ctx.trigger(
+                    "@voxel51/metageo/watch_indexing",
+                    {
+                        "indexing_id": indexing_id,
+                        "total_cells": total_cells,
+                        "active_cells": active_cells,
+                    },
+                )
+                print("start_indexing: Successfully triggered watch operator")
+                
+                return {
+                    "status": "started",
+                    "execution_mode": "immediate",
+                    "indexing_id": indexing_id,
+                    "total_cells": total_cells,
+                    "active_cells": active_cells,
+                    "message": f"Started indexing with watch operator monitoring {active_cells} active cells.",
+                }
         except Exception as e:
             print(f"start_indexing: Error triggering operators: {e}")
             raise
-
-        return {
-            "status": "started",
-            "execution_mode": "immediate",
-            "indexing_id": indexing_id,
-            "total_cells": total_cells,
-            "active_cells": active_cells,
-            "message": f"Started indexing with watch operator monitoring {active_cells} active cells.",
-        }
 
     def get_sample_distribution(self, ctx: ExecutionContext) -> Dict[str, Any]:
         """Get sample distribution across grid cells without starting indexing"""
@@ -4304,6 +4896,7 @@ class MetageoPanel(Panel):
                 cleanup_index=self.cleanup_index,
                 cleanup_enriched_data=self.cleanup_enriched_data,
                 create_filters=self.create_filters,
+                reset_metageo=self.reset_metageo,
             ),
         )
 
@@ -4314,3 +4907,5 @@ def register(p):
     p.register(WatchIndexingOperator)
     p.register(WatchEnrichmentOperator)
     p.register(ResetMetageoOperator)
+    p.register(DelegatedIndexingOperator)
+    p.register(DelegatedEnrichmentOperator)

@@ -51,6 +51,7 @@ interface FieldMappingFormData {
   enumMappings: { [key: string]: string };
   defaultValue: string;
   description: string;
+  distance: number; // Distance threshold in meters
 }
 
 const FIELD_TYPE_OPTIONS = [
@@ -100,6 +101,7 @@ export default function FieldMappingConfig({
     enumMappings: {},
     defaultValue: "",
     description: "",
+    distance: 100, // Default 100 meters
   });
 
   const handleOpenDialog = (index?: number) => {
@@ -114,6 +116,7 @@ export default function FieldMappingConfig({
         enumMappings: mapping.enumMappings || {},
         defaultValue: mapping.defaultValue || "",
         description: mapping.description || "",
+        distance: mapping.distance || 100,
       });
       setEditingIndex(index);
     } else {
@@ -126,6 +129,7 @@ export default function FieldMappingConfig({
         enumMappings: {},
         defaultValue: "",
         description: "",
+        distance: 100,
       });
       setEditingIndex(null);
     }
@@ -154,6 +158,7 @@ export default function FieldMappingConfig({
         formData.fieldType === "enum" ? formData.enumMappings : undefined,
       defaultValue: formData.defaultValue || undefined,
       description: formData.description || undefined,
+      distance: formData.distance,
     };
 
     if (editingIndex !== null) {
@@ -603,6 +608,22 @@ export default function FieldMappingConfig({
               }
               helperText="Value to use when OSM tag is not found"
               placeholder="e.g., unknown, null, 0"
+            />
+
+            {/* Distance Threshold */}
+            <TextField
+              label="Distance Threshold (meters)"
+              type="number"
+              value={formData.distance}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  distance: parseFloat(e.target.value) || 100,
+                }))
+              }
+              helperText="OSM tag will only be mapped to the sample if the OSM feature is within this distance threshold from the sample's location. This ensures spatial relevance of the mapped data."
+              inputProps={{ min: 1, max: 10000, step: 1 }}
+              required
             />
 
             {/* Description */}
