@@ -7,6 +7,7 @@ I/O operators.
 """
 import base64
 import contextlib
+import logging
 import multiprocessing.dummy
 import os
 from packaging.version import Version
@@ -17,6 +18,7 @@ import fiftyone as fo
 import fiftyone.constants as foc
 import fiftyone.core.fields as fof
 import fiftyone.core.media as fom
+import fiftyone.core.metadata as fomm
 import fiftyone.core.storage as fos
 import fiftyone.core.utils as fou
 import fiftyone.operators as foo
@@ -319,6 +321,16 @@ def _import_media_only_inputs(ctx, inputs):
         view=types.AutocompleteView(multiple=True),
     )
 
+    inputs.bool(
+        "metadata",
+        default=True,
+        label="Compute metadata",
+        description=(
+            "Whether to populate the `metadata` field of each imported sample"
+        ),
+        view=types.CheckboxView(),
+    )
+
     ready = _upload_media_inputs(ctx, inputs)
     if not ready:
         return False
@@ -559,6 +571,16 @@ def _import_media_and_labels_inputs(ctx, inputs):
         view=types.AutocompleteView(multiple=True),
     )
 
+    inputs.bool(
+        "metadata",
+        default=True,
+        label="Compute metadata",
+        description=(
+            "Whether to populate the `metadata` field of each imported sample"
+        ),
+        view=types.CheckboxView(),
+    )
+
     return _upload_media_inputs(ctx, inputs)
 
 
@@ -795,6 +817,7 @@ def _upload_media_bytes(ctx):
 def _import_media_only(ctx):
     style = ctx.params.get("style", None)
     tags = ctx.params.get("tags", None)
+    metadata = ctx.params.get("metadata", False)
 
     if style == "UPLOAD":
         filepath = _upload_media_bytes(ctx)
@@ -823,29 +846,51 @@ def _import_media_only(ctx):
         for progress in _upload_media(ctx, tasks):
             yield progress
 
-    make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
-    samples = map(make_sample, filepaths)
+    with contextlib.ExitStack() as context:
+        if metadata:
+            num_workers = fou.recommend_thread_pool_workers()
+            pool = multiprocessing.dummy.Pool(processes=num_workers)
+            context.enter_context(pool)
 
-    # @todo can remove version check if we require `fiftyone>=1.5.0`
-    if ctx.delegated or Version(foc.VERSION) < Version("1.5.0"):
-        kwargs = {}
+            def make_sample(filepath):
+                media_type = fom.get_media_type(filepath)
+                metadata = fomm._compute_sample_metadata(filepath, media_type)
+                return fo.Sample(
+                    filepath=filepath,
+                    metadata=metadata,
+                    media_type=media_type,
+                    tags=tags,
+                )
 
-        # @todo can remove version check if we require `fiftyone>=1.6.0`
-        if Version(foc.VERSION) >= Version("1.6.0"):
-            progress = lambda pb: ctx.set_progress(progress=pb.progress)
-            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+            samples = pool.map(make_sample, filepaths)
+        else:
 
-        ctx.dataset.add_samples(samples, num_samples=num_total, **kwargs)
-        return
+            def make_sample(filepath):
+                return fo.Sample(filepath=filepath, tags=tags)
 
-    num_added = 0
-    for ids in ctx.dataset.add_samples(
-        samples, generator=True, progress=False
-    ):
-        num_added += len(ids)
-        progress = num_added / num_total
-        label = f"Loaded {num_added} of {num_total}"
-        yield ctx.trigger("set_progress", dict(progress=progress, label=label))
+            samples = map(make_sample, filepaths)
+
+        # @todo can remove version check if we require `fiftyone>=1.5.0`
+        if ctx.delegated or Version(foc.VERSION) < Version("1.5.0"):
+            kwargs = {}
+
+            # @todo can remove version check if we require `fiftyone>=1.6.0`
+            if Version(foc.VERSION) >= Version("1.6.0"):
+                progress = lambda pb: ctx.set_progress(progress=pb.progress)
+                kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
+            ctx.dataset.add_samples(samples, num_samples=num_total, **kwargs)
+        else:
+            num_added = 0
+            for ids in ctx.dataset.add_samples(
+                samples, generator=True, progress=False
+            ):
+                num_added += len(ids)
+                progress = num_added / num_total
+                label = f"Loaded {num_added} of {num_total}"
+                yield ctx.trigger(
+                    "set_progress", dict(progress=progress, label=label)
+                )
 
 
 def _import_media_and_labels(ctx):
@@ -858,6 +903,7 @@ def _import_media_and_labels(ctx):
     label_field = ctx.params.get("label_field", None)
     label_types = ctx.params.get("label_types", None)
     tags = ctx.params.get("tags", None)
+    metadata = ctx.params.get("metadata", False)
     dynamic = ctx.params.get("dynamic", False)
     kwargs = ctx.params.get("kwargs", {})
 
@@ -869,19 +915,49 @@ def _import_media_and_labels(ctx):
         progress = lambda pb: ctx.set_progress(progress=pb.progress)
         kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
-    ctx.dataset.add_dir(
-        dataset_dir=dataset_dir,
-        dataset_type=dataset_type,
-        data_path=data_path,
-        labels_path=labels_path,
-        label_field=label_field,
-        tags=tags,
-        dynamic=dynamic,
-        **kwargs,
-    )
+    # @todo can remove version check if we require `fiftyone>=1.5.0`
+    if Version(foc.VERSION) < Version("1.5.0"):
+        ids = ctx.dataset.add_dir(
+            dataset_dir=dataset_dir,
+            dataset_type=dataset_type,
+            data_path=data_path,
+            labels_path=labels_path,
+            label_field=label_field,
+            tags=tags,
+            dynamic=dynamic,
+            **kwargs,
+        )
 
-    return
-    yield
+        if metadata:
+            for _ids in fou.iter_batches(ids, 100000):
+                ctx.dataset.select(_ids).compute_metadata(overwrite=True)
+    else:
+        num_added = 0
+        for ids in ctx.dataset.add_dir(
+            dataset_dir=dataset_dir,
+            dataset_type=dataset_type,
+            data_path=data_path,
+            labels_path=labels_path,
+            label_field=label_field,
+            tags=tags,
+            dynamic=dynamic,
+            generator=True,
+            **kwargs,
+        ):
+            if metadata:
+                with fou.SuppressLogging(logging.INFO):
+                    ctx.dataset.select(ids).compute_metadata(
+                        overwrite=True, progress=False
+                    )
+
+            if not ctx.delegated:
+                num_added += len(ids)
+                label = f"Loaded {num_added} samples"
+                yield ctx.trigger("set_progress", dict(label=label))
+
+        if not ctx.delegated:
+            label = f"Loaded {num_added} samples"
+            yield ctx.trigger("set_progress", dict(progress=1, label=label))
 
 
 def _upload_labels_bytes(ctx, tmp_dir):
@@ -974,14 +1050,7 @@ def _upload_media(ctx, tasks):
 
     num_uploaded = 0
     num_total = len(tasks)
-
-    # @todo can switch to this if we require `fiftyone>=0.22.2`
-    # num_workers = fou.recommend_thread_pool_workers()
-
-    if hasattr(fou, "recommend_thread_pool_workers"):
-        num_workers = fou.recommend_thread_pool_workers()
-    else:
-        num_workers = fo.config.max_thread_pool_workers or 8
+    num_workers = fou.recommend_thread_pool_workers()
 
     with multiprocessing.dummy.Pool(processes=num_workers) as pool:
         for _ in pool.imap_unordered(_do_upload_media, tasks):
