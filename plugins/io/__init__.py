@@ -929,7 +929,7 @@ def _import_media_and_labels(ctx):
         )
 
         if metadata:
-            for _ids in fou.iter_batches(ids, 100000):
+            for _ids in fou.iter_batches(ids, 10000):
                 ctx.dataset.select(_ids).compute_metadata(overwrite=True)
     else:
         num_added = 0
