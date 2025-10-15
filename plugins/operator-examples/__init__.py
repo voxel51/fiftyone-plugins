@@ -879,6 +879,81 @@ class ExampleComplexExecution(foo.Operator):
         print(f"Message: {ctx.params['message']}")
 
 
+class SampleDownloadExample(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="example_sample_download",
+            label="Examples: Sample Download",
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+        inputs.message(
+            "Sample Download",
+            label="Select a sample to download its image",
+            description="This operator allows you to select a sample and download its image file.",
+        )
+        return types.Property(inputs)
+
+    def execute(self, ctx):
+        if ctx.current_sample is None:
+            raise ValueError(
+                "No sample selected. Please select a sample first."
+            )
+
+        sample = ctx.dataset[ctx.current_sample]
+        filepath = sample.filepath
+
+        # Create download URL for the media file
+        import fiftyone.core.storage as fos
+
+        # TODO make this work in teams
+        download_url = f"http://localhost:5151/media?filepath={filepath}"
+
+        # Extract filename from filepath
+        import os
+
+        filename = os.path.basename(filepath)
+
+        return {
+            "download_url": download_url,
+            "filename": filename,
+            "sample_id": ctx.current_sample,
+            "filepath": filepath,
+        }
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+
+        if ctx.params.get("error"):
+            outputs.str("error", label="Error", view=types.Error())
+        else:
+            # Create a download button view
+            download_url = ctx.results.get("download_url")
+            filename = ctx.results.get("filename")
+            print(download_url)
+            download_button = types.Button(
+                label="Download Image",
+                icon="download",
+                operator="download_file",
+                params={"url": download_url, "filename": filename},
+            )
+
+            outputs.str("filename", label="Filename")
+            outputs.str(
+                "download_url", label="Download URL", view=download_button
+            )
+            outputs.str("sample_id", label="Sample ID")
+            outputs.str("filepath", label="File Path")
+
+        return types.Property(outputs)
+
+
+# an example operator that allows a user to select a sample
+# then in the output they can click a button that downloads the image
+
+
 def register(p):
     p.register(MessagesExample)
     p.register(SimpleInputExample)
@@ -905,3 +980,4 @@ def register(p):
     p.register(TargetViewExample)
     p.register(PythonViewExample)
     p.register(ExampleComplexExecution)
+    p.register(SampleDownloadExample)
