@@ -1734,23 +1734,41 @@ class ExportSamples(foo.Operator):
         return _export_samples(ctx)
 
     def resolve_output(self, ctx):
-        # @todo render a download button for remote exports
-        """
-        export_path = ctx.results["export_path"]
-        if hasattr(foc, "TEAMS_VERSION") and not fos.is_local(export_path):
-            download_link = fos.get_url(export_path)
-            download_md = f"[{download_link}](download_link)"
+        export_path = ctx.results.get("export_path", None)
+        if not export_path:
+            return
 
-            outputs = types.Object()
-            outputs.str(
-                "download_md", label="Export path", view=types.MarkdownView()
-            )
+        # Can only download remote files that aren't directories
+        is_file = os.path.splitext(export_path)[-1] != ""
+        if fos.is_local(export_path) or not is_file:
+            return
 
-            view = types.View(label="Export samples")
-            return types.Property(outputs, view=view)
-        """
+        # @todo can remove version check if we require `fiftyone>=1.10.0`
+        if Version(foc.VERSION) < Version("1.10.0"):
+            return
 
-        return None
+        outputs = types.Object()
+
+        outputs.str(
+            "instructions",
+            label=f"Download export from `{export_path}`",
+            view=types.MarkdownView(),
+        )
+
+        download_button = types.Button(
+            label="Download file",
+            icon="download",
+            operator="download_file",
+            params={
+                "url": export_path,
+                "filename": os.path.basename(export_path),
+            },
+        )
+        outputs.str("download", view=download_button)
+
+        return types.Property(
+            outputs, view=types.View(label="Download export")
+        )
 
 
 def _export_samples_inputs(ctx, inputs):
