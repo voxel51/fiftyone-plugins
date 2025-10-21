@@ -2824,17 +2824,32 @@ class GetURL(foo.Operator):
         # pylint: disable=no-member
         url = fos.get_url(filepath, hours=hours, method=method)
 
-        return {"url": url}
+        return {
+            "filepath": filepath,
+            "url": url,
+            "method": method,
+            "hours": hours,
+        }
 
     def resolve_output(self, ctx):
+        filepath = ctx.results.get("filepath", None)
+        url = ctx.results.get("url", None)
+        method = ctx.results.get("method", None)
+
         outputs = types.Object()
 
-        # @todo if method=GET, render a download button
-        outputs.str("url", label="URL", view=types.MarkdownView())
+        outputs.str("url", label="Signed URL", view=types.MarkdownView())
 
-        return types.Property(
-            outputs, view=types.View(label="Get URL samples")
-        )
+        if method == "GET":
+            download_button = types.Button(
+                label="Download file",
+                icon="download",
+                operator="download_file",
+                params={"url": url, "filename": os.path.basename(filepath)},
+            )
+            outputs.str("download", view=download_button)
+
+        return types.Property(outputs, view=types.View(label="Get URL"))
 
 
 def _get_url_inputs(ctx, inputs):
@@ -2872,15 +2887,49 @@ def _get_url_inputs(ctx, inputs):
     )
     method = ctx.params.get("method", "GET")
 
+    if not filepath:
+        return
+
+    if fos.is_local(filepath):
+        prop.invalid = True
+        prop.error_message = "Please provide a valid remote filepath"
+        return
+
+    if method != "PUT":
+        try:
+            exists = fos.exists(filepath)
+        except:
+            exists = False
+
+        if not exists:
+            view = types.Error(label=f"File `{filepath}` does not exist")
+            prop = inputs.view("result", view)
+            prop.invalid = True
+            return
+
     try:
         # pylint: disable=no-member
         url = fos.get_url(filepath, hours=hours, method=method)
-        view = types.Notice(label=f"[{url}]({url})")
     except Exception as e:
-        view = types.Error(label=str(e))
+        prop = inputs.view("result", types.Error(label=str(e)))
+        prop.invalid = True
+        return
 
-    prop = inputs.view("result", view)
-    prop.invalid = True
+    inputs.str(
+        "url_header",
+        view=types.Header(label="Signed URL", divider=True),
+    )
+    inputs.view("result", types.Notice(label=f"[{url}]({url})"))
+    inputs.invalid = method != "GET"
+
+    if method == "GET":
+        download_button = types.Button(
+            label="Download file",
+            icon="download",
+            operator="download_file",
+            params={"url": url, "filename": os.path.basename(filepath)},
+        )
+        inputs.str("download", view=download_button)
 
 
 def _parse_path(ctx, key):
