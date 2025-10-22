@@ -1751,7 +1751,8 @@ class ExportSamples(foo.Operator):
 
         outputs.str(
             "instructions",
-            label=f"Download export from `{export_path}`",
+            label="Export location",
+            description=export_path,
             view=types.MarkdownView(),
         )
 
@@ -1759,15 +1760,12 @@ class ExportSamples(foo.Operator):
             label="Download file",
             icon="download",
             operator="download_file",
-            params={
-                "url": export_path,
-                "filename": os.path.basename(export_path),
-            },
+            params={"url": export_path},
         )
         outputs.str("download", view=download_button)
 
         return types.Property(
-            outputs, view=types.View(label="Download export")
+            outputs, view=types.View(label="Export complete")
         )
 
 
@@ -2842,32 +2840,7 @@ class GetURL(foo.Operator):
         # pylint: disable=no-member
         url = fos.get_url(filepath, hours=hours, method=method)
 
-        return {
-            "filepath": filepath,
-            "url": url,
-            "method": method,
-            "hours": hours,
-        }
-
-    def resolve_output(self, ctx):
-        filepath = ctx.results.get("filepath", None)
-        url = ctx.results.get("url", None)
-        method = ctx.results.get("method", None)
-
-        outputs = types.Object()
-
-        outputs.str("url", label="Signed URL", view=types.MarkdownView())
-
-        if method == "GET":
-            download_button = types.Button(
-                label="Download file",
-                icon="download",
-                operator="download_file",
-                params={"url": url, "filename": os.path.basename(filepath)},
-            )
-            outputs.str("download", view=download_button)
-
-        return types.Property(outputs, view=types.View(label="Get URL"))
+        return {"url": url}
 
 
 def _get_url_inputs(ctx, inputs):
@@ -2937,10 +2910,10 @@ def _get_url_inputs(ctx, inputs):
         "url_header",
         view=types.Header(label="Signed URL", divider=True),
     )
-    inputs.view("result", types.Notice(label=f"[{url}]({url})"))
-    inputs.invalid = method != "GET"
+    inputs.view("result", types.Notice(label=url))
 
-    if method == "GET":
+    # @todo can remove version check if we require `fiftyone>=1.10.0`
+    if method == "GET" and Version(foc.VERSION) >= Version("1.10.0"):
         download_button = types.Button(
             label="Download file",
             icon="download",
@@ -2948,6 +2921,8 @@ def _get_url_inputs(ctx, inputs):
             params={"url": url, "filename": os.path.basename(filepath)},
         )
         inputs.str("download", view=download_button)
+
+    inputs.invalid = True
 
 
 def _parse_path(ctx, key):
