@@ -425,7 +425,7 @@ class SklearnBackend(SimilarityBackend):
             "sklearn",
             types.Header(
                 label="Sklearn options",
-                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                description="https://docs.voxel51.com/brain.html#similarity-api",
                 divider=True,
             ),
         )
@@ -591,7 +591,7 @@ class MilvusBackend(SimilarityBackend):
             "milvus",
             types.Header(
                 label="Milvus options",
-                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                description="https://docs.voxel51.com/brain.html#similarity-api",
                 divider=True,
             ),
         )
@@ -644,7 +644,7 @@ class LanceDBBackend(SimilarityBackend):
             "lancedb",
             types.Header(
                 label="LanceDB options",
-                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                description="https://docs.voxel51.com/brain.html#similarity-api",
                 divider=True,
             ),
         )
@@ -681,7 +681,7 @@ class RedisBackend(SimilarityBackend):
             "redis",
             types.Header(
                 label="Redis options",
-                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                description="https://docs.voxel51.com/brain.html#similarity-api",
                 divider=True,
             ),
         )
@@ -733,7 +733,7 @@ class MongoDBBackend(SimilarityBackend):
             "mongodb",
             types.Header(
                 label="MongoDB options",
-                description="https://docs.voxel51.com/user_guide/brain.html#similarity-api",
+                description="https://docs.voxel51.com/brain.html#similarity-api",
                 divider=True,
             ),
         )
@@ -1355,7 +1355,7 @@ def compute_mistakenness(ctx, inputs):
     if not label_fields:
         warning = types.Warning(
             label="This dataset has no suitable label fields",
-            description="https://docs.voxel51.com/user_guide/brain.html#label-mistakes",
+            description="https://docs.voxel51.com/brain.html#label-mistakes",
         )
         prop = inputs.view("warning", warning)
         prop.invalid = True
@@ -1397,7 +1397,7 @@ def compute_mistakenness(ctx, inputs):
     if not pred_fields:
         warning = types.Warning(
             label="This dataset has no suitable prediction fields",
-            description="https://docs.voxel51.com/user_guide/brain.html#label-mistakes",
+            description="https://docs.voxel51.com/brain.html#label-mistakes",
         )
         prop = inputs.view("warning", warning)
         prop.invalid = True
@@ -1527,7 +1527,7 @@ def compute_hardness(ctx, inputs):
     if not label_fields:
         warning = types.Warning(
             label="This dataset has no classification fields",
-            description="https://docs.voxel51.com/user_guide/brain.html#sample-hardness",
+            description="https://docs.voxel51.com/brain.html#sample-hardness",
         )
         prop = inputs.view("warning", warning)
         prop.invalid = True
@@ -1650,7 +1650,7 @@ def get_embeddings(ctx, inputs, view, patches_field):
             label="Model",
             description=(
                 "An optional name of a model from the "
-                "[FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/models.html) "
+                "[FiftyOne Model Zoo](https://docs.voxel51.com/model_zoo/index.html) "
                 "to use to generate embeddings"
             ),
             view=model_choices,
@@ -2608,7 +2608,7 @@ def get_brain_key(
 
         warning = types.Warning(
             label=error_message,
-            description="https://docs.voxel51.com/user_guide/brain.html",
+            description="https://docs.voxel51.com/brain.html",
         )
         prop = inputs.view("warning", warning)
         prop.invalid = True

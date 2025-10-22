@@ -174,7 +174,7 @@ def _get_builtin_zoo_dataset(ctx, inputs):
     if _supports_remote_datasets():
         description = (
             "The name of the dataset to load from the "
-            "[FiftyOne Dataset Zoo](https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html). "
+            "[FiftyOne Dataset Zoo](https://docs.voxel51.com/dataset_zoo/index.html). "
             "Also includes any "
             "[remote datasets](https://docs.voxel51.com/dataset_zoo/remote.html) "
             "you've already downloaded"
@@ -185,7 +185,7 @@ def _get_builtin_zoo_dataset(ctx, inputs):
         description = (
             "The name of the dataset to load from the FiftyOne Dataset Zoo"
         )
-        caption = "https://docs.voxel51.com/user_guide/model_zoo/models.html"
+        caption = "https://docs.voxel51.com/dataset_zoo/index.html"
 
     prop = inputs.enum(
         "name",
@@ -410,7 +410,7 @@ def _get_source_dir(ctx, inputs, zoo_dataset):
             "manually downloaded ActivityNet files to avoid downloading "
             "videos from YouTube"
         )
-        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-100"
+        url = "https://docs.voxel51.com/dataset_zoo/datasets/activitynet_100.html"
         required = False
     elif name == "activitynet-200":
         description = (
@@ -418,28 +418,30 @@ def _get_source_dir(ctx, inputs, zoo_dataset):
             "manually downloaded ActivityNet files to avoid downloading "
             "videos from YouTube"
         )
-        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-200"
+        url = "https://docs.voxel51.com/dataset_zoo/datasets/activitynet_200.html"
         required = False
     elif name == "bdd100k":
         description = (
             "In order to load the BDD100K dataset, you must download the "
             "source data manually"
         )
-        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#bdd100k"
+        url = "https://docs.voxel51.com/dataset_zoo/datasets/bdd100k.html"
         required = True
     elif name == "cityscapes":
         description = (
             "In order to load the Cityscapes dataset, you must download the "
             "source data manually"
         )
-        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cityscapes"
+        url = "https://docs.voxel51.com/dataset_zoo/datasets/cityscapes.html"
         required = True
     elif name == "imagenet-2012":
         description = (
             "In order to load the ImageNet dataset, you must download the "
             "source data manually"
         )
-        url = "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#imagenet-2012"
+        url = (
+            "https://docs.voxel51.com/dataset_zoo/datasets/imagenet_2012.html"
+        )
         required = True
     else:
         return True
@@ -954,7 +956,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         else:
             description = (
                 "The name of a model from the "
-                "[FiftyOne Model Zoo](https://docs.voxel51.com/user_guide/model_zoo/models.html) "
+                "[FiftyOne Model Zoo](https://docs.voxel51.com/model_zoo/index.html) "
                 "to apply. Also includes models from any "
                 "[remote sources](https://docs.voxel51.com/model_zoo/remote.html) "
                 "you've already registered"
@@ -965,7 +967,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
         description = (
             "The name of a model from the FiftyOne Model Zoo to apply"
         )
-        caption = "https://docs.voxel51.com/user_guide/model_zoo/models.html"
+        caption = "https://docs.voxel51.com/model_zoo/index.html"
 
     prop = inputs.enum(
         "model",
@@ -1093,7 +1095,7 @@ def _apply_zoo_model_inputs(ctx, inputs):
             else:
                 warning = types.Warning(
                     label="This dataset has no suitable similarity indexes",
-                    description="https://docs.voxel51.com/user_guide/brain.html",
+                    description="https://docs.voxel51.com/brain.html",
                 )
                 prop = inputs.view("brain_key_warning", warning)
                 prop.invalid = True
