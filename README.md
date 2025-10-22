@@ -431,6 +431,14 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/AdonaiVera/bddoia-fiftyone">@AdonaiVera/bddoia-fiftyone</a></b></td>
         <td>🚗 Load and explore the BDDOIA Safe/Unsafe Action dataset via the FiftyOne Zoo</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/AdonaiVera/fiftyone-agents">@AdonaiVera/fiftyone-agents</a></b></td>
+        <td>🤖 A comprehensive FiftyOne plugin for testing and evaluating multiple Vision-Language Models (VLMs) with dynamic prompts and built-in evaluation capabilities</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/AdonaiVera/gemini-vision-plugin">@AdonaiVera/gemini-vision-plugin</a></b></td>
+        <td>🔮 This plugin integrates Google Gemini's multimodal Vision models (e.g., gemini-2.5-flash) into your FiftyOne workflows. Prompt with text and one or more images; receive a text response grounded in visual inputs</td>
+    </tr>
 </table>
 
 ## Using Plugins
