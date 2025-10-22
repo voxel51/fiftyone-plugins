@@ -889,14 +889,23 @@ class SampleDownloadExample(foo.Operator):
 
     def resolve_input(self, ctx):
         inputs = types.Object()
-        inputs.message(
-            "Sample Download",
-            label="Select a sample to download its image",
-            description="This operator allows you to select a sample and download its image file.",
+
+        inputs.md(
+            "This operator allows you to download a sample's source media"
         )
+
+        if ctx.current_sample is not None:
+            label = "Press `Execute` to download the current sample's media"
+        else:
+            label = "Please open a sample in the modal first"
+
+        inputs.message("Sample Download", label=label)
         return types.Property(inputs)
 
     def execute(self, ctx):
+        import os
+        import fiftyone.core.storage as fos
+
         if ctx.current_sample is None:
             raise ValueError(
                 "No sample selected. Please select a sample first."
@@ -905,14 +914,10 @@ class SampleDownloadExample(foo.Operator):
         sample = ctx.dataset[ctx.current_sample]
         filepath = sample.filepath
 
-        # Create download URL for the media file
-        import fiftyone.core.storage as fos
-
-        # TODO make this work in teams
-        download_url = f"http://localhost:5151/media?filepath={filepath}"
-
-        # Extract filename from filepath
-        import os
+        if fos.is_local(filepath):
+            download_url = f"http://localhost:5151/media?filepath={filepath}"
+        else:
+            download_url = filepath
 
         filename = os.path.basename(filepath)
 
@@ -932,7 +937,6 @@ class SampleDownloadExample(foo.Operator):
             # Create a download button view
             download_url = ctx.results.get("download_url")
             filename = ctx.results.get("filename")
-            print(download_url)
             download_button = types.Button(
                 label="Download Image",
                 icon="download",
@@ -948,10 +952,6 @@ class SampleDownloadExample(foo.Operator):
             outputs.str("filepath", label="File Path")
 
         return types.Property(outputs)
-
-
-# an example operator that allows a user to select a sample
-# then in the output they can click a button that downloads the image
 
 
 def register(p):
