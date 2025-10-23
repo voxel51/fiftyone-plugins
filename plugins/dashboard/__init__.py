@@ -766,6 +766,7 @@ class DashboardState(object):
         self.panel.set_state("items_config", items_dict)
 
     def apply_data(self):
+        self.panel.set_state({"items": None})
         data_paths_dict = {f"items.{k}": v for k, v in self._data.items()}
         self.panel.set_data(data_paths_dict)
 
@@ -936,7 +937,7 @@ class DashboardState(object):
         values = list(counts.values())
         keys = list(counts.keys())
         total = np.sum(values)
-        factor = 100.0 / total
+        factor = 100.0 / total if total > 0 else 0
         factored_values = [v * factor for v in values]
 
         pie_data = {"values": factored_values, "labels": keys, "type": "pie"}
