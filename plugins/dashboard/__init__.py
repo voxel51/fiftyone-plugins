@@ -90,30 +90,116 @@ class DashboardPanel(foo.Panel):
         plot_type = result.get("plot_type")
         code = result.get("code", None)
         update_on_change = result.get("update_on_change", None)
-        with DashboardState(ctx) as dashboard_state:
-            name = result.get("name", dashboard_state.get_next_item_id())
-            item = DashboardPlotItem(
-                name=name,
-                type=plot_type,
-                config={**plot_config},
-                layout=plot_layout,
-                raw_params=result,
-                use_code=result.get("use_code", False),
-                code=code,
-                update_on_change=update_on_change,
-                x_field=result.get("x_field", None),
-                y_field=result.get("y_field", None),
-                field=result.get("field", None),
-                bins=result.get("bins", 10),
-                order=result.get("order", "alphabetical"),
-                reverse=result.get("reverse", False),
-                limit=result.get("limit", None),
-            )
+        field_mode = result.get("field_mode", "single")
 
-            if edit:
-                dashboard_state.edit_plot(item)
+        with DashboardState(ctx) as dashboard_state:
+            if field_mode == "multiple":
+                # Create multiple plots
+                if plot_type in ["line", "scatter", "numeric_histogram"]:
+                    x_fields = result.get("x_fields", [])
+                    y_field = result.get("y_field", None)
+
+                    for x_field in x_fields:
+                        name = dashboard_state.get_next_item_id()
+                        title = _resolve_field_name_in_title(
+                            result.get("plot_title", ""), x_field
+                        )
+
+                        # Create a copy of raw_params with the resolved title and single field
+                        plot_raw_params = {**result}
+                        plot_raw_params["plot_title"] = title
+                        plot_raw_params["x_field"] = x_field
+                        plot_raw_params[
+                            "field_mode"
+                        ] = "single"  # Force single mode for individual plots
+
+                        item = DashboardPlotItem(
+                            name=name,
+                            type=plot_type,
+                            config={**plot_config},
+                            layout=plot_layout,
+                            raw_params=plot_raw_params,
+                            use_code=False,  # Force False in multiple mode
+                            code=None,
+                            update_on_change=update_on_change,
+                            x_field=x_field,
+                            y_field=y_field,
+                            field=None,
+                            bins=result.get("bins", 10),
+                            order=result.get("order", "alphabetical"),
+                            reverse=result.get("reverse", False),
+                            limit=result.get("limit", None),
+                        )
+
+                        if edit:
+                            dashboard_state.edit_plot(item)
+                        else:
+                            dashboard_state.add_plot(item)
+
+                elif plot_type in ["categorical_histogram", "pie"]:
+                    fields = result.get("fields", [])
+
+                    for field in fields:
+                        name = dashboard_state.get_next_item_id()
+                        title = _resolve_field_name_in_title(
+                            result.get("plot_title", ""), field
+                        )
+
+                        # Create a copy of raw_params with the resolved title and single field
+                        plot_raw_params = {**result}
+                        plot_raw_params["plot_title"] = title
+                        plot_raw_params["field"] = field
+                        plot_raw_params[
+                            "field_mode"
+                        ] = "single"  # Force single mode for individual plots
+
+                        item = DashboardPlotItem(
+                            name=name,
+                            type=plot_type,
+                            config={**plot_config},
+                            layout=plot_layout,
+                            raw_params=plot_raw_params,
+                            use_code=False,  # Force False in multiple mode
+                            code=None,
+                            update_on_change=update_on_change,
+                            x_field=None,
+                            y_field=None,
+                            field=field,
+                            bins=result.get("bins", 10),
+                            order=result.get("order", "alphabetical"),
+                            reverse=result.get("reverse", False),
+                            limit=result.get("limit", None),
+                        )
+
+                        if edit:
+                            dashboard_state.edit_plot(item)
+                        else:
+                            dashboard_state.add_plot(item)
             else:
-                dashboard_state.add_plot(item)
+                # Single mode - existing behavior
+                name = result.get("name", dashboard_state.get_next_item_id())
+                item = DashboardPlotItem(
+                    name=name,
+                    type=plot_type,
+                    config={**plot_config},
+                    layout=plot_layout,
+                    raw_params=result,
+                    use_code=result.get("use_code", False),
+                    code=code,
+                    update_on_change=update_on_change,
+                    x_field=result.get("x_field", None),
+                    y_field=result.get("y_field", None),
+                    field=result.get("field", None),
+                    bins=result.get("bins", 10),
+                    order=result.get("order", "alphabetical"),
+                    reverse=result.get("reverse", False),
+                    limit=result.get("limit", None),
+                )
+
+                if edit:
+                    dashboard_state.edit_plot(item)
+                else:
+                    dashboard_state.add_plot(item)
 
     def on_configure_plot(self, ctx):
         self.handle_plot_change(ctx)
@@ -134,6 +220,58 @@ class DashboardPanel(foo.Panel):
                 on_success=self.on_edit_success,
                 params=item.to_configure_plot_params(),
             )
+
+    def on_duplicate(self, ctx):
+        dashboard_state = DashboardState(ctx)
+        plot_configs = ctx.params.get("plot_configs")
+        layout_data = ctx.params.get("layout")
+        auto_layout = ctx.params.get("auto_layout", True)
+        id_map = {}
+
+        with DashboardState(ctx) as dashboard_state:
+            for plot_config in plot_configs:
+                # If the id already exists create a new one
+                original_id = plot_config.get("name")
+                if plot_config.get("name") in dashboard_state.items:
+                    new_id = dashboard_state.get_next_item_id()
+                    plot_config["name"] = new_id
+                    id_map[original_id] = new_id
+
+                item = DashboardPlotItem.from_dict(plot_config)
+                dashboard_state.add_plot(item)
+
+        # Update the dashboard config based on layout and auto_layout settings
+        if layout_data:
+            rows = None
+            cols = None
+
+            for item in layout_data:
+                if item.get("i") in id_map:
+                    item["i"] = id_map.get(item["i"], item["i"])
+
+            # Calculate grid dimensions from layout
+            if not auto_layout:
+                rows = max(
+                    item.get("y", 0) + item.get("h", 1) for item in layout_data
+                )
+                cols = max(
+                    item.get("x", 0) + item.get("w", 1) for item in layout_data
+                )
+
+            # Update the dashboard config with custom layout
+            ctx.panel.state.dashboard_config = {
+                "rows": rows,
+                "cols": cols,
+                "items": layout_data,
+                "auto_layout": auto_layout,
+            }
+
+    def on_remove_items(self, ctx):
+        dashboard_state = DashboardState(ctx)
+        ids = ctx.params.get("ids")
+        with DashboardState(ctx) as dashboard_state:
+            for item_id in ids:
+                dashboard_state.remove_item(item_id)
 
     def on_save_layout(self, ctx):
         rows = ctx.params.get("rows")
@@ -247,6 +385,8 @@ class DashboardPanel(foo.Panel):
             on_add_item=self.on_add,
             on_remove_item=self.on_remove,
             on_edit_item=self.on_edit,
+            on_duplicate_item=self.on_duplicate,
+            on_remove_items=self.on_remove_items,
             on_save_layout=self.on_save_layout,
             allow_edit=can_edit,
             allow_remove=can_edit,
@@ -402,19 +542,61 @@ class ConfigurePlot(foo.Operator):
             required=True,
             description="Select the type of plot to create",
         )
-        use_code = ctx.params.get("use_code")
 
         if plot_type:
+            # Field selection mode control
+            field_mode_choices = types.Choices(label="Field selection mode")
+            field_mode_choices.add_choice(
+                "single",
+                label="Single",
+                description="Create one plot with a single field",
+            )
+            field_mode_choices.add_choice(
+                "multiple",
+                label="Multiple",
+                description="Create one plot per selected field",
+            )
+
+            inputs.enum(
+                "field_mode",
+                values=field_mode_choices.values(),
+                view=field_mode_choices,
+                default="single",
+                required=True,
+                label="Field selection mode",
+                description="Choose whether to create one plot or multiple plots",
+            )
+
+            field_mode = ctx.params.get("field_mode", "single")
+
             inputs.str(
                 "plot_title",
                 label="Plot title",
-                description="A title to display above the plot",
+                description="A title to display above the plot. Use $FIELD_NAME to inject the selected field into the title.",
             )
-            inputs.bool(
-                "use_code",
-                default=False,
-                label="Custom data source",
-                description="Define a custom data source in Python",
+
+            # Only show custom code option in single mode
+            if field_mode == "single":
+                inputs.bool(
+                    "use_code",
+                    default=False,
+                    label="Custom data source",
+                    description="Define a custom data source in Python",
+                )
+            else:
+                # In multiple mode, force use_code to False and hide the control
+                inputs.bool(
+                    "use_code",
+                    default=False,
+                    label="Custom data source",
+                    description="Custom data source is not available in multiple field mode",
+                    view=types.View(disabled=True),
+                )
+
+            use_code = (
+                ctx.params.get("use_code", False)
+                if field_mode == "single"
+                else False
             )
 
             if use_code:
@@ -439,26 +621,49 @@ class ConfigurePlot(foo.Operator):
                         description="The field to use to populate the y axis",
                     )
                     self.create_axis_input(ctx, inputs, "y")
+
                 if plot_type != "pie" and plot_type != "categorical_histogram":
-                    inputs.enum(
-                        "x_field",
-                        values=number_fields.values(),
-                        view=number_fields,
-                        required=True,
-                        label="x data source",
-                        description="The field to use to populate the x axis",
-                    )
+                    if field_mode == "single":
+                        inputs.enum(
+                            "x_field",
+                            values=number_fields.values(),
+                            view=number_fields,
+                            required=True,
+                            label="x data source",
+                            description="The field to use to populate the x axis",
+                        )
+                    else:
+                        inputs.list(
+                            "x_fields",
+                            types.String(),
+                            values=number_fields.values(),
+                            view=number_fields,
+                            required=True,
+                            label="x data sources",
+                            description="The fields to use to populate the x axis (one plot per field)",
+                        )
                     self.create_axis_input(ctx, inputs, "x")
 
                 if plot_type == "categorical_histogram" or plot_type == "pie":
-                    inputs.enum(
-                        "field",
-                        values=categorical_fields.values(),
-                        view=categorical_fields,
-                        required=True,
-                        label="Category field",
-                        description="The field to plot categories from",
-                    )
+                    if field_mode == "single":
+                        inputs.enum(
+                            "field",
+                            values=categorical_fields.values(),
+                            view=categorical_fields,
+                            required=True,
+                            label="Category field",
+                            description="The field to plot categories from",
+                        )
+                    else:
+                        inputs.list(
+                            "fields",
+                            types.String(),
+                            values=categorical_fields.values(),
+                            view=categorical_fields,
+                            required=True,
+                            label="Category fields",
+                            description="The fields to plot categories from (one plot per field)",
+                        )
 
             if plot_type == "numeric_histogram" and not use_code:
                 inputs.int(
@@ -518,22 +723,42 @@ class ConfigurePlot(foo.Operator):
                 ),
             )
 
+            # Preview logic
             plotly_layout_and_config = _get_plotly_config_and_layout(
                 ctx.params
             )
             preview_config = plotly_layout_and_config.get("config", {})
             preview_layout = plotly_layout_and_config.get("layout", {})
+
+            # For preview, use the first selected field in multiple mode
+            preview_x_field = None
+            preview_field = None
+
+            if field_mode == "single":
+                preview_x_field = ctx.params.get("x_field", None)
+                preview_field = ctx.params.get("field", None)
+            else:
+                # In multiple mode, use the first selected field for preview
+                if plot_type != "pie" and plot_type != "categorical_histogram":
+                    x_fields = ctx.params.get("x_fields", [])
+                    if x_fields:
+                        preview_x_field = x_fields[0]
+                else:
+                    fields = ctx.params.get("fields", [])
+                    if fields:
+                        preview_field = fields[0]
+
             item = DashboardPlotItem.from_dict(
                 {
                     "name": "plot_preview",
                     "type": plot_type,
                     "config": preview_config,
                     "layout": preview_layout,
-                    "use_code": ctx.params.get("use_code", False),
+                    "use_code": use_code,
                     "code": ctx.params.get("code", None),
-                    "x_field": ctx.params.get("x_field", None),
+                    "x_field": preview_x_field,
                     "y_field": ctx.params.get("y_field", None),
-                    "field": ctx.params.get("field", None),
+                    "field": preview_field,
                     "bins": ctx.params.get("bins", 10),
                     "order": ctx.params.get("order", "alphabetical"),
                     "reverse": ctx.params.get("reverse", False),
@@ -550,9 +775,18 @@ class ConfigurePlot(foo.Operator):
                     "grid", height="400px", width="100%"
                 )
                 preview_height = "600px" if plot_type == "pie" else "300px"
+
+                preview_label = "Plot preview"
+                if field_mode == "multiple":
+                    if preview_x_field or preview_field:
+                        field_name = preview_x_field or preview_field
+                        preview_label = f"Plot preview (using {field_name})"
+                    else:
+                        preview_label = "Select at least one field to preview"
+
                 preview_container.plot(
                     "plot_preview",
-                    label="Plot preview",
+                    label=preview_label,
                     config=preview_config,
                     layout=preview_layout,
                     data=preview_data,
@@ -561,7 +795,30 @@ class ConfigurePlot(foo.Operator):
                 )
 
         is_edit = ctx.params.get("name", None) is not None
-        submit_button_label = "Update plot" if is_edit else "Create plot"
+        field_mode = ctx.params.get("field_mode", "single")
+
+        if is_edit:
+            submit_button_label = "Update plot"
+        elif field_mode == "multiple":
+            plot_type = ctx.params.get("plot_type")
+            if plot_type in ["line", "scatter", "numeric_histogram"]:
+                x_fields = ctx.params.get("x_fields", [])
+                count = len(x_fields) if x_fields is not None else 0
+            elif plot_type in ["categorical_histogram", "pie"]:
+                fields = ctx.params.get("fields", [])
+                count = len(fields) if fields is not None else 0
+            else:
+                count = 0
+
+            if count > 0:
+                submit_button_label = (
+                    f"Create {count} plot{'s' if count != 1 else ''}"
+                )
+            else:
+                submit_button_label = "Create plots"
+        else:
+            submit_button_label = "Create plot"
+
         prompt = types.PromptView(submit_button_label=submit_button_label)
 
         return types.Property(inputs, view=prompt)
@@ -662,7 +919,10 @@ class DashboardPlotItem(object):
         return raw_params.get("plot_title", self.name)
 
     def to_configure_plot_params(self):
-        return {**self.raw_params, "name": self.name}
+        params = {**self.raw_params, "name": self.name}
+        # Ensure field_mode is set to single for individual plots
+        params["field_mode"] = "single"
+        return params
 
     def to_dict(self):
         return {
@@ -1171,6 +1431,15 @@ def find_datetime_max_val(x_datetime, min_val):
     for i in range(len(x_datetime) - 1):
         if x_datetime[i] <= min_val < x_datetime[i + 1]:
             return x_datetime[i], x_datetime[i + 1]
+
+
+def _resolve_field_name_in_title(title, field_name):
+    """Replace $FIELD_NAME token in title with the actual field name."""
+    if not title:
+        return field_name
+    if "$FIELD_NAME" in title:
+        return title.replace("$FIELD_NAME", field_name)
+    return title
 
 
 def register(p):
