@@ -155,6 +155,63 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/nomic-embed-multimodal">@harpreetsahota/nomic-embed-multimodal
+Public</a></b></td>
+        <td>📜 Nomic Embed Multimodal is a family of vision-language models built on Qwen2.5-VL that generates high-dimensional embeddings for both images and text in a shared vector space.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/bimodernvbert">@harpreetsahota/bimodernvbert</a></b></td>
+        <td>🗂️ BiModernVBert is a vision-language model built on the ModernVBert architecture that generates embeddings for both images and text in a shared 768-dimensional vector space. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/colmodernvbert">@harpreetsahota/colmodernvbert</a></b></td>
+        <td>📑 ColModernVBert is a multi-vector vision-language model built on the ModernVBert architecture that generates ColBERT-style embeddings for both images and text.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/deepseek_ocr">@harpreetsahota/deepseek_ocr</a></b></td>
+        <td>🐳 DeepSeek-OCR is a vision-language model designed for optical character recognition with a focus on "contextual optical compression."</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/olmOCR-2">@harpreetsahota/olmOCR-2</a></b></td>
+        <td>📊 olmOCR-2 is a state-of-the-art OCR model built on Qwen2.5-VL architecture that extracts text from document images with high accuracy. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/jina_embeddings_v4">@harpreetsahota/jina_embeddings_v4</a></b></td>
+        <td>📑 Jina Embeddings v4 is a state-of-the-art Vision Language Model that generates embeddings for both images and text in a shared vector space. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/colqwen2_5_v0_2">@harpreetsahota/colqwen2_5_v0_2</a></b></td>
+        <td>🗃️ ColQwen2.5 is a Vision Language Model based on Qwen2.5-VL-3B-Instruct that generates ColBERT-style multi-vector representations for efficient document retrieval. This version takes dynamic image resolutions (up to 768 image patches) and doesn't resize them, preserving aspect ratios for better accuracy.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/nanonets_ocr2">@harpreetsahota/nanonets_ocr2</a></b></td>
+        <td>📄 Nanonets-OCR2 transforms documents into structured markdown with intelligent content recognition and semantic tagging, making it ideal for downstream processing by Large Language Models (LLMs).</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/colpali_v1_3">@harpreetsahota/colpali_v1_3</a></b></td>
+        <td>📃 ColPali is a Vision Language Model based on PaliGemma-3B that generates ColBERT-style multi-vector representations for efficient document retrieval.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/kosmos2_5">@harpreetsahota/kosmos2_5</a></b></td>
+        <td>📑 Kosmos-2.5 excels at two core tasks: generating spatially-aware text blocks (OCR) and producing structured markdown output from images.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/moondream3">@harpreetsahota/moondream3</a></b></td>
+        <td>🌝 Moondream 3 (Preview) is an vision language model with a mixture-of-experts architecture (9B total parameters, 2B active). This model makes no compromises, delivering state-of-the-art visual reasoning while still retaining our efficient and deployment-friendly ethos.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/caption_viewer">@harpreetsahota/caption_viewer</a></b></td>
+        <td>🖥️ A plugin that intelligently displays and formats VLM (Vision Language Model) outputs and text fields. Perfect for viewing OCR results, receipt analysis, document processing, and any text-heavy computer vision workflows.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/fiftyone_wandb_plugin">@harpreetsahota/fiftyone_wandb_plugin</a></b></td>
+        <td>📉 This plugin connects FiftyOne datasets with Weights & Biases to enable reproducible, data-centric ML workflows.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/isaac0_1">@harpreetsahota/isaac0_1</a></b></td>
+        <td>🤖 Isaac-0.1 is the first in Perceptron AI's family of models built to be the intelligence layer for the physical world. This integration supports various computer vision tasks including object detection, classification, OCR, visual question answering, and more.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/vlm-run/vlmrun-voxel51-plugin">@vlm-run/vlmrun-voxel51-plugin</a></b></td>
         <td>🎯 Extract structured data from visual and audio sources including documents, images, and videos</td>
     </tr>
