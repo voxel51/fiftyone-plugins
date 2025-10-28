@@ -155,8 +155,7 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
-        <td><b><a href="https://github.com/harpreetsahota204/nomic-embed-multimodal">@harpreetsahota/nomic-embed-multimodal
-Public</a></b></td>
+        <td><b><a href="https://github.com/harpreetsahota204/nomic-embed-multimodal">@harpreetsahota/nomic-embed-multimodal</a></b></td>
         <td>📜 Nomic Embed Multimodal is a family of vision-language models built on Qwen2.5-VL that generates high-dimensional embeddings for both images and text in a shared vector space.</td>
     </tr>
     <tr>
