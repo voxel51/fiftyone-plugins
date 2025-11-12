@@ -18,3 +18,4 @@ operators:
   - compute_metadata
   - generate_thumbnails
   - delegate
+  - load_default_view
