@@ -155,6 +155,23 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/qwen3vl_video">@harpreetsahota/qwen3vl_video</a></b></td>
+        <td>🎥 A FiftyOne zoo model integration for Qwen3-VL that enables comprehensive video understanding with multiple label types in a single forward pass and for computing video embeddings.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/text_evaluation_metrics">@harpreetsahota/text_evaluation_metrics</a></b></td>
+        <td>🔡 This plugin provides five text evaluation metrics for comparing predictions against ground truth: ANLS, Exact Match, Normalized Similarity, Character Error Rate, and Word Error Rate.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/olmOCR-2">@harpreetsahota/olmOCR-2</a></b></td>
+        <td> 📜 olmOCR-2 is an OCR model built on Qwen2.5-VL architecture that extracts text from document images with high accuracy. The model outputs markdown-formatted text with YAML front matter containing document metadata.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/mineru_2_5">@harpreetsahota/mineru_2_5</a></b></td>
+        <td> 📜 MinerU2.5 is a 1.2B-parameter vision-language model for efficient high-resolution document parsing. This model can support grounding OCR as well as free text OCR.
+</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/nomic-embed-multimodal">@harpreetsahota/nomic-embed-multimodal</a></b></td>
         <td>📜 Nomic Embed Multimodal is a family of vision-language models built on Qwen2.5-VL that generates high-dimensional embeddings for both images and text in a shared vector space.</td>
     </tr>
