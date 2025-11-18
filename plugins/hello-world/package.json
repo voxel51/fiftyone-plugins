@@ -2,7 +2,7 @@
     "name": "@voxel51/hello-world",
     "version": "1.0.0",
     "main": "src/HelloWorldPlugin.tsx",
-    "license": "MIT",
+    "license": "Apache 2.0",
     "fiftyone": {
         "script": "dist/index.umd.js"
     },
