@@ -8,8 +8,7 @@ With plugins, you can add new functionality to the FiftyOne App, create
 integrations with other tools and APIs, render custom panels, and add custom
 buttons to menus.
 
-With
-[FiftyOne Teams](https://docs.voxel51.com/teams/teams_plugins.html#delegated-operations),
+With [FiftyOne Teams](https://docs.voxel51.com/teams/teams_plugins.html#delegated-operations),
 you can even write plugins that allow users to execute long-running tasks from
 within the App that run on a connected compute cluster.
 
@@ -153,6 +152,10 @@ Want to showcase your own plugin here? See the
     <tr>
         <th>Name</th>
         <th>Description</th>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/sam3_images">@harpreetsahota/sam3_images</a></b></td>
+        <td>🖼️ Integration of Meta's SAM3 (Segment Anything Model 3) into FiftyOne, with full support of text prompts, keypoint prompts, bounding box prompts, auto segmentation, and image embeddings. </td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/qwen3vl_video">@harpreetsahota/qwen3vl_video</a></b></td>
