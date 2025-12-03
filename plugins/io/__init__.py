@@ -2894,7 +2894,9 @@ def _get_url_inputs(ctx, inputs):
         "url_header",
         view=types.Header(label="Signed URL", divider=True),
     )
-    inputs.view("result", types.Notice(label=url))
+
+    prop = inputs.view("result", types.Notice(label=url))
+    prop.invalid = True
 
     # @todo can remove version check if we require `fiftyone>=1.10.0`
     if method == "GET" and Version(foc.VERSION) >= Version("1.10.0"):
@@ -2905,8 +2907,6 @@ def _get_url_inputs(ctx, inputs):
             params={"url": url, "filename": os.path.basename(filepath)},
         )
         inputs.str("download", view=download_button)
-
-    inputs.invalid = True
 
 
 def _parse_path(ctx, key):
