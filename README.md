@@ -154,6 +154,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/apple_sharp">@harpreetsahota/apple_sharp</a></b></td>
+        <td>🧊 SHARP is Apple's state-of-the-art model for predicting 3D Gaussian Splats from a single RGB image. This integration brings SHARP to FiftyOne, enabling batch inference on image datasets with 3D visualization. </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/sam3_images">@harpreetsahota/sam3_images</a></b></td>
         <td>🖼️ Integration of Meta's SAM3 (Segment Anything Model 3) into FiftyOne, with full support of text prompts, keypoint prompts, bounding box prompts, auto segmentation, and image embeddings. </td>
     </tr>
