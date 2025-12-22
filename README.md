@@ -154,6 +154,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/molmo2">@harpreetsahota/molmo2</a></b></td>
+        <td>📹 Molmo2 is a family of open vision-language models developed by the Allen Institute for AI (Ai2) that support image, video, and multi-image understanding and grounding. </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/apple_sharp">@harpreetsahota/apple_sharp</a></b></td>
         <td>🧊 SHARP is Apple's state-of-the-art model for predicting 3D Gaussian Splats from a single RGB image. This integration brings SHARP to FiftyOne, enabling batch inference on image datasets with 3D visualization. </td>
     </tr>
