@@ -158,7 +158,7 @@ def compute_visualization(ctx, inputs):
                 "Whether to create a spatial index for the computed points on "
                 "your dataset. This is highly recommended for large datasets "
                 "as it enables efficient querying when lassoing points in "
-                "embeddings plot"
+                "embeddings plots"
             ),
         )
 
