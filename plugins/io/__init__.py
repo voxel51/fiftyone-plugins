@@ -2811,6 +2811,120 @@ def _draw_labels_inputs(ctx, inputs):
     return True
 
 
+class GetURL(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="get_url",
+            label="Get URL",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=False,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=False,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        _get_url_inputs(ctx, inputs)
+
+        return types.Property(inputs, view=types.View(label="Get URL"))
+
+    def execute(self, ctx):
+        filepath = _parse_path(ctx, "filepath")
+        hours = ctx.params.get("hours", 24)
+        method = ctx.params.get("method", "GET")
+
+        # pylint: disable=no-member
+        url = fos.get_url(filepath, hours=hours, method=method)
+
+        return {"url": url}
+
+
+def _get_url_inputs(ctx, inputs):
+    file_explorer = types.FileExplorerView(button_label="Choose a file...")
+    prop = inputs.file(
+        "filepath",
+        required=True,
+        label="File",
+        description="Choose a file for which to generate a signed URL",
+        view=file_explorer,
+    )
+    filepath = _parse_path(ctx, "filepath")
+
+    inputs.int(
+        "hours",
+        default=24,
+        label="Hours",
+        description="The number of hours that the URL should be valid",
+    )
+    hours = ctx.params.get("hours", 24)
+
+    method_choices = types.Choices()
+    method_choices.add_choice("GET", label="GET")
+    method_choices.add_choice("PUT", label="PUT")
+    method_choices.add_choice("DELETE", label="DELETE")
+
+    inputs.enum(
+        "method",
+        method_choices.values(),
+        required=True,
+        default="GET",
+        label="Method",
+        description="The HTTP verb (GET, PUT, DELETE) to authorize",
+        view=method_choices,
+    )
+    method = ctx.params.get("method", "GET")
+
+    if not filepath:
+        return
+
+    if fos.is_local(filepath):
+        prop.invalid = True
+        prop.error_message = "Please provide a valid remote filepath"
+        return
+
+    if method != "PUT":
+        try:
+            exists = fos.exists(filepath)
+        except:
+            exists = False
+
+        if not exists:
+            view = types.Error(label=f"File `{filepath}` does not exist")
+            prop = inputs.view("result", view)
+            prop.invalid = True
+            return
+
+    try:
+        # pylint: disable=no-member
+        url = fos.get_url(filepath, hours=hours, method=method)
+    except Exception as e:
+        prop = inputs.view("result", types.Error(label=str(e)))
+        prop.invalid = True
+        return
+
+    inputs.str(
+        "url_header",
+        view=types.Header(label="Signed URL", divider=True),
+    )
+
+    prop = inputs.view("result", types.Notice(label=url))
+    prop.invalid = True
+
+    # @todo can remove version check if we require `fiftyone>=1.10.0`
+    if method == "GET" and Version(foc.VERSION) >= Version("1.10.0"):
+        download_button = types.Button(
+            label="Download file",
+            icon="download",
+            operator="download_file",
+            params={"url": url, "filename": os.path.basename(filepath)},
+        )
+        inputs.str("download", view=download_button)
+
+
 def _parse_path(ctx, key):
     value = ctx.params.get(key, None)
     return value.get("absolute_path", None) if value else None
@@ -2849,3 +2963,5 @@ def register(p):
     p.register(MergeLabels)
     p.register(ExportSamples)
     p.register(DrawLabels)
+    if hasattr(foc, "TEAMS_VERSION"):
+        p.register(GetURL)
