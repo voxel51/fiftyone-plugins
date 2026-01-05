@@ -154,6 +154,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/ardamamur/egoexor">@ardamamur/egoexor</a></b></td>
+        <td>🏥 EgoExOR is an OR dataset fusing egocentric and exocentric perspectives for surgical procedures. See <a href="https://github.com/ardamamur/EgoExOR/tree/main/data#-visualization-optional">here</a> to load it with FiftyOne.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/molmo2">@harpreetsahota/molmo2</a></b></td>
         <td>📹 Molmo2 is a family of open vision-language models developed by the Allen Institute for AI (Ai2) that support image, video, and multi-image understanding and grounding. </td>
     </tr>
