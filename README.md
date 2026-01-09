@@ -154,6 +154,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/qwen3vl_embeddings">@harpreetsahota/qwen3vl_embeddings</a></b></td>
+        <td>📼 Qwen3-VL-Embedding maps text, images, and video into a unified representation space, enabling powerful cross-modal retrieval and understanding. </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/molmo2">@harpreetsahota/molmo2</a></b></td>
         <td>📹 Molmo2 is a family of open vision-language models developed by the Allen Institute for AI (Ai2) that support image, video, and multi-image understanding and grounding. </td>
     </tr>
