@@ -11,3 +11,4 @@ operators:
   - merge_labels
   - export_samples
   - draw_labels
+  - get_url
