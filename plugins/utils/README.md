@@ -294,3 +294,19 @@ delegate(
     persistent=True,
 )
 ```
+
+### load_default_view
+
+When this operator is enabled, any dataset whose `info` dict contains the name
+of a valid saved view in its `default_view` key will load the specified view by
+default (rather than the full dataset) whenever that dataset is opened in the
+App.
+
+```py
+# Save a view on the dataset that you wish to be loaded by default
+dataset.save_view("your_view", view)
+
+# Register the saved view's name so the operator knows to load it
+dataset.info["default_view"] = view.name
+dataset.save()
+```
