@@ -285,11 +285,6 @@ class PlotExample(foo.Operator):
         )
         return types.Property(outputs)
 
-    def resolve_output(self, ctx):
-        outputs = types.Object()
-        plotly = types.PlotlyView(label="My Plotly")
-        outputs.list("plot", types.Object(), view=plotly)
-        return types.Property(outputs)
 
 
 class OutputStylesExample(foo.Operator):
@@ -322,6 +317,7 @@ class OutputStylesExample(foo.Operator):
                     "results": {"msg": ctx.params["msg"]}
                 }
             )
+        return {"msg": ctx.params["msg"]}
             
     def resolve_output(self, ctx):
         if ctx.params["styles"] == "resolve_output":
