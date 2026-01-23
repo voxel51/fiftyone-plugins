@@ -248,7 +248,6 @@ class TableExample(foo.Operator):
         outputs.list("table", types.Object(), label="Table", view=table)
         return types.Property(outputs)
 
-
 class PlotExample(foo.Operator):
     @property
     def config(self):
@@ -259,32 +258,33 @@ class PlotExample(foo.Operator):
 
     def execute(self, ctx):
         return {
-            "plot": [
-                {
-                    "z": [
-                        [1, None, 30, 50, 1],
-                        [20, 1, 60, 80, 30],
-                        [30, 60, 1, -10, 20],
-                    ],
-                    "x": [
-                        "Monday",
-                        "Tuesday",
-                        "Wednesday",
-                        "Thursday",
-                        "Friday",
-                    ],
-                    "y": ["Morning", "Afternoon", "Evening"],
-                    "type": "heatmap",
-                    "hoverongaps": False,
-                }
-            ]
+            "z": [
+                [1, None, 30, 50, 1],
+                [20, 1, 60, 80, 30],
+                [30, 60, 1, -10, 20],
+            ],
+            "x": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "y": ["Morning", "Afternoon", "Evening"],
         }
 
     def resolve_output(self, ctx):
         outputs = types.Object()
-        plotly = types.PlotlyView(label="My Plotly")
-        outputs.list("plot", types.Object(), view=plotly)
+        outputs.plot(
+            "plot",
+            label="Weekly Activity Heatmap",
+            data=[
+                {
+                    "z": ctx.results.get("z"),
+                    "x": ctx.results.get("x"),
+                    "y": ctx.results.get("y"),
+                    "type": "heatmap",
+                    "colorscale": "Viridis",
+                }
+            ],
+            layout={"title": "Weekly Activity Heatmap", "height": 400},
+        )
         return types.Property(outputs)
+
 
 
 class OutputStylesExample(foo.Operator):
@@ -310,13 +310,15 @@ class OutputStylesExample(foo.Operator):
     def execute(self, ctx):
         outputs = types.Object()
         outputs.str("msg", view=types.Error(label=ctx.params["msg"]))
-        show_output = ctx.params["styles"] == "show_output"
-        if show_output:
+        if ctx.params["styles"] == "show_output":
             ctx.trigger(
-                "show_output", {"outputs": types.Property(outputs).to_json()}
+                "show_output", {
+                    "outputs": types.Property(outputs).to_json(),
+                    "results": {"msg": ctx.params["msg"]}
+                }
             )
         return {"msg": ctx.params["msg"]}
-
+            
     def resolve_output(self, ctx):
         if ctx.params["styles"] == "resolve_output":
             outputs = types.Object()
