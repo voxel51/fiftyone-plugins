@@ -154,6 +154,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/perceptron-ai-inc/fiftyone-isaac-0_2">@perceptron-ai-inc/isaac-0_2</a></b></td>
+        <td>🤖 Isaac-0.2 is Perceptron AI's hybrid-reasoning vision-language model supporting object detection, keypoint detection, OCR, instance segmentation, visual question answering, and UI understanding. Includes thinking and tool use for improving detection in complex scenes.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/medgemma_1_5">@harpreetsahota/medgemma_1_5</a></b></td>
         <td>🩻 Implementing MedGemma 1.5 as a Remote Zoo Model for FiftyOne</td>
     </tr>
