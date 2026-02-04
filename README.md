@@ -154,6 +154,14 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/LightOnOCR-2">@harpreetsahota/LightOnOCR-2</a></b></td>
+        <td>📑 LightOnOCR-2-1B is a compact multilingual VLM that converts document images into clean, naturally ordered text without brittle multi-stage OCR pipelines.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/glm_ocr">@harpreetsahota/glm_ocr</a></b></td>
+        <td>📄 GLM-OCR is a lightweight 0.9B vision-language model achieving state-of-the-art document understanding, including formula recognition, table recognition, and structured information extraction.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/CRADIOv4">@harpreetsahota/cradiov4</a></b></td>
         <td>📻 CRADIOv4 performs visual feature extraction whose image embeddings can be used by a downstream model for various tasks. This implementation also produces attention maps.</td>
     </tr>
