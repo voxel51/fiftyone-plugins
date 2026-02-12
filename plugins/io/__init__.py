@@ -2813,7 +2813,11 @@ def _draw_labels_inputs(ctx, inputs):
 
 def _parse_path(ctx, key):
     value = ctx.params.get(key, None)
-    return value.get("absolute_path", None) if value else None
+
+    if isinstance(value, dict):
+        return value.get("absolute_path", None)
+
+    return value
 
 
 def _to_path(value):
