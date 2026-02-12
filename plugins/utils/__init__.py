@@ -1728,13 +1728,7 @@ def _compute_metadata_generator(
     skip_failures=True,
     warn_failures=True,
 ):
-    # @todo can switch to this if we require `fiftyone>=0.22.2`
-    # num_workers = fou.recommend_thread_pool_workers(num_workers)
-
-    if hasattr(fou, "recommend_thread_pool_workers"):
-        num_workers = fou.recommend_thread_pool_workers(num_workers)
-    elif num_workers is None:
-        num_workers = fo.config.max_thread_pool_workers or 8
+    num_workers = fou.recommend_thread_pool_workers(num_workers)
 
     if not overwrite:
         sample_collection = sample_collection.exists("metadata", False)
@@ -1749,38 +1743,35 @@ def _compute_metadata_generator(
         return
 
     inputs = zip(ids, filepaths, media_types)
-    values = {}
 
-    try:
+    with contextlib.ExitStack() as context:
+        if num_workers > 1:
+            pool = multiprocessing.dummy.Pool(processes=num_workers)
+            context.enter_context(pool)
+            tasks = pool.imap_unordered(_do_compute_metadata, inputs)
+        else:
+            tasks = map(_do_compute_metadata, inputs)
+
         num_computed = 0
-        with contextlib.ExitStack() as exit_context:
-            pb = fou.ProgressBar(total=num_total)
-            exit_context.enter_context(pb)
+        with fou.get_default_batcher(
+            tasks, progress=True, total=num_total
+        ) as batcher:
+            for batch in batcher:
+                sample_collection.set_values(
+                    "metadata", dict(batch), key_field="id"
+                )
 
-            if num_workers > 1:
-                pool = multiprocessing.dummy.Pool(processes=num_workers)
-                exit_context.enter_context(pool)
-                tasks = pool.imap_unordered(_do_compute_metadata, inputs)
-            else:
-                tasks = map(_do_compute_metadata, inputs)
-
-            for sample_id, metadata in pb(tasks):
-                values[sample_id] = metadata
-
-                num_computed += 1
-                if num_computed % 10 == 0:
-                    progress = num_computed / num_total
-                    label = f"Computed {num_computed} of {num_total}"
-                    yield ctx.trigger(
-                        "set_progress", dict(progress=progress, label=label)
-                    )
-    finally:
-        sample_collection.set_values("metadata", values, key_field="id")
+                num_computed += len(batch)
+                progress = num_computed / num_total
+                label = f"Computed {num_computed} of {num_total}"
+                yield ctx.trigger(
+                    "set_progress", dict(progress=progress, label=label)
+                )
 
     if skip_failures and not warn_failures:
         return
 
-    num_missing = len(sample_collection.exists("metadata", False)) + 1
+    num_missing = len(sample_collection.exists("metadata", False))
     if num_missing > 0:
         msg = (
             "Failed to populate metadata on %d samples. "
@@ -1796,31 +1787,8 @@ def _compute_metadata_generator(
 
 def _do_compute_metadata(args):
     sample_id, filepath, media_type = args
-    metadata = _compute_sample_metadata(
-        filepath, media_type, skip_failures=True
-    )
+    metadata = fomm._compute_sample_metadata(filepath, media_type)
     return sample_id, metadata
-
-
-def _compute_sample_metadata(filepath, media_type, skip_failures=False):
-    if not skip_failures:
-        return _get_metadata(filepath, media_type)
-
-    try:
-        return _get_metadata(filepath, media_type)
-    except:
-        return None
-
-
-def _get_metadata(filepath, media_type):
-    if media_type == fom.IMAGE:
-        metadata = fomm.ImageMetadata.build_for(filepath)
-    elif media_type == fom.VIDEO:
-        metadata = fomm.VideoMetadata.build_for(filepath)
-    else:
-        metadata = fomm.Metadata.build_for(filepath)
-
-    return metadata
 
 
 class GenerateThumbnails(foo.Operator):
