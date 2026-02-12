@@ -1,6 +1,6 @@
 name: "@voxel51/utils"
 description: A collection of utility operators
-version: 1.2.0
+version: 1.2.1
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/utils

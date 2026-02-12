@@ -2043,7 +2043,7 @@ class GenerateThumbnails(foo.Operator):
 
         params = dict(
             thumbnail_path=thumbnail_path,
-            output_dir={"absolute_path": output_dir},
+            output_dir=_to_path(output_dir),
             width=width,
             height=height,
             overwrite=overwrite,
@@ -2072,7 +2072,7 @@ class GenerateThumbnails(foo.Operator):
         width = ctx.params.get("width", None)
         height = ctx.params.get("height", None)
         thumbnail_path = ctx.params["thumbnail_path"]
-        output_dir = ctx.params["output_dir"]["absolute_path"]
+        output_dir = _parse_path(ctx, "output_dir")
         overwrite = ctx.params.get("overwrite", False)
         num_workers = ctx.params.get("num_workers", None)
 
@@ -2301,7 +2301,15 @@ def _get_sample_fields(sample_collection, field_types):
 
 def _parse_path(ctx, key):
     value = ctx.params.get(key, None)
-    return value.get("absolute_path", None) if value else None
+
+    if isinstance(value, dict):
+        return value.get("absolute_path", None)
+
+    return value
+
+
+def _to_path(value):
+    return {"absolute_path": value}
 
 
 def _get_target_view(ctx, target):

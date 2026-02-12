@@ -49,6 +49,9 @@ class LoadZooDataset(foo.Operator):
         dataset_name = ctx.params.get("dataset_name", None)
         kwargs = ctx.params.get("kwargs", {})
 
+        if "source_dir" in kwargs:
+            kwargs["source_dir"] = _parse_path(kwargs, "source_dir")
+
         dataset_name = _get_zoo_dataset_name(ctx)
 
         # @todo can remove version check if we require `fiftyone>=1.6.0`
@@ -308,7 +311,7 @@ def _load_zoo_dataset_inputs(ctx, inputs):
 
     kwargs = types.Object()
 
-    _get_source_dir(ctx, kwargs, zoo_dataset)
+    _get_source_dir_if_necessary(ctx, kwargs, zoo_dataset)
 
     if zoo_dataset.has_splits:
         split_choices = types.DropdownView(multiple=True)
@@ -401,7 +404,7 @@ def _get_zoo_dataset_name(ctx, zoo_dataset=None):
     return name
 
 
-def _get_source_dir(ctx, inputs, zoo_dataset):
+def _get_source_dir_if_necessary(ctx, inputs, zoo_dataset):
     name = zoo_dataset.name
 
     if name == "activitynet-100":
@@ -444,7 +447,7 @@ def _get_source_dir(ctx, inputs, zoo_dataset):
         )
         required = True
     else:
-        return True
+        return
 
     file_explorer = types.FileExplorerView(
         choose_dir=True,
@@ -457,13 +460,6 @@ def _get_source_dir(ctx, inputs, zoo_dataset):
         description=f"{description}.\n\nSee {url} for more information",
         view=file_explorer,
     )
-
-    if not required:
-        return True
-
-    source_dir = _parse_path(ctx, "source_dir")
-
-    return source_dir is not None
 
 
 def _partial_download_inputs(ctx, inputs, zoo_dataset):
@@ -630,8 +626,8 @@ class ApplyZooModel(foo.Operator):
         num_workers = ctx.params.get("num_workers", None)
         skip_existing = ctx.params.get("skip_existing", False)
         skip_failures = ctx.params.get("skip_failures", True)
-        output_dir = ctx.params.get("output_dir", None)
-        rel_dir = ctx.params.get("rel_dir", None)
+        output_dir = _parse_path(ctx, "output_dir")
+        rel_dir = _parse_path(ctx, "rel_dir")
 
         # @todo can remove this if we require `fiftyone>=1.8.0`
         if Version(foc.VERSION) >= Version("1.8.0"):
@@ -1251,9 +1247,16 @@ def _get_label_fields(sample_collection, label_types):
     ]
 
 
-def _parse_path(ctx, key):
-    value = ctx.params.get(key, None)
-    return value.get("absolute_path", None) if value else None
+def _parse_path(ctx_or_params, key):
+    if isinstance(ctx_or_params, dict):
+        value = ctx_or_params.get(key, None)
+    else:
+        value = ctx_or_params.params.get(key, None)
+
+    if isinstance(value, dict):
+        return value.get("absolute_path", None)
+
+    return value
 
 
 def _get_target_view(ctx, target):
