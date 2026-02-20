@@ -117,6 +117,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/voxel51/fiftyone-huggingface-plugins/tree/main/plugins/transformers">@voxel51/transformers</a></b></td>
         <td>🤗 Run inference on your datasets using Hugging Face Transformers models!</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-rerun-plugin">@voxel51/rerun-plugin</a></b></td>
+        <td>🎥 Visualize <a href="https://rerun.io">Rerun</a> data files (<code>.rrd</code>) inside the FiftyOne App</td>
+    </tr>
 </table>
 
 ## Example Plugins
