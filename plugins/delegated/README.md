@@ -57,6 +57,9 @@ fiftyone delegated list \
 # Get info about the specified operation
 fiftyone delegated info <id>
 
+# Return the specified operation
+fiftyone delegated rerun <id>
+
 # Manually mark the specified operation(s) as FAILED
 fiftyone delegated fail <id1> <id2> ...
 

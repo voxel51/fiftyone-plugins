@@ -36,6 +36,7 @@ class ManageDelegatedOperations(foo.Operator):
         return types.Property(inputs, view=view)
 
     def execute(self, ctx):
+        tab = ctx.params.get("tab", None)
         action = ctx.params.get("action", "FAIL")
 
         ids = []
@@ -49,9 +50,11 @@ class ManageDelegatedOperations(foo.Operator):
 
         dos = food.DelegatedOperationService()
         for id in ids:
-            if action == "FAIL":
+            if tab == "RERUN":
+                dos.rerun_operation(ObjectId(id))
+            elif tab == "CLEANUP" and action == "FAIL":
                 dos.set_failed(ObjectId(id))
-            else:
+            elif tab == "CLEANUP" and action == "DELETE":
                 dos.delete_operation(ObjectId(id))
 
 
@@ -59,6 +62,7 @@ def _manage_delegated_operations_inputs(ctx, inputs):
     tab_choices = types.TabsView()
     tab_choices.add_choice("SEARCH", label="Search")
     tab_choices.add_choice("INFO", label="Info")
+    tab_choices.add_choice("RERUN", label="Rerun")
     tab_choices.add_choice("CLEANUP", label="Cleanup")
     inputs.enum(
         "tab",
@@ -230,10 +234,12 @@ def _manage_delegated_operations_actions(ctx, inputs):
         description="When the run was scheduled",
         view=types.MarkdownView(read_only=True, space=space2),
     )
-    if tab == "CLEANUP":
+    if tab == "RERUN":
+        action_description = "Select runs to rerun"
+    elif tab == "CLEANUP":
         action_description = "Select runs to cleanup"
     else:
-        action_description = "Select run to view info"
+        action_description = "Select runs to view info"
     obj.str(
         "action",
         label="Action",
@@ -295,6 +301,9 @@ def _manage_delegated_operations_actions(ctx, inputs):
 
     if tab == "INFO":
         return _handle_info(ctx, inputs, selected_ops)
+
+    if tab == "RERUN":
+        return _handle_rerun(ctx, inputs, selected_ops)
 
     if tab == "CLEANUP":
         return _handle_cleanup(ctx, inputs, selected_ops)
@@ -489,6 +498,36 @@ def _handle_info(ctx, inputs, selected_ops):
     )
 
     return False
+
+
+def _handle_rerun(ctx, inputs, selected_ops):
+    if not selected_ops:
+        return False
+
+    allowed_states = (
+        fooe.ExecutionRunState.COMPLETED,
+        fooe.ExecutionRunState.FAILED,
+    )
+
+    okay = all(op.run_state in allowed_states for op in selected_ops)
+
+    if not okay:
+        error = types.Error(
+            label="You can only rerun Failed or Completed operations"
+        )
+        prop = inputs.view("rerun_view", error)
+        prop.invalid = True
+
+        return False
+
+    n = len(selected_ops)
+    s = "s" if n > 1 else ""
+    prop = inputs.message(
+        "rerun_view",
+        label=f"You've selected {n} operation{s} to rerun",
+    )
+
+    return True
 
 
 def _handle_cleanup(ctx, inputs, selected_ops):
