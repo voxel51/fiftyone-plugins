@@ -60,17 +60,13 @@ ln -s "$(pwd)" "$(fiftyone config plugins_dir)/voxelgpt"
 
 ### Build JavaScript assets outside of fiftyone-plugins repository [Optional]
 
-To build a plugin with JavaScript assets (i.e. Panel, Operators, etc.) outside
-of this repository, some additional configuration is required. Take a look at
-[voxelgpt](https://github.com/voxel51/voxelgpt/blob/main/vite.config.js) plugin
-repository for an example of configurations required for JavaScript build
-externally. Mainly, your `vite.config.js` will need to be similar to
-`vite.config.js` of
-[voxelgpt](https://github.com/voxel51/voxelgpt/blob/main/vite.config.js)
-plugin. Additionally, you will need to install the dependencies listed in
-`vite.config.js` (i.e. `vite`, `@vitejs/plugin-react`,
-`@rollup/plugin-node-resolve`, `vite-plugin-externals`, etc.) as a
-dev-dependencies for your JavaScript plugin project.
+To get started with building a new JavaScript plugin outside of
+fiftyone-plugins repository, use the
+[hello-world-plugin-js](https://github.com/voxel51/hello-world-plugin-js)
+repository as a base. It provides a minimal, working template that includes a
+sample JavaScript operator and a sample JavaScript panel. Clone the repository,
+rename it appropriately, and customize the operator and panel to fit your use
+case.
 
 ## Tests
 
@@ -109,6 +105,6 @@ bash run_tests.sh hello_world
 
 You can also use pytest directly by emulating the setup in `run_tests.sh`.
 
-- Ensure you have `$FIFTYONE_PLUGINS_DIR/plugins` in your `PYTHONPATH`
-- Run a test file and use `pytest` as expected
-- eg `pytest ./plugins/hello_world/test_count_samples.py -v`
+-   Ensure you have `$FIFTYONE_PLUGINS_DIR/plugins` in your `PYTHONPATH`
+-   Run a test file and use `pytest` as expected
+-   eg `pytest ./plugins/hello_world/test_count_samples.py -v`
