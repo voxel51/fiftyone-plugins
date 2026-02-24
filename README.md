@@ -158,6 +158,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/mgustineli/roi-patches-plugin">@mgustineli/roi-patches</a></b></td>
+        <td>🪟 Tile images into a configurable grid of ROI patches with adjustable overlap for region-based analysis, using FiftyOne's native patches view.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/LightOnOCR-2">@harpreetsahota/LightOnOCR-2</a></b></td>
         <td>📑 LightOnOCR-2-1B is a compact multilingual VLM that converts document images into clean, naturally ordered text without brittle multi-stage OCR pipelines.</td>
     </tr>
