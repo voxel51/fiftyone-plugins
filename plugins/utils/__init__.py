@@ -1291,7 +1291,7 @@ class DeleteDataset(foo.Operator):
 
         inputs.str(
             "name",
-            default=ctx.dataset.name,
+            default=getattr(ctx.dataset, "name", None),
             required=True,
             label="Dataset name",
             description="The name of the dataset to delete",
@@ -1303,7 +1303,7 @@ class DeleteDataset(foo.Operator):
     def execute(self, ctx):
         name = ctx.params.get("name", None)
 
-        if name == ctx.dataset.name:
+        if ctx.dataset is not None and name == ctx.dataset.name:
             ctx.trigger("open_dataset", dict(dataset=None))
 
         fo.delete_dataset(name)
