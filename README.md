@@ -555,6 +555,10 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/AdonaiVera/gemini-vision-plugin">@AdonaiVera/gemini-vision-plugin</a></b></td>
         <td>🔮 This plugin integrates Google Gemini's multimodal Vision models (e.g., gemini-2.5-flash) into your FiftyOne workflows. Prompt with text and one or more images; receive a text response grounded in visual inputs</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/allenleetc/sample-inspector">@allenleetc/sample-inspector</a></b></td>
+        <td>🔎 Adjust image brightness and contrast and filter semantic masks by class in a sample detail view!</td>
+    </tr>
 </table>
 
 ## Using Plugins
