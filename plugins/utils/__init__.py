@@ -282,6 +282,15 @@ def _parse_mask_targets(mask_targets):
 
 
 def _dataset_info_inputs(ctx, inputs):
+    if ctx.dataset is None:
+        inputs.view(
+            "help",
+            view=types.Notice(
+                label="Please load the dataset whose info you want to edit"
+            ),
+        )
+        return
+
     num_changed = 0
 
     ## tabs
@@ -1092,10 +1101,10 @@ class RenameDataset(foo.Operator):
 
         inputs.str(
             "name",
-            default=ctx.dataset.name,
+            default=getattr(ctx.dataset, "name", None),
             required=True,
-            label="Dataset name",
-            description="The name of a dataset to delete",
+            label="Dataset",
+            description="The dataset to rename",
             view=dataset_choices,
         )
 
@@ -1118,7 +1127,7 @@ class RenameDataset(foo.Operator):
         name = ctx.params["name"]
         new_name = ctx.params["new_name"]
 
-        if ctx.dataset.name == name:
+        if name == getattr(ctx.dataset, "name", None):
             ctx.dataset.name = new_name
             ctx.trigger("open_dataset", dict(dataset=new_name))
         else:
@@ -1153,7 +1162,7 @@ class CloneDataset(foo.Operator):
         persistent = ctx.params.get("persistent", True)
         target = ctx.params.get("target", None)
 
-        if ctx.dataset.name == name:
+        if name == getattr(ctx.dataset, "name", None):
             sample_collection = _get_target_view(ctx, target)
         else:
             dataset = fo.load_dataset(name)
@@ -1178,7 +1187,7 @@ def _get_clone_dataset_inputs(ctx, inputs):
     name_prop = inputs.enum(
         "name",
         datasets,
-        default=ctx.dataset.name,
+        default=getattr(ctx.dataset, "name", None),
         required=True,
         label="Dataset",
         description="The dataset to clone",
@@ -1220,7 +1229,7 @@ def _get_clone_dataset_inputs(ctx, inputs):
 
     default_target = "DATASET"
 
-    if name == ctx.dataset.name:
+    if name == getattr(ctx.dataset, "name", None):
         has_view = ctx.view != ctx.dataset.view()
         has_selected = bool(ctx.selected)
 
@@ -1293,8 +1302,8 @@ class DeleteDataset(foo.Operator):
             "name",
             default=getattr(ctx.dataset, "name", None),
             required=True,
-            label="Dataset name",
-            description="The name of the dataset to delete",
+            label="Dataset",
+            description="The dataset to delete",
             view=dataset_choices,
         )
 
@@ -1303,7 +1312,7 @@ class DeleteDataset(foo.Operator):
     def execute(self, ctx):
         name = ctx.params.get("name", None)
 
-        if ctx.dataset is not None and name == ctx.dataset.name:
+        if name == getattr(ctx.dataset, "name", None):
             ctx.trigger("open_dataset", dict(dataset=None))
 
         fo.delete_dataset(name)
@@ -1445,7 +1454,7 @@ def _apply_saved_view_inputs(ctx, inputs):
     inputs.enum(
         "src_dataset",
         dataset_choices.values(),
-        default=ctx.dataset.name,
+        default=getattr(ctx.dataset, "name", None),
         required=True,
         label="Source dataset",
         description="Choose a source dataset from which to retrieve a view",
