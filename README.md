@@ -158,6 +158,26 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/qwen3_5_vl">@harpreetsahota/qwen3_5_vl</a></b></td>
+        <td> 👀 Implementing Qwen3.5VL as a Remote Source Zoo Model for FiftyOne. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/FiftyComfy">@harpreetsahota/FiftyComfy</a></b></td>
+        <td> ☺️ A FiftyOne Panel for modular node-based workflows which takes inspiration from ComfyUI. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/hf_fine_tuner_plugin">@harpreetsahota/hf_fine_tuner_plugin</a></b></td>
+        <td> 🎚️ A plugin to fine-tune Hugging Face models on your FiftyOne Dataset. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/image_editing_panel">@harpreetsahota/image_editing_panel</a></b></td>
+        <td> 🎑 Chat-based image editing powered by HuggingFace image-to-image Inference API. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/qwen_image_edit">@harpreetsahota/qwen_image_edit</a></b></td>
+        <td> 🏞️ Chat-based image editing powered by drbaph/Qwen-Image-Edit-2511-FP8</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/mgustineli/roi-patches-plugin">@mgustineli/roi-patches</a></b></td>
         <td>🪟 Tile images into a configurable grid of ROI patches with adjustable overlap for region-based analysis, using FiftyOne's native patches view.</td>
     </tr>
