@@ -581,11 +581,11 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/Burhan-Q/fiftyone-vllm">@Burhan-Q/fiftyone-vllm</a></b></td>
-        <td>Run inference using an online vLLM instance for image captioning, classification, object detection, VQA, and OCR.</td>
+        <td>🎯 Run inference using an online vLLM instance for image captioning, classification, object detection, VQA, and OCR.</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/Burhan-Q/fo-doom">@Burhan-Q/fo-doom</a></b></td>
-        <td>Play the classic DOOM (1993) shareware game directly within the FiftyOne App.</td>
+        <td>👾 Play the classic DOOM (1993) shareware game directly within the FiftyOne App.</td>
     </tr>
 </table>
 
