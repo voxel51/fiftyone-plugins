@@ -158,6 +158,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/ehofesmann/envi-spectral-viewer">@ehofesmann/envi-spetral-viewer</a></b></td>
+        <td> 🌈 Explore hyperspectral image datasets, interactively visualize pixel-level spectra, and dynamically recolor images. </td>
+    </tr>    
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/qwen3_5_vl">@harpreetsahota/qwen3_5_vl</a></b></td>
         <td> 👀 Implementing Qwen3.5VL as a Remote Source Zoo Model for FiftyOne. </td>
     </tr>
