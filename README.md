@@ -170,6 +170,18 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/molmo_point">@harpreetsahota/molmo_point</a></b></td>
+        <td> 🫵🏻 Integrating MolmoPoint a model that locates and tracks objects in images and videos by pointing and returning precise pixel coordinates </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/online_video_depth_anything">@harpreetsahota/online_video_depth_anything</a></b></td>
+        <td> 🏙️ Integrating Online Video Depth Anything (oVDA) for a temporally-consistent monocular depth estimator for videos that runs in an online setting with low VRAM consumption. </td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/harpreetsahota204/vlm_prompt_lab">@harpreetsahota/vlm_prompt_lab</a></b></td>
+        <td> 👨🏽‍🔬 Experiment with any VLM that can be run in a Hugging Face image-text-to-text pipeline right in the FiftyOne App! </td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/ehofesmann/envi-spectral-viewer">@ehofesmann/envi-spetral-viewer</a></b></td>
         <td> 🌈 Explore hyperspectral image datasets, interactively visualize pixel-level spectra, and dynamically recolor images. </td>
     </tr>    
