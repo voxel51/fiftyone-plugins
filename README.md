@@ -615,6 +615,14 @@ Want to showcase your own plugin here? See the
         <td><b><a href="https://github.com/Burhan-Q/fo-doom">@Burhan-Q/fo-doom</a></b></td>
         <td>👾 Play the classic DOOM (1993) shareware game directly within the FiftyOne App.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/davis-2017">@voxel51/davis-2017</a></b></td>
+        <td>🚲 Load and explore the DAVIS-2017 video segmentation dataset via the FiftyOne Zoo.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/voxel51/mose-v2">@voxel51/mose-v2</a></b></td>
+        <td>⚽ Load and explore the MOSE complex video object segmentation dataset via the FiftyOne Zoo.</td>
+    </tr>
 </table>
 
 ## Using Plugins
