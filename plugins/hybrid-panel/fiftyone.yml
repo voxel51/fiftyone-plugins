@@ -1,5 +1,8 @@
 name: "@voxel51/hybrid-panel"
 description: An example of hybrid panel plugin for FiftyOne
+tags:
+  - voxel51
+  - examples
 version: 1.0.0
 fiftyone:
   version: "*"
