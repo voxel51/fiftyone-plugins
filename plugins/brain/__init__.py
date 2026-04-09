@@ -560,7 +560,7 @@ class QdrantBackend(SimilarityBackend):
             view=metric_choices,
         )
 
-        inputs.str(
+        inputs.int(
             "replication_factor",
             label="Replication factor",
             description=(
@@ -741,7 +741,6 @@ class MongoDBBackend(SimilarityBackend):
         inputs.str(
             "index_name",
             label="Index name",
-            required=True,
             description=(
                 "An optional name of a MongoDB vector search index to use or "
                 "create"
@@ -2688,6 +2687,8 @@ def _inject_brain_secrets(ctx):
         if key.startswith("FIFTYONE_BRAIN_SIMILARITY_"):
             _key = key[len("FIFTYONE_BRAIN_SIMILARITY_") :].lower()
             _backend, _key = _key.split("_", 1)
+            if _backend not in fob.brain_config.similarity_backends:
+                fob.brain_config.similarity_backends[_backend] = {}
             fob.brain_config.similarity_backends[_backend][_key] = value
 
 
