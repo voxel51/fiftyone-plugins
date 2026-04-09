@@ -1,7 +1,6 @@
 name: "@voxel51/metric-examples"
 description: Example evaluation metrics
 tags:
-  - voxel51
   - examples
 version: 1.0.0
 fiftyone:

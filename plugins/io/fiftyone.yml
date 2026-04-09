@@ -1,8 +1,7 @@
 name: "@voxel51/io"
 description: A collection of import/export utilities
 tags:
-  - voxel51
-  - utils
+  - io
 version: 1.2.1
 fiftyone:
   version: ">=0.22.2"

@@ -1,7 +1,6 @@
 name: "@voxel51/panel-examples"
 description: A collection of example panels demonstrating common patterns for building Python panels
 tags:
-  - voxel51
   - examples
 version: 1.0.0
 fiftyone:

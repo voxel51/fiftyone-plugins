@@ -1,7 +1,6 @@
 name: "@voxel51/label_count"
 description: A simple panel that displays the number of labels in the current view
 tags:
-  - voxel51
   - examples
 version: 1.0.0
 fiftyone:

@@ -1,7 +1,6 @@
 name: "@voxel51/runs"
 description: Utilities for working with custom runs
 tags:
-  - voxel51
   - utils
 version: 1.0.2
 fiftyone:

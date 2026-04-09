@@ -1,7 +1,6 @@
 name: "@voxel51/plugins"
 description: Utilities for managing and building FiftyOne plugins
 tags:
-  - voxel51
   - utils
 version: 1.0.3
 fiftyone:

@@ -1,7 +1,6 @@
 name: "@voxel51/hello-world"
 description: An example of JS and Python components in a single plugin
 tags:
-  - voxel51
   - examples
 version: 1.0.0
 fiftyone:
