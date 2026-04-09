@@ -170,6 +170,10 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/Parva101/video2dataset">@parva101/video2dataset</a></b></td>
+        <td> 🎬 Convert YouTube URLs or local videos into FiftyOne image datasets with uniform/scene-change/hybrid frame sampling, perceptual deduplication, and source metadata.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/harpreetsahota204/molmo_point">@harpreetsahota/molmo_point</a></b></td>
         <td> 🫵🏻 Integrating MolmoPoint a model that locates and tracks objects in images and videos by pointing and returning precise pixel coordinates </td>
     </tr>
