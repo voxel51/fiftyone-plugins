@@ -1,5 +1,7 @@
 name: "@voxel51/annotation"
 description: Utilities for integrating FiftyOne with annotation tools
+tags:
+  - annotation
 version: 1.1.0
 fiftyone:
   version: ">=0.22"
