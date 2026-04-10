@@ -69,7 +69,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain">@voxel51/brain</a></b></td>
-        <td>curation</td>
+        <td>curation · visualization</td>
         <td>🧠 Utilities for working with the FiftyOne Brain</td>
     </tr>
     <tr>
@@ -205,7 +205,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/vlm_prompt_lab">@harpreetsahota/vlm_prompt_lab</a></b></td>
-        <td>model · depth</td>
+        <td>model · vlm</td>
         <td> 👨🏽‍🔬 Experiment with any VLM that can be run in a Hugging Face image-text-to-text pipeline right in the FiftyOne App! </td>
     </tr>
     <tr>
@@ -310,17 +310,17 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/nomic-embed-multimodal">@harpreetsahota/nomic-embed-multimodal</a></b></td>
-        <td>model · vlm</td>
+        <td>model · embeddings</td>
         <td>📜 Nomic Embed Multimodal is a family of vision language models built on Qwen2.5-VL that generates high-dimensional embeddings for both images and text in a shared vector space.</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/bimodernvbert">@harpreetsahota/bimodernvbert</a></b></td>
-        <td>model · vlm</td>
+        <td>model · embeddings</td>
         <td>🗂️ BiModernVBert is a vision language model built on the ModernVBert architecture that generates embeddings for both images and text in a shared 768-dimensional vector space. </td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/colmodernvbert">@harpreetsahota/colmodernvbert</a></b></td>
-        <td>model · vlm</td>
+        <td>model · embeddings</td>
         <td>📑 ColModernVBert is a multi-vector vision language model built on the ModernVBert architecture that generates ColBERT-style embeddings for both images and text.</td>
     </tr>
     <tr>
@@ -330,17 +330,17 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/olmOCR-2">@harpreetsahota/olmOCR-2</a></b></td>
-        <td>community</td>
+        <td>model · ocr</td>
         <td>📊 olmOCR-2 is a state-of-the-art OCR model built on Qwen2.5-VL architecture that extracts text from document images with high accuracy. </td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/jina_embeddings_v4">@harpreetsahota/jina_embeddings_v4</a></b></td>
-        <td>model · vlm</td>
+        <td>model · embeddings</td>
         <td>📑 Jina Embeddings v4 is a state-of-the-art vision language model that generates embeddings for both images and text in a shared vector space. </td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/colqwen2_5_v0_2">@harpreetsahota/colqwen2_5_v0_2</a></b></td>
-        <td>model · vlm</td>
+        <td>model · embeddings</td>
         <td>🗃️ ColQwen2.5 is a vision language model based on Qwen2.5-VL-3B-Instruct that generates ColBERT-style multi-vector representations for efficient document retrieval. This version takes dynamic image resolutions (up to 768 image patches) and doesn't resize them, preserving aspect ratios for better accuracy.</td>
     </tr>
     <tr>
@@ -350,7 +350,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/colpali_v1_3">@harpreetsahota/colpali_v1_3</a></b></td>
-        <td>model · vlm</td>
+        <td>model · embeddings</td>
         <td>📃 ColPali is a vision language model based on PaliGemma-3B that generates ColBERT-style multi-vector representations for efficient document retrieval.</td>
     </tr>
     <tr>
@@ -365,12 +365,12 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/caption_viewer">@harpreetsahota/caption_viewer</a></b></td>
-        <td>model · vlm</td>
+        <td>visualization · vlm</td>
         <td>🖥️ A plugin that intelligently displays and formats vision language model outputs and text fields. Perfect for viewing OCR results, receipt analysis, document processing, and any text-heavy computer vision workflows.</td>
     </tr>
     <tr>
         <td><b><a href="https://github.com/harpreetsahota204/fiftyone_wandb_plugin">@harpreetsahota/fiftyone_wandb_plugin</a></b></td>
-        <td>model · evaluation</td>
+        <td>utils · evaluation</td>
         <td>📉 This plugin connects FiftyOne datasets with Weights & Biases to enable reproducible, data-centric ML workflows.</td>
     </tr>
     <tr>
@@ -535,7 +535,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/text-to-image">@jacobmarks/text_to_image</a></b></td>
-        <td>vlm</td>
+        <td>model · vlm</td>
         <td>🎨 Add synthetic data from prompts with text-to-image models and FiftyOne!</td>
     </tr>
     <tr>
@@ -585,7 +585,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/jacobmarks/active-learning-plugin">@jacobmarks/active_learning</a></b></td>
-        <td>annnotation</td>
+        <td>annotation</td>
         <td>🏃 Accelerate your data labeling with Active Learning!</td>
     </tr>
     <tr>
@@ -715,7 +715,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/AdonaiVera/fiftyone-vlm-efficient">@AdonaiVera/fiftyone-vlm-efficient</a></b></td>
-        <td>vlm · curation</td>
+        <td>model · vlm · curation</td>
         <td>🪄 Improve VLM training data quality with state-of-the-art dataset pruning and quality techniques</td>
     </tr>
     <tr>
@@ -745,7 +745,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/Burhan-Q/fo-doom">@Burhan-Q/fo-doom</a></b></td>
-        <td>exaxmples</td>
+        <td>examples</td>
         <td>👾 Play the classic DOOM (1993) shareware game directly within the FiftyOne App.</td>
     </tr>
     <tr>
