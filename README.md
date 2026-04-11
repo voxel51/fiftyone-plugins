@@ -195,6 +195,7 @@ Want to showcase your own plugin here? See the
     </tr>
     <tr>
         <td><b><a href="https://github.com/Parva101/video2dataset">@parva101/video2dataset</a></b></td>
+        <td><kbd>utils</kbd></td>
         <td> 🎬 Convert YouTube URLs or local videos into FiftyOne image datasets with uniform/scene-change/hybrid frame sampling, perceptual deduplication, and source metadata.</td>
     </tr>
     <tr>
