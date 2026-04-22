@@ -194,6 +194,11 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/landing-ai/ade-51">@landingai/ade</a></b></td>
+        <td><kbd>ocr</kbd> <kbd>model</kbd> <kbd>text</kbd></td>
+        <td>📄 Parse, extract, and split documents using LandingAI's Agentic Document Extraction (ADE) API. Converts PDFs, images, spreadsheets, and Office files into structured Markdown with spatial bounding box grounding.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/Parva101/video2dataset">@parva101/video2dataset</a></b></td>
         <td><kbd>utils</kbd></td>
         <td> 🎬 Convert YouTube URLs or local videos into FiftyOne image datasets with uniform/scene-change/hybrid frame sampling, perceptual deduplication, and source metadata.</td>
