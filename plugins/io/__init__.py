@@ -1948,6 +1948,24 @@ def _export_samples_inputs(ctx, inputs):
             view=types.CheckboxView(),
         )
 
+    if _can_export_classes(dataset_type):
+        has_classes = bool(
+            target_view.default_classes
+            or target_view.info.get("categories")
+        )
+        if has_classes:
+            inputs.bool(
+                "use_dataset_classes",
+                default=True,
+                label="Use dataset class list",
+                description=(
+                    "Preserve the original category IDs from the dataset. "
+                    "Uncheck to assign new IDs based only on the labels "
+                    "present in the exported samples."
+                ),
+                view=types.CheckboxView(),
+            )
+
     if export_type == "LABELS_ONLY":
         labels_path_type = _get_labels_path_type(dataset_type)
     else:
@@ -2195,13 +2213,16 @@ def _export_samples(ctx):
         if "abs_paths" not in kwargs:
             kwargs["abs_paths"] = abs_paths
 
-    if dataset_type is fot.COCODetectionDataset:
-        if target_view.default_classes:
-            kwargs["classes"] = target_view.default_classes
-        else:
-            kwargs["classes"] = target_view.distinct(
-                f"{label_field}.detections.label"
-            )
+    if ctx.params.get("use_dataset_classes", False):
+        if dataset_type is fot.COCODetectionDataset:
+            categories = target_view.info.get("categories")
+            if categories:
+                kwargs["categories"] = categories
+            elif target_view.default_classes:
+                kwargs["classes"] = target_view.default_classes
+        elif dataset_type in (fot.YOLOv4Dataset, fot.YOLOv5Dataset):
+            if target_view.default_classes:
+                kwargs["classes"] = target_view.default_classes
 
     # @todo can remove version check if we require `fiftyone>=1.6.0`
     if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
@@ -2369,6 +2390,11 @@ def _can_export_abs_paths(dataset_type):
     return d.get("export_abs_paths", False)
 
 
+def _can_export_classes(dataset_type):
+    d = _get_dataset_type(dataset_type)
+    return d.get("export_classes", False)
+
+
 def _get_label_fields_for_dataset_type(
     view, dataset_type, allow_coercion=False
 ):
@@ -2481,6 +2507,7 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": True,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#coco",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#coco",
     },
@@ -2523,6 +2550,7 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": False,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#yolov4",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov4",
     },
@@ -2536,6 +2564,7 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#yolov5",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov5",
     },
