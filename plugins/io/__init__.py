@@ -2195,6 +2195,14 @@ def _export_samples(ctx):
         if "abs_paths" not in kwargs:
             kwargs["abs_paths"] = abs_paths
 
+    if dataset_type is fot.COCODetectionDataset:
+        if target_view.default_classes:
+            kwargs["classes"] = target_view.default_classes
+        else:
+            kwargs["classes"] = target_view.distinct(
+                f"{label_field}.detections.label"
+            )
+
     # @todo can remove version check if we require `fiftyone>=1.6.0`
     if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
         progress = lambda pb: ctx.set_progress(progress=pb.progress)
