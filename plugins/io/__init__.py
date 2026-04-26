@@ -1950,18 +1950,19 @@ def _export_samples_inputs(ctx, inputs):
 
     if _can_export_classes(dataset_type):
         has_classes = bool(
-            target_view.default_classes
+            target_view.classes.get(ctx.params.get("label_field", None))
+            or target_view.default_classes
             or target_view.info.get("categories")
         )
         if has_classes:
             inputs.bool(
                 "use_dataset_classes",
-                default=True,
-                label="Use dataset class list",
+                default=False,
+                label="Use dataset classes",
                 description=(
-                    "Preserve the original category IDs from the dataset. "
-                    "Uncheck to assign new IDs based only on the labels "
-                    "present in the exported samples."
+                    "Check this box to store the dataset's full classes list "
+                    "in the export. By default, only classes that are present "
+                    "in the samples you're exporting will be included"
                 ),
                 view=types.CheckboxView(),
             )
@@ -2153,12 +2154,16 @@ def _export_samples(ctx):
     label_fields = ctx.params.get("label_fields", None)
     csv_fields = ctx.params.get("csv_fields", None)
     abs_paths = ctx.params.get("abs_paths", None)
+    use_dataset_classes = ctx.params.get("use_dataset_classes", False)
     manual = ctx.params.get("manual", False)
     tab = ctx.params.get("tab", None)
     kwargs = ctx.params.get("kwargs", {})
 
     if _can_export_multiple_fields(dataset_type):
         label_field = label_fields
+
+    if use_dataset_classes and not _can_export_classes(dataset_type):
+        use_dataset_classes = False
 
     target_view = _get_target_view(ctx, target)
 
@@ -2213,16 +2218,17 @@ def _export_samples(ctx):
         if "abs_paths" not in kwargs:
             kwargs["abs_paths"] = abs_paths
 
-    if ctx.params.get("use_dataset_classes", False):
-        if dataset_type is fot.COCODetectionDataset:
-            categories = target_view.info.get("categories")
-            if categories:
-                kwargs["categories"] = categories
-            elif target_view.default_classes:
-                kwargs["classes"] = target_view.default_classes
-        elif dataset_type in (fot.YOLOv4Dataset, fot.YOLOv5Dataset):
-            if target_view.default_classes:
-                kwargs["classes"] = target_view.default_classes
+    if use_dataset_classes:
+        if dataset_type is fot.COCODetectionDataset and target_view.info.get(
+            "categories"
+        ):
+            kwargs["categories"] = target_view.info.get("categories")
+        elif isinstance(label_field, str) and target_view.classes.get(
+            label_field
+        ):
+            kwargs["classes"] = target_view.classes.get(label_field)
+        elif target_view.default_classes:
+            kwargs["classes"] = target_view.default_classes
 
     # @todo can remove version check if we require `fiftyone>=1.6.0`
     if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
@@ -2578,6 +2584,7 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#tf-object-detection",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tf-object-detection",
     },
