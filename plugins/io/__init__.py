@@ -1948,6 +1948,25 @@ def _export_samples_inputs(ctx, inputs):
             view=types.CheckboxView(),
         )
 
+    if _can_export_classes(dataset_type):
+        has_classes = bool(
+            target_view.classes.get(ctx.params.get("label_field", None))
+            or target_view.default_classes
+            or target_view.info.get("categories")
+        )
+        if has_classes:
+            inputs.bool(
+                "use_dataset_classes",
+                default=False,
+                label="Use dataset classes",
+                description=(
+                    "Check this box to store the dataset's full classes list "
+                    "in the export. By default, only classes that are present "
+                    "in the samples you're exporting will be included"
+                ),
+                view=types.CheckboxView(),
+            )
+
     if export_type == "LABELS_ONLY":
         labels_path_type = _get_labels_path_type(dataset_type)
     else:
@@ -2135,12 +2154,16 @@ def _export_samples(ctx):
     label_fields = ctx.params.get("label_fields", None)
     csv_fields = ctx.params.get("csv_fields", None)
     abs_paths = ctx.params.get("abs_paths", None)
+    use_dataset_classes = ctx.params.get("use_dataset_classes", False)
     manual = ctx.params.get("manual", False)
     tab = ctx.params.get("tab", None)
     kwargs = ctx.params.get("kwargs", {})
 
     if _can_export_multiple_fields(dataset_type):
         label_field = label_fields
+
+    if use_dataset_classes and not _can_export_classes(dataset_type):
+        use_dataset_classes = False
 
     target_view = _get_target_view(ctx, target)
 
@@ -2194,6 +2217,18 @@ def _export_samples(ctx):
     if abs_paths is not None:
         if "abs_paths" not in kwargs:
             kwargs["abs_paths"] = abs_paths
+
+    if use_dataset_classes:
+        if dataset_type is fot.COCODetectionDataset and target_view.info.get(
+            "categories"
+        ):
+            kwargs["categories"] = target_view.info.get("categories")
+        elif isinstance(label_field, str) and target_view.classes.get(
+            label_field
+        ):
+            kwargs["classes"] = target_view.classes.get(label_field)
+        elif target_view.default_classes:
+            kwargs["classes"] = target_view.default_classes
 
     # @todo can remove version check if we require `fiftyone>=1.6.0`
     if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
@@ -2361,6 +2396,11 @@ def _can_export_abs_paths(dataset_type):
     return d.get("export_abs_paths", False)
 
 
+def _can_export_classes(dataset_type):
+    d = _get_dataset_type(dataset_type)
+    return d.get("export_classes", False)
+
+
 def _get_label_fields_for_dataset_type(
     view, dataset_type, allow_coercion=False
 ):
@@ -2473,6 +2513,7 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": True,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#coco",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#coco",
     },
@@ -2515,6 +2556,7 @@ _DATASET_TYPES = [
         "export_labels_only": True,
         "export_multiple_fields": False,
         "export_abs_paths": False,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#yolov4",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov4",
     },
@@ -2528,6 +2570,7 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#yolov5",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#yolov5",
     },
@@ -2541,6 +2584,7 @@ _DATASET_TYPES = [
         "export_labels_only": False,
         "export_multiple_fields": False,
         "export_abs_paths": False,
+        "export_classes": True,
         "import_docs": "https://docs.voxel51.com/user_guide/import_datasets.html#tf-object-detection",
         "export_docs": "https://docs.voxel51.com/user_guide/export_datasets.html#tf-object-detection",
     },
