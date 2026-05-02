@@ -768,6 +768,11 @@ Want to showcase your own plugin here? See the
         <td><kbd>dataset</kbd> <kbd>video</kbd></td>
         <td>⚽ Load and explore the MOSE complex video object segmentation dataset via the FiftyOne Zoo.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/sherpan/torchvision-classifier-finetuner">@sherpan/torchvision-classifier-finetuner</a></b></td>
+        <td><kbd>model</kbd> <kbd>training</kbd></td>
+        <td>🎛️ Fine-tune pretrained torchvision backbones (ResNet-50, EfficientNet-B2, MobileNetV3) on labeled FiftyOne datasets and run inference directly from the App.</td>
+    </tr>
 </table>
 
 ## Using Plugins
