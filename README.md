@@ -771,7 +771,7 @@ Want to showcase your own plugin here? See the
     <tr>
         <td><b><a href="https://github.com/sherpan/torchvision-classifier-finetuner">@sherpan/torchvision-classifier-finetuner</a></b></td>
         <td><kbd>model</kbd> <kbd>training</kbd></td>
-        <td>🎛️ Fine-tune pretrained torchvision backbones (ResNet-50, EfficientNet-B2, MobileNetV3) on labeled FiftyOne datasets and run inference directly from the App.</td>
+        <td>🎛️ Fine-tune pretrained torchvision backbones (ResNet-50, EfficientNet-B2, MobileNetV3) on FiftyOne datasets with Classification labels and run inference directly from the App.</td>
     </tr>
 </table>
 
