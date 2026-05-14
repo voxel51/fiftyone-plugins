@@ -773,6 +773,21 @@ Want to showcase your own plugin here? See the
         <td><kbd>model</kbd> <kbd>training</kbd></td>
         <td>🎛️ Fine-tune pretrained torchvision backbones (ResNet-50, EfficientNet-B2, MobileNetV3) on FiftyOne datasets with Classification labels and run inference directly from the App.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/Burhan-Q/fo-glitch">@Burhan-Q/fo-glitch</a></b></td>
+        <td><kbd>data</kbd> <kbd>curation</kbd></td>
+        <td>📺 Augment dataset samples with image-corruption artifacts: pixel sorting, block corruption, channel shifting, scan-line noise, frame tearing, and more.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/Burhan-Q/fo-openai">@Burhan-Q/fo-openai</a></b></td>
+        <td><kbd>model</kbd> <kbd>vlm</kbd></td>
+        <td>💬 Label images with OpenAI vision models for classification, detection, captioning, VQA, and OCR via the Responses API with Pydantic-validated structured output.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/Burhan-Q/gemma4">@Burhan-Q/gemma4</a></b></td>
+        <td><kbd>model</kbd> <kbd>vlm</kbd> <kbd>video</kbd></td>
+        <td>💠 Google's Gemma 4 multimodal family as a Remote Zoo Model, supporting image and video operations including detection, classification, VQA, OCR, and temporal localization.</td>
+    </tr>
 </table>
 
 ## Using Plugins
