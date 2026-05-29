@@ -788,6 +788,16 @@ Want to showcase your own plugin here? See the
         <td><kbd>model</kbd> <kbd>vlm</kbd> <kbd>video</kbd></td>
         <td>💠 Google's Gemma 4 multimodal family as a Remote Zoo Model, supporting image and video operations including detection, classification, VQA, OCR, and temporal localization.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/Burhan-Q/fiftyone-locate-anything">@Burhan-Q/fiftyone-locate-anything</a></b></td>
+        <td><kbd>model</kbd> <kbd>vlm</kbd></td>
+        <td>🦅 NVIDIA LocateAnything-3B is an open-vocabulary grounding VLM from the Eagle family, supporting object detection, phrase grounding, pointing, scene-text/OCR localization, document layout, and GUI element grounding across images and video.</td>
+    </tr>
+    <tr>
+        <td><b><a href="https://github.com/Burhan-Q/screenparser">@Burhan-Q/screenparser</a></b></td>
+        <td><kbd>model</kbd> <kbd>detection</kbd></td>
+        <td>🖱️ ScreenParser is a YOLO11-L detector fine-tuned by the docling-project on ~1.45M screenshots to localize 55 UI element classes (buttons, tables, navigation bars, text inputs, icons, etc.) in application and web screenshots.</td>
+    </tr>
 </table>
 
 ## Using Plugins
