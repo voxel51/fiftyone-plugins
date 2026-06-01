@@ -1171,9 +1171,6 @@ class CloneDataset(foo.Operator):
             else:
                 sample_collection = dataset
 
-        if sample_collection._is_dynamic_groups:
-            sample_collection = sample_collection.flatten()
-
         sample_collection.clone(new_name, persistent=persistent)
 
         if not ctx.delegated:
@@ -1237,18 +1234,30 @@ def _get_clone_dataset_inputs(ctx, inputs):
         has_selected = bool(ctx.selected)
 
         if has_view:
+            if ctx.view._is_dynamic_groups:
+                description = "Clone the current view (flattened)"
+            else:
+                description = "Clone the current view"
+
             target_choices.add_choice(
                 "CURRENT_VIEW",
                 label="Current view",
-                description="Clone the current view",
+                description=description,
             )
             default_target = "CURRENT_VIEW"
 
         if has_selected:
+            if ctx.view._is_dynamic_groups:
+                label = "Selected groups"
+                description = "Clone the selected groups (flattened)"
+            else:
+                label = "Selected samples"
+                description = "Clone the selected samples"
+
             target_choices.add_choice(
                 "SELECTED_SAMPLES",
-                label="Selected samples",
-                description="Clone the selected samples",
+                label=label,
+                description=description,
             )
             default_target = "SELECTED_SAMPLES"
 
