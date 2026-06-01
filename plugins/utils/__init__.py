@@ -1171,6 +1171,9 @@ class CloneDataset(foo.Operator):
             else:
                 sample_collection = dataset
 
+        if sample_collection._is_dynamic_groups:
+            sample_collection = sample_collection.flatten()
+
         sample_collection.clone(new_name, persistent=persistent)
 
         if not ctx.delegated:
