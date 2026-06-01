@@ -743,6 +743,8 @@ def _inject_brain_secrets(ctx):
         if key.startswith("FIFTYONE_BRAIN_SIMILARITY_"):
             _key = key[len("FIFTYONE_BRAIN_SIMILARITY_") :].lower()
             _backend, _key = _key.split("_", 1)
+            if _backend not in fob.brain_config.similarity_backends:
+                fob.brain_config.similarity_backends[_backend] = {}
             fob.brain_config.similarity_backends[_backend][_key] = value
 
 
