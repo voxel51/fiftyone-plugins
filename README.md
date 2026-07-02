@@ -793,6 +793,11 @@ Want to showcase your own plugin here? See the
         <td><kbd>model</kbd> <kbd>detection</kbd></td>
         <td>🖱️ ScreenParser is a YOLO11-L detector fine-tuned by the docling-project on ~1.45M screenshots to localize 55 UI element classes (buttons, tables, navigation bars, text inputs, icons, etc.) in application and web screenshots.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/Burhan-Q/fo-annotate-lerobot">@Burhan-Q/fo-annotate-lerobot</a></b></td>
+        <td><kbd>annotation</kbd> <kbd>video</kbd></td>
+        <td>🦾 Annotate imported LeRobot datasets with per-episode subtask and high-level dialogue time segments directly in the FiftyOne App, then export an annotated LeRobot v3.0 dataset ready for training.</td>
+    </tr>
 </table>
 
 ## Using Plugins
