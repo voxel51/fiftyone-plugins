@@ -799,6 +799,11 @@ Want to showcase your own plugin here? See the
         <td>🦾 Annotate imported LeRobot datasets with per-episode subtask and high-level dialogue time segments directly in the FiftyOne App, then export an annotated LeRobot v3.0 dataset ready for training.</td>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/Burhan-Q/patch-hunter">@Burhan-Q/patch-hunter</a></b></td>
+        <td><kbd>examples</kbd></td>
+        <td>🎮 A fast-paced reflex game panel — click streaming object-detection patches that match the rotating target label before time runs out, build streaks, and land on the leaderboard.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/Burhan-Q/fo-video-sensor-data-sync">@Burhan-Q/fo-video-sensor-data-sync</a></b></td>
         <td><kbd>video</kbd> <kbd>visualization</kbd></td>
         <td>📊 Sync per-frame numeric sensor data with video via frame-accurate, playback-synced modal panels (traces + gauges) — author a declarative schema once and the panels handle the rest, no per-dataset code required.</td>
