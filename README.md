@@ -808,6 +808,11 @@ Want to showcase your own plugin here? See the
         <td><kbd>video</kbd> <kbd>visualization</kbd></td>
         <td>📊 Sync per-frame numeric sensor data with video via frame-accurate, playback-synced modal panels (traces + gauges) — author a declarative schema once and the panels handle the rest, no per-dataset code required.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/AdonaiVera/gemma-vllm-metrics">@AdonaiVera/gemma-vllm-metrics</a></b></td>
+        <td><kbd>vlm</kbd> <kbd>visualization</kbd></td>
+        <td>📈 Monitor a locally-served Gemma 4 model over vLLM from within the FiftyOne App, with a live panel showing request throughput, token throughput, latency, GPU KV-cache usage, and queue depth pulled straight from vLLM's own <code>/metrics</code> endpoint.</td>
+    </tr>
 </table>
 
 ## Using Plugins
