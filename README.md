@@ -813,6 +813,11 @@ Want to showcase your own plugin here? See the
         <td><kbd>vlm</kbd> <kbd>visualization</kbd></td>
         <td>📈 Monitor a locally-served Gemma 4 model over vLLM from within the FiftyOne App, with a live panel showing request throughput, token throughput, latency, GPU KV-cache usage, and queue depth pulled straight from vLLM's own <code>/metrics</code> endpoint.</td>
     </tr>
+    <tr>
+        <td><b><a href="https://github.com/Eximius-Labs/fusion-embedding/tree/main/fiftyone_fusion_embedding">@eximius/fusion-embedding</a></b></td>
+        <td><kbd>model</kbd> <kbd>embeddings</kbd> <kbd>search</kbd></td>
+        <td>🤖 Language-searchable embeddings for the sensor streams FiftyOne already synchronizes: pressure, thermal, motion and audio embed into one shared space with text, so the similarity panel answers plain-English queries over non-camera data. Four remote zoo models plus a compute operator.</td>
+    </tr>
 </table>
 
 ## Using Plugins
