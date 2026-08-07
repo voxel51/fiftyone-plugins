@@ -241,29 +241,25 @@ class DelayStage(WorkflowStage):
         return types.Property(inputs)
 
     def on_sample_received(self, ctx, stage, *, sample_id, stream=None, **_):
-        # Fire-and-forget: we do NOT route here. The sample stays in-flight
-        # (termination is gated on the DO) until on_do_completed routes it.
-        # Everything we need to route later is stashed in the DO params.
-        self.fop().dos.submit(
-            stage_id=stage.id,
-            workflow_id=stage.workflow_id,
-            operator_uri=SLEEP_DO,
-            subject_id=sample_id,
-            params={"seconds": stage.config.seconds, "_wf": {"sample_id": sample_id}},
+        # Fire-and-forget: we do NOT route here. submit_do stashes the
+        # sample_id in the DO's correlation; the sample stays in-flight
+        # (termination gated on the DO) until on_do_completed routes it.
+        self.fop().authoring.submit_do(
+            ctx,
+            stage,
+            SLEEP_DO,
+            sample_id=sample_id,
+            params={"seconds": stage.config.seconds},
             label=f"Delay {stage.config.seconds}s",
-            ctx=ctx,
         )
 
     def on_do_completed(self, ctx, stage, *, do_id, success, result=None):
-        # Recover the sample from the correlation payload (stages are
-        # stateless across hooks) and forward it now that the DO is done.
-        corr = self.fop().dos.get(do_id, ctx=ctx) or {}
-        params = (corr.get("payload") or {}).get("params") or {}
-        sample_id = (params.get("_wf") or {}).get("sample_id")
-        if sample_id is None:
+        # resume_do recovers what submit_do stashed (here, the sample_id).
+        r = self.fop().authoring.resume_do(ctx, do_id)
+        if r.sample_id is None:
             return
         self.fop().workflows.route_sample(
-            ctx, from_stage=stage, sample_id=sample_id, port="samples"
+            ctx, from_stage=stage, sample_id=r.sample_id, port="samples"
         )
 
 
@@ -295,32 +291,22 @@ class ComputeMetadataStage(WorkflowStage):
         )
 
     def on_collection_received(self, ctx, stage, *, collection_ref, **_):
-        to_dict = self.fop().types.to_dict
-        ids = list(collection_ref.sample_ids or [])
-        self.fop().dos.submit(
-            stage_id=stage.id,
-            workflow_id=stage.workflow_id,
-            operator_uri=COMPUTE_METADATA_DO,
-            subject_id=stage.id,
-            params={
-                "_wf": {"sample_ids": ids, "collection_ref": to_dict(collection_ref)}
-            },
+        # submit_do serializes + stashes the whole collection_ref for us;
+        # the DO reads its sample ids back out of that stash.
+        self.fop().authoring.submit_do(
+            ctx,
+            stage,
+            COMPUTE_METADATA_DO,
+            collection_ref=collection_ref,
             label="Compute metadata",
-            ctx=ctx,
         )
 
     def on_do_completed(self, ctx, stage, *, do_id, success, result=None):
-        corr = self.fop().dos.get(do_id, ctx=ctx) or {}
-        raw = ((corr.get("payload") or {}).get("params") or {}).get("_wf") or {}
-        ref_raw = raw.get("collection_ref")
-        if ref_raw is None:
+        r = self.fop().authoring.resume_do(ctx, do_id)
+        if r.collection_ref is None:
             return
-        t = self.fop().types
         self.fop().workflows.route_collection(
-            ctx,
-            from_stage=stage,
-            collection_ref=t.from_dict(t.CollectionRef, ref_raw),
-            port="collection",
+            ctx, from_stage=stage, collection_ref=r.collection_ref, port="collection"
         )
 
 
@@ -360,35 +346,25 @@ class ScoreSamplesStage(WorkflowStage):
         return types.Property(inputs)
 
     def on_collection_received(self, ctx, stage, *, collection_ref, **_):
-        to_dict = self.fop().types.to_dict
-        ids = list(collection_ref.sample_ids or [])
-        self.fop().dos.submit(
-            stage_id=stage.id,
-            workflow_id=stage.workflow_id,
-            operator_uri=SCORE_DO,
-            subject_id=stage.id,
-            params={
-                "field": stage.config.field,
-                "_wf": {"sample_ids": ids, "collection_ref": to_dict(collection_ref)},
-            },
+        # Non-stash params (here, the score field) pass straight through to
+        # the DO; the collection_ref rides the stash for routing on resume.
+        self.fop().authoring.submit_do(
+            ctx,
+            stage,
+            SCORE_DO,
+            collection_ref=collection_ref,
+            params={"field": stage.config.field},
             label=f"Score -> {stage.config.field}",
-            ctx=ctx,
         )
 
     def on_do_completed(self, ctx, stage, *, do_id, success, result=None):
         if result:
             log.info("[example] scored: %s", result)
-        corr = self.fop().dos.get(do_id, ctx=ctx) or {}
-        raw = ((corr.get("payload") or {}).get("params") or {}).get("_wf") or {}
-        ref_raw = raw.get("collection_ref")
-        if ref_raw is None:
+        r = self.fop().authoring.resume_do(ctx, do_id)
+        if r.collection_ref is None:
             return
-        t = self.fop().types
         self.fop().workflows.route_collection(
-            ctx,
-            from_stage=stage,
-            collection_ref=t.from_dict(t.CollectionRef, ref_raw),
-            port="collection",
+            ctx, from_stage=stage, collection_ref=r.collection_ref, port="collection"
         )
 
 
@@ -426,51 +402,31 @@ class ClickToAdvanceStage(WorkflowStage):
         )
 
     def on_sample_received(self, ctx, stage, *, sample_id, stream=None, **_):
-        fop = self.fop()
         if stream is None or stream.source_collection is None:
             raise ValueError("stream edge delivered a sample without a stream")
-        task = fop.tasks.find_or_create(
-            workflow_id=stage.workflow_id,
-            project_id=stage.project_id,
-            stage_id=stage.id,
-            assignees=list(stage.config.reviewers),
-            pooled=True,
-            label=f"Release ({stage.name})",
-            kind=stage.kind,
-            source_collection=stream.source_collection,
-            ctx=ctx,
-        )
-        fop.subtasks.create(
-            task_id=task.id,
-            workflow_id=stage.workflow_id,
-            project_id=stage.project_id,
-            stage_id=stage.id,
-            assignee_id=None,
+        # open_review parks the sample on a human (find/create task + open
+        # subtask). No routing here — it waits until the human submits.
+        self.fop().authoring.open_review(
+            ctx,
+            stage,
             sample_id=sample_id,
-            ctx=ctx,
+            source_collection=stream.source_collection,
+            assignees=stage.config.reviewers,
+            label=f"Release ({stage.name})",
         )
-        # No routing here: the sample waits until the human submits.
 
     def on_subtask_submitted(self, ctx, stage, *, subtask_id, outcome, payload=None):
-        fop = self.fop()
-        t = fop.types
-        sub = fop.subtasks.get(subtask_id, ctx=ctx)
-        if sub is None:
+        # close_review does transition + reconcile, and drops-on-skip
+        # (returning None); otherwise we just route the released sample.
+        r = self.fop().authoring.close_review(ctx, stage, subtask_id, outcome)
+        if r is None:
             return
-        fop.subtasks.transition(sub.id, t.SubTaskState.CLOSED, outcome=outcome, ctx=ctx)
-        fop.tasks.reconcile(sub.task_id, ctx=ctx)
-        if outcome == t.Outcome.SKIP:
-            fop.workflows.finalize_sample(
-                ctx, stage=stage, sample_id=sub.sample_id, dropped=True
-            )
-            return
-        task = fop.tasks.get(sub.task_id, ctx=ctx)
-        fop.workflows.route_sample(
+        self.fop().workflows.route_sample(
             ctx,
             from_stage=stage,
-            sample_id=sub.sample_id,
+            sample_id=r.sample_id,
             port="samples",
-            source_collection=task.source_collection if task else None,
+            source_collection=r.source_collection,
         )
 
 
@@ -510,51 +466,28 @@ class ApproveRejectStage(WorkflowStage):
         )
 
     def on_sample_received(self, ctx, stage, *, sample_id, stream=None, **_):
-        fop = self.fop()
         if stream is None or stream.source_collection is None:
             raise ValueError("stream edge delivered a sample without a stream")
-        task = fop.tasks.find_or_create(
-            workflow_id=stage.workflow_id,
-            project_id=stage.project_id,
-            stage_id=stage.id,
-            assignees=list(stage.config.reviewers),
-            pooled=True,
-            label=f"Approve/reject ({stage.name})",
-            kind=stage.kind,
-            source_collection=stream.source_collection,
-            ctx=ctx,
-        )
-        fop.subtasks.create(
-            task_id=task.id,
-            workflow_id=stage.workflow_id,
-            project_id=stage.project_id,
-            stage_id=stage.id,
-            assignee_id=None,
+        self.fop().authoring.open_review(
+            ctx,
+            stage,
             sample_id=sample_id,
-            ctx=ctx,
+            source_collection=stream.source_collection,
+            assignees=stage.config.reviewers,
+            label=f"Approve/reject ({stage.name})",
         )
 
     def on_subtask_submitted(self, ctx, stage, *, subtask_id, outcome, payload=None):
-        fop = self.fop()
-        t = fop.types
-        sub = fop.subtasks.get(subtask_id, ctx=ctx)
-        if sub is None:
+        r = self.fop().authoring.close_review(ctx, stage, subtask_id, outcome)
+        if r is None:  # skipped + dropped
             return
-        fop.subtasks.transition(sub.id, t.SubTaskState.CLOSED, outcome=outcome, ctx=ctx)
-        fop.tasks.reconcile(sub.task_id, ctx=ctx)
-        if outcome == t.Outcome.SKIP:
-            fop.workflows.finalize_sample(
-                ctx, stage=stage, sample_id=sub.sample_id, dropped=True
-            )
-            return
-        port = "rejected" if outcome == t.Outcome.REJECT else "approved"
-        task = fop.tasks.get(sub.task_id, ctx=ctx)
-        fop.workflows.route_sample(
+        # ReviewResult.rejected/accepted read the outcome for us.
+        self.fop().workflows.route_sample(
             ctx,
             from_stage=stage,
-            sample_id=sub.sample_id,
-            port=port,
-            source_collection=task.source_collection if task else None,
+            sample_id=r.sample_id,
+            port="rejected" if r.rejected else "approved",
+            source_collection=r.source_collection,
         )
 
 
@@ -608,92 +541,57 @@ class ScoreThenReviewStage(WorkflowStage):
 
     # -- step 1: score each sample via a DO ---------------------------------
     def on_sample_received(self, ctx, stage, *, sample_id, stream=None, **_):
-        to_dict = self.fop().types.to_dict
-        src = stream.source_collection if stream else None
-        self.fop().dos.submit(
-            stage_id=stage.id,
-            workflow_id=stage.workflow_id,
-            operator_uri=SCORE_DO,
-            subject_id=sample_id,
-            params={
-                "field": stage.config.field,
-                "_wf": {
-                    "sample_id": sample_id,
-                    "source_collection": to_dict(src) if src else None,
-                },
-            },
+        # Stash the source collection alongside the sample so step 2 can
+        # route (auto-pass) or open a review carrying it.
+        self.fop().authoring.submit_do(
+            ctx,
+            stage,
+            SCORE_DO,
+            sample_id=sample_id,
+            source_collection=stream.source_collection if stream else None,
+            params={"field": stage.config.field},
             label=f"Score {sample_id}",
-            ctx=ctx,
         )
 
     # -- step 2: DO done -> auto-pass or open a review subtask --------------
     def on_do_completed(self, ctx, stage, *, do_id, success, result=None):
         fop = self.fop()
-        corr = fop.dos.get(do_id, ctx=ctx) or {}
-        wf = ((corr.get("payload") or {}).get("params") or {}).get("_wf") or {}
-        sample_id = wf.get("sample_id")
-        if sample_id is None:
+        r = fop.authoring.resume_do(ctx, do_id)
+        if r.sample_id is None:
             return
-        src = None
-        if wf.get("source_collection"):
-            src = fop.types.from_dict(fop.types.CollectionRef, wf["source_collection"])
-
-        score = self._read_score(ctx, sample_id, stage.config.field)
+        score = self._read_score(ctx, r.sample_id, stage.config.field)
         if score >= stage.config.threshold:
             # High score: skip the human entirely.
             fop.workflows.route_sample(
                 ctx,
                 from_stage=stage,
-                sample_id=sample_id,
+                sample_id=r.sample_id,
                 port="passed",
-                source_collection=src,
+                source_collection=r.source_collection,
             )
             return
         # Low score: hold for a human (accept/reject decides the port).
-        task = fop.tasks.find_or_create(
-            workflow_id=stage.workflow_id,
-            project_id=stage.project_id,
-            stage_id=stage.id,
-            assignees=list(stage.config.reviewers),
-            pooled=True,
+        fop.authoring.open_review(
+            ctx,
+            stage,
+            sample_id=r.sample_id,
+            source_collection=r.source_collection,
+            assignees=stage.config.reviewers,
             label=f"Review low score ({stage.name})",
-            kind=stage.kind,
-            source_collection=src,
-            ctx=ctx,
-        )
-        fop.subtasks.create(
-            task_id=task.id,
-            workflow_id=stage.workflow_id,
-            project_id=stage.project_id,
-            stage_id=stage.id,
-            assignee_id=None,
-            sample_id=sample_id,
             payload={"score": score},
-            ctx=ctx,
         )
 
     # -- step 3: human decision -> approved / rejected ----------------------
     def on_subtask_submitted(self, ctx, stage, *, subtask_id, outcome, payload=None):
-        fop = self.fop()
-        t = fop.types
-        sub = fop.subtasks.get(subtask_id, ctx=ctx)
-        if sub is None:
+        r = self.fop().authoring.close_review(ctx, stage, subtask_id, outcome)
+        if r is None:
             return
-        fop.subtasks.transition(sub.id, t.SubTaskState.CLOSED, outcome=outcome, ctx=ctx)
-        fop.tasks.reconcile(sub.task_id, ctx=ctx)
-        if outcome == t.Outcome.SKIP:
-            fop.workflows.finalize_sample(
-                ctx, stage=stage, sample_id=sub.sample_id, dropped=True
-            )
-            return
-        port = "rejected" if outcome == t.Outcome.REJECT else "approved"
-        task = fop.tasks.get(sub.task_id, ctx=ctx)
-        fop.workflows.route_sample(
+        self.fop().workflows.route_sample(
             ctx,
             from_stage=stage,
-            sample_id=sub.sample_id,
-            port=port,
-            source_collection=task.source_collection if task else None,
+            sample_id=r.sample_id,
+            port="rejected" if r.rejected else "approved",
+            source_collection=r.source_collection,
         )
 
     @staticmethod

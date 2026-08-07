@@ -46,10 +46,11 @@ Read `stages.py` top to bottom — the ceremony grows one concept at a time.
   a `stage_descriptor` (what the canvas lists/renders) + a `config_type`
   (the config dataclass), and overrides only the hooks it needs. Movement
   is always an `fop.workflows.route_sample / route_collection /
-  finalize_*` call — **never a return value**.
+  finalize_*` call — **never a return value**. DO waits and HITL use the
+  `fop.authoring` helpers (see below).
 - **`dos.py`** — the three delegated operators the DO stages dispatch.
-  Each ends with `notify_do_completed(...)` in a `finally`; that callback
-  is the load-bearing "I'm done, resume the stage" signal.
+  Each ends with `fop.authoring.notify_do_completed(...)` in a `finally`;
+  that callback is the load-bearing "I'm done, resume the stage" signal.
 - **`panel.py`** — a custom **Release samples** panel: the surface where a
   human clicks to release a parked sample. It just executes
   `@voxel51/workflows/workflow_next` with an outcome — proving the HITL
@@ -71,33 +72,44 @@ of a port by name.
 
 ### Waiting on a delegated operation
 
-Heavy or slow work never runs inline. The stage calls `fop.dos.submit(...)`
-and returns **without routing** — the sample stays in-flight, gated on the
-DO. When the DO finishes it calls the platform trampoline
-`workflow_do_completed`, which re-enters your stage's `on_do_completed`,
-where you route. Because hooks are stateless, stash whatever you need to
-route (a `sample_id`, a serialized `collection_ref`) in the DO's params and
-recover it from `fop.dos.get(do_id)` on completion.
+Heavy or slow work never runs inline. The stage calls
+`fop.authoring.submit_do(...)` and returns **without routing** — the sample
+stays in-flight, gated on the DO. When the DO finishes it calls the
+platform trampoline (via `fop.authoring.notify_do_completed`), which
+re-enters your stage's `on_do_completed`. Because hooks are stateless,
+`submit_do` stashes what you'll need to route (a `sample_id`, a
+`collection_ref`, a `source_collection`) and `fop.authoring.resume_do(do_id)`
+hands it back — deserialized — on completion.
 
 ### Human-in-the-loop
 
-A HITL stage opens a `SubTask` (`fop.tasks.find_or_create` +
-`fop.subtasks.create`) and parks the sample. A human decision closes the
-SubTask via `workflow_next`, which fires `on_subtask_submitted`, where you
-transition the SubTask, reconcile the task, and route by `outcome`
-(`accept`/`reject`/`skip`). Use the bundled Release panel, or wire your own.
+`fop.authoring.open_review(...)` parks a sample on a human (find/create the
+stage task + open a subtask). A human decision closes the subtask via
+`workflow_next`, firing `on_subtask_submitted`, where
+`fop.authoring.close_review(...)` does the transition → reconcile →
+drop-on-skip and returns a `ReviewResult` you route by outcome
+(`accepted`/`rejected`). Use the bundled Release panel, or wire your own.
 
-## Where this is still too much ceremony
+## The `fop.authoring` helpers
 
-These examples deliberately show the **raw** contract, and in doing so they
-surface the boilerplate a shipped SDK should absorb:
+The repeated DO-wait / HITL sequences live in the platform's
+`fop.authoring` module, reached lazily through the same `fop` handle every
+stage already uses — so this plugin needs **no** load-order-fragile
+top-level import of `@voxel51/workflows`:
 
-- The `execute` dispatcher in `_sdk.py` mirrors the platform's
-  `runtime/base.py` and must be kept in sync by hand — it belongs in an
-  importable base class, not copied per plugin.
-- `notify_do_completed(...)` in every DO's `finally` is pure ceremony.
-- The stash-in-params / recover-in-`on_do_completed` dance for DO waits,
-  and the transition→reconcile→route sequence in every
-  `on_subtask_submitted`, repeat verbatim across stages.
+| Helper | Collapses |
+|--------|-----------|
+| `submit_do(ctx, stage, uri, *, sample_id=/collection_ref=/source_collection=, params=)` | `dos.submit` + hand-stashing routing context in `params` |
+| `resume_do(ctx, do_id) -> DoResume` | `dos.get` + un-stash + deserialize `collection_ref`/`source_collection` |
+| `notify_do_completed(ctx, *, success, result=)` | the `execute_operator(workflow_do_completed, ...)` trampoline call |
+| `open_review(ctx, stage, *, sample_id, source_collection, ...)` | `tasks.find_or_create` + `subtasks.create` |
+| `close_review(ctx, stage, subtask_id, outcome) -> ReviewResult \| None` | `subtasks.transition` → `tasks.reconcile` → drop-on-skip → recover source collection |
 
-Collapsing these into utility helpers is tracked as follow-up work.
+In-tree stages get the same four as convenience methods on
+`WorkflowStageOperator` (`self.submit_do(...)`, etc.).
+
+The one piece still copied here is the `execute` dispatcher in `_sdk.py`,
+which mirrors the platform's `runtime/base.py`. It stays local on purpose:
+subclassing the platform base would force a top-level cross-plugin import,
+and plugin load order is not controllable — so an external stage defines
+its own tiny base and calls into `fop` lazily at hook time instead.

@@ -2,67 +2,54 @@
 Demo delegated operators (DOs) used by the DO-dispatch example stages.
 
 A workflow stage never does heavy/slow work inline — it submits a DO
-(``fop.dos.submit``) and returns; the sample does NOT advance. When the
-DO finishes it calls the platform trampoline
-``@voxel51/workflows/workflow_do_completed`` with its own DO id, which
-re-enters the stage's ``on_do_completed`` where routing happens.
+(``fop.authoring.submit_do``) and returns; the sample does NOT advance.
+When the DO finishes it calls the platform trampoline (via
+``fop.authoring.notify_do_completed``) with its own DO id, which re-enters
+the stage's ``on_do_completed`` where routing happens.
 
-Every DO here ends with :func:`notify_do_completed` in a ``finally`` —
-that callback is the load-bearing "I'm done, resume the stage" signal.
-It is pure ceremony and an obvious candidate to fold into a shipped SDK
-(see the README's utility-library notes).
+Every DO here ends with ``notify_do_completed`` in a ``finally`` — that
+callback is the load-bearing "I'm done, resume the stage" signal. It (and
+the submit/resume stash) now live in the platform's ``fop.authoring``
+helpers, reached lazily so this plugin never needs a load-order-fragile
+top-level import of ``@voxel51/workflows``.
 """
 
 from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
 
 from fiftyone.operators.operator import Operator, OperatorConfig
 
 log = logging.getLogger(__name__)
 
-#: Platform trampoline that resumes a stage after its DO completes.
-WORKFLOW_DO_COMPLETED_URI = "@voxel51/workflows/workflow_do_completed"
+
+def _authoring():
+    """Lazy handle to the platform's ``fop.authoring`` helpers."""
+    from fiftyone.plugins.orgs.voxel51.workflows import fop
+
+    return fop.authoring
 
 
-def notify_do_completed(
-    ctx, *, success: bool, result: Optional[dict] = None
-) -> None:
-    """Tell the workflow runtime this DO finished, so the originating
-    stage's ``on_do_completed`` fires.
+def notify_do_completed(ctx, *, success, result=None):
+    """Resume the originating stage — delegates to ``fop.authoring``."""
+    _authoring().notify_do_completed(ctx, success=success, result=result)
 
-    ``ctx.request_params["run_doc"]`` is the delegated op's own id, which
-    equals the correlation id recorded by ``fop.dos.submit`` — that's how
-    the runtime maps this completion back to the waiting stage.
+
+def _sample_ids(ctx) -> list:
+    """Sample ids to operate on, recovered from the submit-time stash.
+
+    ``fop.authoring.submit_do`` stashes the routing context under the
+    reserved ``_wf`` key: a serialized ``collection_ref`` (batch DOs) or a
+    lone ``sample_id`` (per-sample DOs). Accept either shape.
     """
-    from fiftyone.operators import execute_operator
-
-    do_id = ctx.request_params.get("run_doc")
-    if not do_id:
-        # Not running as a tracked workflow DO (e.g. invoked directly) —
-        # nothing to resume.
-        return
-    try:
-        execute_operator(
-            WORKFLOW_DO_COMPLETED_URI,
-            ctx={
-                "dataset": ctx.dataset_name,
-                "dataset_id": ctx.dataset_id,
-                "params": {"do_id": str(do_id), "success": success, "result": result},
-                "user": ctx.user.to_dict() if ctx.user else None,
-            },
-            request_token=ctx.user_request_token,
-            api_key=ctx.user_api_key,
-        )
-    except Exception:  # noqa: BLE001 - best-effort resume
-        log.exception("workflow_do_completed notify failed", extra={"do_id": do_id})
-
-
-def _sample_ids(ctx) -> list[str]:
-    """Sample ids the stage stashed in the DO params at submit time."""
-    return list((ctx.params.get("_wf") or {}).get("sample_ids") or [])
+    wf = ctx.params.get("_wf") or {}
+    ref = wf.get("collection_ref") or {}
+    ids = ref.get("sample_ids") or wf.get("sample_ids")
+    if ids:
+        return list(ids)
+    sid = wf.get("sample_id")
+    return [sid] if sid else []
 
 
 class ExampleSleepDO(Operator):
@@ -157,4 +144,4 @@ class ExampleScoreDO(Operator):
 
 EXAMPLE_DOS = [ExampleSleepDO, ExampleComputeMetadataDO, ExampleScoreDO]
 
-__all__ = ["EXAMPLE_DOS", "notify_do_completed", "WORKFLOW_DO_COMPLETED_URI"]
+__all__ = ["EXAMPLE_DOS", "notify_do_completed"]
