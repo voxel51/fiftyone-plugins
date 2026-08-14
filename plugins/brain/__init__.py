@@ -65,6 +65,10 @@ class ComputeVisualization(foo.Operator):
         brain_key = ctx.params["brain_key"]
         model = ctx.params.get("model", None) or None
         method = ctx.params.get("method", None)
+        # The form defaults `num_dims` to 2, but a delegated/programmatic
+        # invocation may omit it, and compute_visualization requires an int
+        num_dims = ctx.params.get("num_dims", None) or 2
+        seed = ctx.params.get("seed", None)
         batch_size = ctx.params.get("batch_size", None)
         num_workers = ctx.params.get("num_workers", None)
         skip_failures = ctx.params.get("skip_failures", True)
@@ -91,6 +95,8 @@ class ComputeVisualization(foo.Operator):
             brain_key=brain_key,
             model=model,
             method=method,
+            num_dims=num_dims,
+            seed=seed,
             batch_size=batch_size,
             num_workers=num_workers,
             skip_failures=skip_failures,
