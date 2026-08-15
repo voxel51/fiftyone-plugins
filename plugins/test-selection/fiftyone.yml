@@ -1,0 +1,9 @@
+name: test-selection
+version: 0.1.0
+fiftyone:
+  version: "*"
+operators:
+  - debug_selection
+  - test_set_selected_with_meta
+  - test_set_selection_style
+  - test_clear_selection_style
