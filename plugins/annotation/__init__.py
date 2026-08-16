@@ -413,6 +413,10 @@ def _build_label_schema(label_schema_fields):
         field_type = d.get("type", None)
         classes = d.get("classes", None) or None
         attributes = d.get("attributes", None) or None
+        if isinstance(attributes, list) and len(attributes) == 1:
+            attributes = attributes[0]
+            if "name" in attributes:
+                attributes = {attributes["name"]: attributes}
 
         if not field_name or not field_type:
             return
