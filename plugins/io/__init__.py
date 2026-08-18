@@ -5,8 +5,6 @@ I/O operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
-import base64
-import contextlib
 import multiprocessing.dummy
 import os
 from packaging.version import Version
@@ -210,15 +208,21 @@ def _import_samples_inputs(ctx, inputs):
         description="Add new samples with media and labels",
     )
 
+    import_from = ctx.params.get("import_from", None)
+    default_import_type = (
+        "MEDIA_ONLY" if import_from in ("local", "cloud") else None
+    )
+
     inputs.enum(
         "import_type",
         import_choices.values(),
+        default=default_import_type,
         required=True,
         label="Import type",
         description="Choose what to import",
         view=import_choices,
     )
-    import_type = ctx.params.get("import_type", None)
+    import_type = ctx.params.get("import_type", default_import_type)
 
     if import_type == "MEDIA_ONLY":
         return _import_media_only_inputs(ctx, inputs)
@@ -236,13 +240,16 @@ def _import_media_only_inputs(ctx, inputs):
     style_choices.add_choice("GLOB_PATTERN", label="Glob pattern")
     style_choices.add_choice("UPLOAD", label="Upload")
 
+    import_from = ctx.params.get("import_from", None)
+    default_style = "UPLOAD" if import_from == "local" else "DIRECTORY"
+
     inputs.enum(
         "style",
         style_choices.values(),
-        default="DIRECTORY",
+        default=default_style,
         view=style_choices,
     )
-    style = ctx.params.get("style", "DIRECTORY")
+    style = ctx.params.get("style", default_style)
 
     ready = False
 
@@ -297,15 +304,30 @@ def _import_media_only_inputs(ctx, inputs):
         else:
             prop.view.caption = None
     else:
-        inputs.obj(
-            "media_file",
+        file_explorer = types.FileExplorerView(
+            choose_dir=True,
+            button_label="Choose a destination...",
+        )
+        inputs.file(
+            "upload_dir",
             required=True,
-            label="Media file",
-            description="Choose a media file to add to this dataset",
-            view=types.FileView(label="Media file"),
+            label="Upload directory",
+            description="Choose where to upload the media",
+            view=file_explorer,
+        )
+        upload_dir = _parse_path(ctx, "upload_dir")
+
+        if upload_dir is None:
+            return False
+
+        inputs.uploads(
+            "media_files",
+            destination=upload_dir,
+            label="Media files",
+            description="Upload the media files to add to this dataset",
         )
 
-        ready = bool(ctx.params.get("media_file", None))
+        ready = bool(ctx.params.get("media_files", None))
 
     if not ready:
         return False
@@ -449,14 +471,18 @@ def _import_media_and_labels_inputs(ctx, inputs):
     tab_choices = types.TabsView()
     tab_choices.add_choice("DIRECTORY", label="Directory")
     tab_choices.add_choice("DATA_AND_LABELS", label="Data & Labels")
+    tab_choices.add_choice("UPLOAD", label="Upload")
+
+    import_from = ctx.params.get("import_from", None)
+    default_tab = "UPLOAD" if import_from == "local" else "DIRECTORY"
 
     inputs.enum(
         "tab",
         tab_choices.values(),
-        default="DIRECTORY",
+        default=default_tab,
         view=tab_choices,
     )
-    tab = ctx.params.get("tab", "DIRECTORY")
+    tab = ctx.params.get("tab", default_tab)
 
     if tab == "DIRECTORY":
         file_explorer = types.FileExplorerView(
@@ -476,7 +502,7 @@ def _import_media_and_labels_inputs(ctx, inputs):
         dataset_dir = _parse_path(ctx, "dataset_dir")
         if dataset_dir is None:
             return False
-    else:
+    elif tab == "DATA_AND_LABELS":
         file_explorer = types.FileExplorerView(
             choose_dir=True,
             button_label="Choose a directory...",
@@ -536,6 +562,47 @@ def _import_media_and_labels_inputs(ctx, inputs):
                 prop.invalid = True
                 prop.error_message = f"Please provide a {ext} path"
                 return False
+    else:
+        file_explorer = types.FileExplorerView(
+            choose_dir=True,
+            button_label="Choose a destination...",
+        )
+        inputs.file(
+            "upload_dir",
+            required=True,
+            label="Upload directory",
+            description="Choose where to upload the media and labels",
+            view=file_explorer,
+        )
+        upload_dir = _parse_path(ctx, "upload_dir")
+
+        if upload_dir is None:
+            return False
+
+        inputs.uploads(
+            "data_files",
+            destination=fos.join(upload_dir, "data"),
+            label="Media files",
+            description="Upload the media files to add to this dataset",
+        )
+
+        if not ctx.params.get("data_files", None):
+            return False
+
+        labels_path_type = _get_labels_path_type(dataset_type)
+        ext = _get_labels_path_ext(dataset_type)
+
+        inputs.uploads(
+            "labels_files",
+            destination=fos.join(upload_dir, "labels"),
+            accept=[ext] if labels_path_type == "file" else None,
+            max_files=1 if labels_path_type == "file" else None,
+            label="Labels files",
+            description="Upload the labels to add to this dataset",
+        )
+
+        if not ctx.params.get("labels_files", None):
+            return False
 
     _add_label_types(ctx, inputs, dataset_type)
 
@@ -558,6 +625,9 @@ def _import_media_and_labels_inputs(ctx, inputs):
         description="Optional tag(s) to give each new sample",
         view=types.AutocompleteView(multiple=True),
     )
+
+    if tab == "UPLOAD":
+        return True
 
     return _upload_media_inputs(ctx, inputs)
 
@@ -614,37 +684,81 @@ def _import_labels_only_inputs(ctx, inputs):
 
     labels_path_type = _get_labels_path_type(dataset_type)
     tab = None
+    import_from = ctx.params.get("import_from", None)
 
     if labels_path_type == "directory":
-        file_explorer = types.FileExplorerView(
-            choose_dir=True,
-            button_label="Choose a directory...",
+        tab_choices = types.TabsView()
+        tab_choices.add_choice("DIRECTORY", label="Directory")
+        tab_choices.add_choice("UPLOAD", label="Upload")
+
+        default_tab = "UPLOAD" if import_from == "local" else "DIRECTORY"
+
+        inputs.enum(
+            "tab",
+            tab_choices.values(),
+            default=default_tab,
+            view=tab_choices,
         )
-        inputs.file(
-            "labels_path",
-            required=True,
-            label="Labels directory",
-            description=(
-                "Choose the directory that contains the labels to add to this "
-                "dataset"
-            ),
-            view=file_explorer,
-        )
-        labels_path = _parse_path(ctx, "labels_path")
-        if labels_path is None:
-            return False
+        tab = ctx.params.get("tab", default_tab)
+
+        if tab == "DIRECTORY":
+            file_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a directory...",
+            )
+            inputs.file(
+                "labels_path",
+                required=True,
+                label="Labels directory",
+                description=(
+                    "Choose the directory that contains the labels to add to "
+                    "this dataset"
+                ),
+                view=file_explorer,
+            )
+            labels_path = _parse_path(ctx, "labels_path")
+            if labels_path is None:
+                return False
+        else:
+            file_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a destination...",
+            )
+            inputs.file(
+                "upload_dir",
+                required=True,
+                label="Upload directory",
+                description="Choose where to upload the labels",
+                view=file_explorer,
+            )
+            upload_dir = _parse_path(ctx, "upload_dir")
+
+            if upload_dir is None:
+                return False
+
+            inputs.uploads(
+                "labels_files",
+                destination=upload_dir,
+                label="Labels files",
+                description="Upload the labels to add to this dataset",
+            )
+
+            if not ctx.params.get("labels_files", None):
+                return False
     elif labels_path_type == "file":
         tab_choices = types.TabsView()
         tab_choices.add_choice("FILEPATH", label="Filepath")
         tab_choices.add_choice("UPLOAD", label="Upload")
 
+        default_tab = "UPLOAD" if import_from == "local" else "FILEPATH"
+
         inputs.enum(
             "tab",
             tab_choices.values(),
-            default="FILEPATH",
+            default=default_tab,
             view=tab_choices,
         )
-        tab = ctx.params.get("tab", "FILEPATH")
+        tab = ctx.params.get("tab", default_tab)
 
         if tab == "FILEPATH":
             ext = _get_labels_path_ext(dataset_type)
@@ -668,15 +782,33 @@ def _import_labels_only_inputs(ctx, inputs):
                 prop.error_message = f"Please provide a {ext} path"
                 return False
         else:
-            inputs.obj(
-                "labels_file",
-                required=True,
-                label="Labels file",
-                description="Choose a labels file to add to this dataset",
-                view=types.FileView(label="Labels file"),
+            ext = _get_labels_path_ext(dataset_type)
+            file_explorer = types.FileExplorerView(
+                choose_dir=True,
+                button_label="Choose a destination...",
             )
-            labels_file = ctx.params.get("labels_file", None)
-            if not labels_file:
+            inputs.file(
+                "upload_dir",
+                required=True,
+                label="Upload directory",
+                description="Choose where to upload the labels",
+                view=file_explorer,
+            )
+            upload_dir = _parse_path(ctx, "upload_dir")
+
+            if upload_dir is None:
+                return False
+
+            inputs.uploads(
+                "labels_files",
+                destination=upload_dir,
+                accept=[ext],
+                max_files=1,
+                label="Labels file",
+                description="Upload the labels file to add to this dataset",
+            )
+
+            if not ctx.params.get("labels_files", None):
                 return False
     else:
         file_explorer = types.FileExplorerView(
@@ -726,21 +858,21 @@ def _upload_media_inputs(ctx, inputs):
     style = ctx.params.get("style", None)
 
     if style == "UPLOAD":
-        upload = True
-    else:
-        inputs.bool(
-            "upload",
-            default=False,
-            required=False,
-            label="Upload media",
-            description=(
-                "You can optionally upload the media to another location "
-                "before adding it to the dataset. Would you like to do this?"
-            ),
-            view=types.CheckboxView(),
-        )
+        return True
 
-        upload = ctx.params.get("upload", False)
+    inputs.bool(
+        "upload",
+        default=False,
+        required=False,
+        label="Upload media",
+        description=(
+            "You can optionally upload the media to another location "
+            "before adding it to the dataset. Would you like to do this?"
+        ),
+        view=types.CheckboxView(),
+    )
+
+    upload = ctx.params.get("upload", False)
 
     if upload:
         file_explorer = types.FileExplorerView(
@@ -775,53 +907,11 @@ def _upload_media_inputs(ctx, inputs):
     return True
 
 
-def _upload_media_bytes(ctx):
-    media_obj = ctx.params["media_file"]
-    upload_dir = _parse_path(ctx, "upload_dir")
-    overwrite = ctx.params["overwrite"]
-    filename = media_obj["name"]
-    content = base64.b64decode(media_obj["content"])
-
-    if overwrite:
-        outpath = fos.join(upload_dir, filename)
-    else:
-        filename_maker = fou.UniqueFilenameMaker(output_dir=upload_dir)
-        outpath = filename_maker.get_output_path(input_path=filename)
-
-    fos.write_file(content, outpath)
-    return outpath
-
-
-def _import_media_only(ctx):
-    style = ctx.params.get("style", None)
-    tags = ctx.params.get("tags", None)
-
-    if style == "UPLOAD":
-        filepath = _upload_media_bytes(ctx)
-
-        sample = fo.Sample(filepath=filepath, tags=tags)
-        ctx.dataset.add_sample(sample)
-
-        return
-
-    directory = _parse_path(ctx, "directory")
-    if style != "DIRECTORY":
-        directory = None
-
-    glob_patt = _parse_path(ctx, "glob_patt")
-    if style != "GLOB_PATTERN":
-        glob_patt = None
-
-    filepaths = _glob_files(directory=directory, glob_patt=glob_patt)
+def _add_media_samples(ctx, filepaths, tags):
     num_total = len(filepaths)
 
     if num_total == 0:
         return
-
-    filepaths, tasks = _upload_media_tasks(ctx, filepaths)
-    if tasks:
-        for progress in _upload_media(ctx, tasks):
-            yield progress
 
     make_sample = lambda f: fo.Sample(filepath=f, tags=tags)
     samples = map(make_sample, filepaths)
@@ -848,13 +938,68 @@ def _import_media_only(ctx):
         yield ctx.trigger("set_progress", dict(progress=progress, label=label))
 
 
-def _import_media_and_labels(ctx):
-    dataset_type = ctx.params["dataset_type"]
-    dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
+def _import_media_only(ctx):
+    style = ctx.params.get("style", None)
+    tags = ctx.params.get("tags", None)
 
-    dataset_dir = _parse_path(ctx, "dataset_dir")
-    data_path = _parse_path(ctx, "data_path")
-    labels_path = _parse_path(ctx, "labels_path")
+    if style == "UPLOAD":
+        media_files = ctx.params.get("media_files", None) or []
+        filepaths = [f["absolute_path"] for f in media_files]
+
+        for progress in _add_media_samples(ctx, filepaths, tags):
+            yield progress
+
+        return
+
+    directory = _parse_path(ctx, "directory")
+    if style != "DIRECTORY":
+        directory = None
+
+    glob_patt = _parse_path(ctx, "glob_patt")
+    if style != "GLOB_PATTERN":
+        glob_patt = None
+
+    filepaths = _glob_files(directory=directory, glob_patt=glob_patt)
+    num_total = len(filepaths)
+
+    if num_total == 0:
+        return
+
+    filepaths, tasks = _upload_media_tasks(ctx, filepaths)
+    if tasks:
+        for progress in _upload_media(ctx, tasks):
+            yield progress
+
+    for progress in _add_media_samples(ctx, filepaths, tags):
+        yield progress
+
+
+def _import_media_and_labels(ctx):
+    dataset_type_label = ctx.params["dataset_type"]
+    dataset_type = _get_dataset_type(dataset_type_label)["dataset_type"]
+
+    tab = ctx.params.get("tab", None)
+
+    if tab == "UPLOAD":
+        upload_dir = _parse_path(ctx, "upload_dir")
+        dataset_dir = None
+        data_path = fos.join(upload_dir, "data")
+        labels_dir = fos.join(upload_dir, "labels")
+
+        if _get_labels_path_type(dataset_type_label) == "file":
+            labels_files = ctx.params.get("labels_files", None) or []
+            labels_path = (
+                fos.join(labels_dir, labels_files[0]["name"])
+                if labels_files
+                else None
+            )
+        else:
+            labels_path = labels_dir
+    else:
+        dataset_dir = _parse_path(ctx, "dataset_dir")
+        data_path = _parse_path(ctx, "data_path")
+        labels_path = _parse_path(ctx, "labels_path")
+
     label_field = ctx.params.get("label_field", None)
     label_types = ctx.params.get("label_types", None)
     tags = ctx.params.get("tags", None)
@@ -884,22 +1029,27 @@ def _import_media_and_labels(ctx):
     yield
 
 
-def _upload_labels_bytes(ctx, tmp_dir):
-    labels_obj = ctx.params["labels_file"]
-    filename = labels_obj["name"]
-    content = base64.b64decode(labels_obj["content"])
-
-    outpath = fos.join(tmp_dir, filename)
-    fos.write_file(content, outpath)
-    return outpath
-
-
 def _import_labels_only(ctx):
-    dataset_type = ctx.params["dataset_type"]
-    dataset_type = _get_dataset_type(dataset_type)["dataset_type"]
+    dataset_type_label = ctx.params["dataset_type"]
+    dataset_type = _get_dataset_type(dataset_type_label)["dataset_type"]
 
-    labels_file = ctx.params.get("labels_file", None)
-    labels_path = _parse_path(ctx, "labels_path")
+    tab = ctx.params.get("tab", None)
+
+    if tab == "UPLOAD":
+        upload_dir = _parse_path(ctx, "upload_dir")
+        labels_files = ctx.params.get("labels_files", None) or []
+
+        if _get_labels_path_type(dataset_type_label) == "file":
+            labels_path = (
+                fos.join(upload_dir, labels_files[0]["name"])
+                if labels_files
+                else None
+            )
+        else:
+            labels_path = upload_dir
+    else:
+        labels_path = _parse_path(ctx, "labels_path")
+
     dataset_dir = _parse_path(ctx, "dataset_dir")
     label_field = ctx.params.get("label_field", None)
     dynamic = ctx.params.get("dynamic", False)
@@ -914,32 +1064,27 @@ def _import_labels_only(ctx):
         progress = lambda pb: ctx.set_progress(progress=pb.progress)
         kwargs["progress"] = fo.report_progress(progress, dt=10.0)
 
-    with contextlib.ExitStack() as exit_context:
-        if labels_file is not None:
-            tmp_dir = exit_context.enter_context(fos.TempDir())
-            labels_path = _upload_labels_bytes(ctx, tmp_dir)
+    if labels_path is not None:
+        data_path = {
+            os.path.basename(p): p for p in ctx.dataset.values("filepath")
+        }
+        ctx.dataset.merge_dir(
+            data_path=data_path,
+            labels_path=labels_path,
+            dataset_type=dataset_type,
+            label_field=label_field,
+            dynamic=dynamic,
+            **kwargs,
+        )
 
-        if labels_path is not None:
-            data_path = {
-                os.path.basename(p): p for p in ctx.dataset.values("filepath")
-            }
-            ctx.dataset.merge_dir(
-                data_path=data_path,
-                labels_path=labels_path,
-                dataset_type=dataset_type,
-                label_field=label_field,
-                dynamic=dynamic,
-                **kwargs,
-            )
-
-        if dataset_dir is not None:
-            ctx.dataset.merge_dir(
-                dataset_dir=dataset_dir,
-                dataset_type=dataset_type,
-                label_field=label_field,
-                dynamic=dynamic,
-                **kwargs,
-            )
+    if dataset_dir is not None:
+        ctx.dataset.merge_dir(
+            dataset_dir=dataset_dir,
+            dataset_type=dataset_type,
+            label_field=label_field,
+            dynamic=dynamic,
+            **kwargs,
+        )
 
     return
     yield
