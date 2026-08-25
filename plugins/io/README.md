@@ -158,3 +158,25 @@ dataset_or_view.draw_labels(
 where the operator's form allows you to configure the output directory on disk,
 the label field(s) to render, and any other optional arguments for
 `draw_labels()`.
+
+### get_url (Enterprise-only)
+
+[FiftyOne Enterprise](https://docs.voxel51.com/enterprise/index.html) users can
+use this operator to retrieve signed URLs to read/write/delete assets in cloud
+storage.
+
+This operator is essentially a wrapper around the
+`fiftyone.core.storage.get_url()` method:
+
+```py
+import fiftyone.core.storage as fos
+
+path = "s3://..."
+method = "GET"  # GET|PUT|DELETE
+hours = 24
+
+url = fos.get_url(path, method=method, hours=hours)
+```
+
+where the operator's form allows you to select the path, HTTP verb, and desired
+expiration time of the URL.
