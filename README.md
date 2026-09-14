@@ -189,6 +189,11 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/RubenHaisma/fiftyone-shortcut-risk">@rubenhaisma/shortcut-risk</a></b></td>
+        <td><kbd>curation</kbd> <kbd>evaluation</kbd></td>
+        <td>🔎 Measure whether metadata fields (site, scanner, camera, batch) are readable from your embeddings and correlated with your labels — the two conditions for a shortcut. Ranks fields by risk, gives each a verdict, writes a per-sample source-margin score, and estimates the accuracy drop on an unseen source.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/landing-ai/ade-51">@landingai/ade</a></b></td>
         <td><kbd>ocr</kbd> <kbd>model</kbd> <kbd>text</kbd></td>
         <td>📄 Parse, extract, and split documents using LandingAI's Agentic Document Extraction (ADE) API. Converts PDFs, images, spreadsheets, and Office files into structured Markdown with spatial bounding box grounding.</td>
