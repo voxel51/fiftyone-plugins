@@ -48,6 +48,7 @@ class ComputeVisualization(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            tracked_params=["model"],
         )
 
     def resolve_input(self, ctx):
@@ -310,6 +311,7 @@ class ComputeSimilarity(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            tracked_params=["model"],
         )
 
     def resolve_input(self, ctx):
@@ -1205,6 +1207,7 @@ class ComputeUniqueness(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            tracked_params=["model"],
         )
 
     def resolve_input(self, ctx):
@@ -2032,6 +2035,7 @@ class FindNearDuplicates(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            tracked_params=["model"],
         )
 
     def resolve_input(self, ctx):
@@ -2193,6 +2197,7 @@ class DeduplicateNearDuplicates(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            tracked_params=["model"],
         )
 
     def resolve_input(self, ctx):
