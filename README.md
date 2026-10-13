@@ -189,6 +189,11 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/mgustineli/video-to-frames-plugin">@mgustineli/video-to-frames</a></b></td>
+        <td><kbd>video</kbd> <kbd>utils</kbd></td>
+        <td>🎞️ Convert a video dataset into a frames view with a custom frame rate and max size, saved on the same dataset using FiftyOne's native frames view.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/landing-ai/ade-51">@landingai/ade</a></b></td>
         <td><kbd>ocr</kbd> <kbd>model</kbd> <kbd>text</kbd></td>
         <td>📄 Parse, extract, and split documents using LandingAI's Agentic Document Extraction (ADE) API. Converts PDFs, images, spreadsheets, and Office files into structured Markdown with spatial bounding box grounding.</td>
