@@ -1,0 +1,21 @@
+name: "@voxel51/workflow-assignment-policy-examples"
+description: |
+  Four example assignment policies for FiftyOne workflows: how a Python
+  developer decides who holds each batch of an Annotate or Review stage,
+  with the runtime doing the validation and the writes. From a ten-line
+  round robin to "high-priority batches to the best-approved labelers,
+  capped at 10 open batches each".
+tags:
+  - workflows
+  - examples
+  - assignment
+version: 0.1.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/workflow-assignment-policy-examples
+license: Apache 2.0
+operators:
+  - example_assign_round_robin
+  - example_assign_by_sample_field
+  - example_assign_shared_to_group
+  - example_assign_by_approval_rate
