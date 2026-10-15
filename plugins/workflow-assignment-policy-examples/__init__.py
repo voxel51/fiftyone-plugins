@@ -1,8 +1,8 @@
 """
 Example assignment-policy plugin for FiftyOne workflows.
 
-Three policies (``policies.py``), from the smallest possible one to a
-routing rule with fall-through. See the package README.
+One policy (``policies.py``): high-priority batches to the best-approved
+labelers, capped. See the package README.
 
 | Copyright 2017-2026, Voxel51, Inc.
 """

@@ -1,5 +1,6 @@
 """
-Four example assignment policies.
+An example assignment policy: high-priority batches to the best-approved
+labelers, with a cap of open batches per person.
 
 An assignment policy is an ordinary FiftyOne operator with one extra class
 attribute, ``assignment_policy_descriptor``. The workflow runtime finds it
@@ -90,174 +91,8 @@ class _PolicyBase(foo.Operator):
 
 
 # ---------------------------------------------------------------------------
-# 1. The smallest policy: round robin over the pool's people
-# ---------------------------------------------------------------------------
-
-
-class AssignRoundRobin(_PolicyBase):
-    """Batch ``i`` goes to person ``i % len(people)``.
-
-    The minimum a policy can be. ``assignee_pool.users`` already contains
-    every person in the pool, group members included, so "the pool's
-    people" is one list. Returning ``"fallthrough": "none"`` says this
-    policy answered for everything; with no people in the pool nothing is
-    assigned and the batches stay claimable.
-    """
-
-    NAME = "example_assign_round_robin"
-    LABEL = "Example: round robin"
-
-    assignment_policy_descriptor = {
-        "label": "Round robin (example)",
-        "description": "Batch i goes to the i-th person in the pool, wrapping around.",
-    }
-
-    def execute(self, ctx):
-        request = _request(ctx)
-        people = [u["id"] for u in request["assignee_pool"].get("users") or []]
-        if not people:
-            return {"assignments": [], "fallthrough": "none"}
-        out = []
-        for task in _pending_tasks(request):
-            who = people[int(task.get("batch_index") or 0) % len(people)]
-            out.append(
-                {
-                    "task_id": task["id"],
-                    "assignees": [who],
-                    "note": "round robin",
-                }
-            )
-        return {"assignments": out, "fallthrough": "none"}
-
-
-# ---------------------------------------------------------------------------
-# 2. Routing by a sample field, with fall-through
-# ---------------------------------------------------------------------------
-
-
-class AssignBySampleField(_PolicyBase):
-    """Batches whose samples carry a known value of ``field`` go to the
-    principal mapped to that value; everything else falls through to the
-    built-in least-loaded policy.
-
-    The customer story behind it: camera X's footage goes to the team that
-    owns camera X. Options come from the stage config
-    (``request.stage.options``)::
-
-        {"field": "camera", "routes": {"cam_a": "group:<team a id>",
-                                        "cam_b": "<user id>"}}
-
-    The request carries each batch's ``sample_ids`` and nothing about the
-    samples themselves, so the policy loads the one field it needs through
-    ``ctx.dataset``. A route to a principal that is not in the pool is
-    ignored (the runtime would refuse it anyway), so a stale mapping can
-    never widen access.
-    """
-
-    NAME = "example_assign_by_sample_field"
-    LABEL = "Example: by sample field"
-
-    assignment_policy_descriptor = {
-        "label": "By sample field (example)",
-        "description": (
-            "Route each batch to the principal mapped to its samples' value "
-            "of a field (e.g. camera -> team); the rest go least-loaded."
-        ),
-        "options": {
-            "field": {"type": "str", "label": "Sample field"},
-            "routes": {"type": "dict", "label": "value -> principal"},
-        },
-    }
-
-    def execute(self, ctx):
-        request = _request(ctx)
-        options = request["stage"].get("options") or {}
-        field = str(options.get("field") or "camera")
-        routes = {
-            str(k): str(v) for k, v in (options.get("routes") or {}).items()
-        }
-        pool = request["assignee_pool"]
-        in_pool = {u["id"] for u in pool.get("users") or []} | {
-            g["id"] for g in pool.get("groups") or []
-        }
-        out = []
-        for task in _pending_tasks(request):
-            sample_ids = task.get("sample_ids") or []
-            if not sample_ids or not routes:
-                continue
-            values = set(ctx.dataset.select(sample_ids).distinct(field))
-            target = next(
-                (routes[v] for v in sorted(map(str, values)) if v in routes),
-                None,
-            )
-            if target and target in in_pool:
-                out.append(
-                    {
-                        "task_id": task["id"],
-                        "assignees": [target],
-                        "note": f"{field} in {sorted(values)}",
-                    }
-                )
-        # Unrouted batches (no mapped value, or a route outside the pool)
-        # are handed to least-loaded in the same run.
-        return {"assignments": out, "fallthrough": "default"}
-
-
-# ---------------------------------------------------------------------------
-# 3. Shared batches: assign the group itself, or leave unassigned
-# ---------------------------------------------------------------------------
-
-
-class AssignSharedToGroup(_PolicyBase):
-    """Every batch goes to the pool group with the fewest open batches, as
-    a **shared** assignment (the group, not a member), so any member can
-    open it from Mine and the first to submit takes it.
-
-    Shows two things the default policy never does: assigning a group as
-    a group, and deliberately leaving batches unassigned (an empty
-    ``assignees`` with ``"fallthrough": "none"``) when the pool has no
-    groups, so they stay claimable by anyone in the pool.
-    """
-
-    NAME = "example_assign_shared_to_group"
-    LABEL = "Example: shared to group"
-
-    assignment_policy_descriptor = {
-        "label": "Shared to group (example)",
-        "description": (
-            "Each batch goes to the pool group with the fewest open batches, "
-            "as a shared group assignment; no groups -> left unassigned."
-        ),
-    }
-
-    def execute(self, ctx):
-        request = _request(ctx)
-        groups = [
-            dict(g) for g in request["assignee_pool"].get("groups") or []
-        ]
-        load = {g["id"]: int(g.get("open_tasks") or 0) for g in groups}
-        out = []
-        for task in _pending_tasks(request):
-            if not groups:
-                out.append(
-                    {
-                        "task_id": task["id"],
-                        "assignees": [],
-                        "note": "no group in pool",
-                    }
-                )
-                continue
-            gid = min(load, key=lambda g: (load[g], g))
-            load[gid] += 1
-            out.append(
-                {"task_id": task["id"], "assignees": [gid], "note": "shared"}
-            )
-        return {"assignments": out, "fallthrough": "none"}
-
-
-# ---------------------------------------------------------------------------
-# 4. Quality-aware: high-priority batches to the best-approved labelers,
-#    with a cap of open batches per person
+# Quality-aware: high-priority batches to the best-approved labelers,
+# with a cap of open batches per person
 # ---------------------------------------------------------------------------
 
 
@@ -407,9 +242,4 @@ def _float(value, default: float) -> float:
         return default
 
 
-EXAMPLE_POLICIES = (
-    AssignRoundRobin,
-    AssignBySampleField,
-    AssignSharedToGroup,
-    AssignByApprovalRate,
-)
+EXAMPLE_POLICIES = (AssignByApprovalRate,)

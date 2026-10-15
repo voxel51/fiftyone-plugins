@@ -1,6 +1,6 @@
 # Workflow Assignment Policy Examples
 
-Four example **assignment policies** for FiftyOne workflows. When an
+An example **assignment policy** for FiftyOne workflows. When an
 Annotate or Review stage is set to *Automatic* assignment, the workflow
 runtime hands every new batch (Task) to someone from the stage's assignee
 pool. The built-in policy gives each batch to the least-loaded person. A
@@ -21,7 +21,7 @@ fiftyone plugins download \
 ```
 
 Or, for local development, drop this directory in your
-`FIFTYONE_PLUGINS_DIR`. Every policy appears in the stage's **Assignment
+`FIFTYONE_PLUGINS_DIR`. The policy appears in the stage's **Assignment
 policy** dropdown as soon as the plugin loads: discovery is automatic (the
 runtime duck-types any operator that exposes an
 `assignment_policy_descriptor`). From a script:
@@ -31,23 +31,22 @@ import fiftyone.management as fom
 
 fom.update_stage_assignment(
     "my-dataset", workflow_id, stage_id, "auto",
-    policy="@voxel51/workflow-assignment-policy-examples/example_assign_by_sample_field",
-    options={"field": "camera", "routes": {"cam_a": "group:<team-a-id>"}},
+    policy="@voxel51/workflow-assignment-policy-examples/example_assign_by_approval_rate",
+    options={"max_open_tasks": 10, "high_priority_min": 7},
 )
 ```
 
-## The four policies
+## The policy: by approval rate, capped
 
-Read `policies.py` top to bottom; the last one is the realistic one.
+A quality-aware rule, in `policies.py`: high-priority batches go to the
+labelers with the highest approval rate, the rest to the least loaded,
+and nobody holds more than 10 open batches. It shows bringing in a signal
+the request does not carry (the customer's own approval-rate table) and
+honoring a hard cap by leaving batches unassigned instead of overloading
+people. Batches it does not answer for are **not** handed to the default
+policy (`"fallthrough": "none"`), so the cap holds.
 
-| # | Policy | What it shows |
-|---|--------|---------------|
-| 1 | **Round robin** | The minimum: a class attribute, `execute` reads `ctx.params["request"]`, returns `assignments`. Batch *i* → person *i mod N*. |
-| 2 | **By sample field** | Options from the stage config, loading one field for a batch's `sample_ids` through `ctx.dataset`, routing to a group or a person, and **fall-through**: batches without a route go to the built-in least-loaded policy in the same run. |
-| 3 | **Shared to group** | Assigning a **group as a group** (a shared batch any member can open), and deliberately leaving batches **unassigned** when there is nobody suitable. |
-| 4 | **By approval rate, capped** | A quality-aware rule: high-priority batches go to the labelers with the highest approval rate, the rest to the least loaded, and nobody holds more than 10 open batches. Shows bringing in a signal the request does not carry (the customer's own approval-rate table) and honoring a hard cap by leaving batches unassigned instead of overloading people. |
-
-### Policy 4 in one picture
+### In one picture
 
 ```text
 pending batches, highest priority first
