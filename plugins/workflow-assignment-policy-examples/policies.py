@@ -1,6 +1,7 @@
 """
-An example assignment policy: high-priority batches to the best-approved
-labelers, with a cap of open batches per person.
+An example assignment policy: tasks to labelers at the desired first-pass
+approval rate, then to those at the minimum, with a cap of open tasks per
+person.
 
 An assignment policy is an ordinary FiftyOne operator with one extra class
 attribute, ``assignment_policy_descriptor``. The workflow runtime finds it
@@ -27,7 +28,8 @@ The request arrives as ``ctx.params["request"]``::
       "pending": [{"task_id", "reason"}, ...],
       "assignee_pool": {
         "users":  [{"id", "name", "open_tasks", "open_samples",
-                    "last_submit_at", "via_groups"}, ...],
+                    "last_submit_at", "via_groups",
+                    "first_pass_approval"?, "first_pass_judged"?}, ...],
         "groups": [{"id", "name", "member_ids", "open_tasks"}, ...]
       },
       "triggered_by": "system" | "<user id>"
@@ -91,50 +93,44 @@ class _PolicyBase(foo.Operator):
 
 
 # ---------------------------------------------------------------------------
-# Quality-aware: high-priority batches to the best-approved labelers,
-# with a cap of open batches per person
+# Quality-aware: labelers at the desired first-pass approval rate first,
+# then those at the minimum, with a cap of open tasks per person
 # ---------------------------------------------------------------------------
 
 
 class AssignByApprovalRate(_PolicyBase):
-    """High-priority batches go to the labelers with the highest approval
-    rate; every other batch goes to the least-loaded eligible person; and
-    nobody is handed more than ``max_open_tasks`` open batches (default
-    10), counting the ones they already hold anywhere.
+    """Two tiers by first-pass approval rate, and a cap per person.
 
-    Options (``request.stage.options``)::
+    Options (``request.stage.options``; each stage sets its own, the form
+    shows them under the policy)::
 
         {
-          "max_open_tasks": 10,        # hard cap per person, default 10
-          "high_priority_min": 7,      # batches with priority >= this are "high"
-          "rates_key": "labeler_approval_rates",   # see below
-          "default_rate": 0.0          # rate for a person with no history
+          "desired_approval_rate": 90,   # %, first choice
+          "min_approval_rate": 30,       # %, used once the first tier is full
+          "max_open_tasks": 10           # open tasks per person, anywhere
         }
 
-    **Where the approval rate comes from.** The request carries each
-    person's load but no quality signal: that is the customer's own data.
-    This example reads a ``{user_id: rate in 0..1}`` dict from
-    ``ctx.dataset.info[rates_key]``, which a nightly job can refresh from
-    the Activity metrics (reviewer accept / reject counts per annotator)
-    or from any external scorecard. Swap :func:`_approval_rates` for your
-    own lookup; nothing else changes.
+    **Where the rate comes from.** The descriptor asks for
+    ``first_pass_approval`` in ``request_fields``, so the runtime adds each
+    person's first-pass approval rate (0..1, from the Activity metrics:
+    of their samples judged on the first pass, the share approved) and how
+    many were judged. People with nothing judged yet arrive with ``None``.
 
     Decisions, in order:
 
-    1. Pending batches are taken highest priority first (then lowest
-       batch index), so when experts are scarce the batches that matter
-       most get them.
-    2. A person is eligible while their open batches (held anywhere, plus
-       the ones picked earlier in this run) are under the cap. People at
-       the cap are never picked.
-    3. A **high-priority** batch goes to the eligible person with the
-       highest approval rate; ties go to the fewest open batches.
-    4. Any other batch goes to the eligible person with the fewest open
-       batches; ties go to the *lowest* approval rate, which keeps the
-       experts free for the next high-priority batch.
-    5. If nobody is under the cap, the batch is left unassigned on purpose
-       (``assignees: []``) and stays claimable; ``"fallthrough": "none"``
-       keeps the default policy from overriding the cap.
+    1. Pending tasks are taken highest priority first (then lowest batch
+       index), so the tasks that matter most get the best people.
+    2. A person is eligible while their open tasks (held anywhere, plus the
+       ones picked earlier in this run) are under the cap.
+    3. The task goes to an eligible person at or above the desired rate.
+    4. When nobody at the desired rate is under the cap, it goes to an
+       eligible person at or above the minimum. People with no judged work
+       yet count as meeting the minimum, so new labelers can build a record.
+    5. Within a tier: fewest open tasks first, then the higher rate.
+    6. When nobody qualifies, the task is left unassigned on purpose
+       (``assignees: []``); ``"fallthrough": "none"`` keeps the default
+       policy from handing it out anyway. It stays in the pool for anyone
+       allowed to claim it.
     """
 
     NAME = "example_assign_by_approval_rate"
@@ -143,26 +139,35 @@ class AssignByApprovalRate(_PolicyBase):
     assignment_policy_descriptor = {
         "label": "By approval rate, capped (example)",
         "description": (
-            "High-priority batches go to the labelers with the best approval "
-            "rate, the rest to the least loaded; nobody holds more than N "
-            "open batches (default 10)."
+            "Labelers at the desired first-pass approval rate first, then "
+            "those at the minimum; nobody above the cap. A task nobody "
+            "qualifies for stays unassigned."
         ),
+        "request_fields": ["first_pass_approval"],
         "options": {
+            "desired_approval_rate": {
+                "type": "float",
+                "label": "Desired first-pass approval rate",
+                "description": "Tried first.",
+                "unit": "%",
+                "default": 90,
+                "min": 0,
+                "max": 100,
+            },
+            "min_approval_rate": {
+                "type": "float",
+                "label": "Min first-pass approval rate",
+                "description": "Used once everyone at the desired rate is full.",
+                "unit": "%",
+                "default": 30,
+                "min": 0,
+                "max": 100,
+            },
             "max_open_tasks": {
                 "type": "int",
-                "label": "Max open batches per person",
-            },
-            "high_priority_min": {
-                "type": "int",
-                "label": "High priority is >=",
-            },
-            "rates_key": {
-                "type": "str",
-                "label": "dataset.info key with {user: rate}",
-            },
-            "default_rate": {
-                "type": "float",
-                "label": "Rate for people without history",
+                "label": "Max open tasks per person",
+                "default": 10,
+                "min": 1,
             },
         },
     }
@@ -170,18 +175,25 @@ class AssignByApprovalRate(_PolicyBase):
     def execute(self, ctx):
         request = _request(ctx)
         options = request["stage"].get("options") or {}
+        desired = _float(options.get("desired_approval_rate"), 90.0) / 100
+        minimum = _float(options.get("min_approval_rate"), 30.0) / 100
         cap = _int(options.get("max_open_tasks"), 10)
-        high_min = _int(options.get("high_priority_min"), 7)
-        default_rate = _float(options.get("default_rate"), 0.0)
-        rates = self._approval_rates(ctx, options.get("rates_key"))
 
-        people = [dict(u) for u in request["assignee_pool"].get("users") or []]
-        if not people:
-            return {"assignments": [], "fallthrough": "none"}
+        people = request["assignee_pool"].get("users") or []
         open_count = {u["id"]: int(u.get("open_tasks") or 0) for u in people}
-        rate = {
-            u["id"]: _float(rates.get(u["id"]), default_rate) for u in people
-        }
+        rate = {u["id"]: u.get("first_pass_approval") for u in people}
+
+        def desired_tier(uid):
+            return rate[uid] is not None and rate[uid] >= desired
+
+        def minimum_tier(uid):
+            return rate[uid] is None or rate[uid] >= minimum
+
+        def pick(candidates):
+            return min(
+                candidates,
+                key=lambda u: (open_count[u], -(rate[u] or 0.0), u),
+            )
 
         pending = sorted(
             _pending_tasks(request),
@@ -192,40 +204,35 @@ class AssignByApprovalRate(_PolicyBase):
         )
         out = []
         for task in pending:
-            eligible = [uid for uid in open_count if open_count[uid] < cap]
-            if not eligible:
+            free = [u for u in open_count if open_count[u] < cap]
+            first = [u for u in free if desired_tier(u)]
+            second = [u for u in free if minimum_tier(u)]
+            if first:
+                who, note = pick(first), "desired rate"
+            elif second:
+                who, note = pick(second), "minimum rate"
+            else:
                 out.append(
                     {
                         "task_id": task["id"],
                         "assignees": [],
-                        "note": "everyone at cap",
+                        "note": (
+                            "nobody under the cap"
+                            if not free
+                            else "nobody meets the minimum rate"
+                        ),
                     }
                 )
                 continue
-            high = int(task.get("priority") or 0) >= high_min
-            if high:
-                who = max(eligible, key=lambda u: (rate[u], -open_count[u]))
-                note = f"high priority -> approval {rate[who]:.0%}"
-            else:
-                who = min(eligible, key=lambda u: (open_count[u], rate[u]))
-                note = "least loaded"
             open_count[who] += 1
+            if rate[who] is not None:
+                note += f" ({rate[who]:.0%})"
+            else:
+                note += " (no history)"
             out.append(
                 {"task_id": task["id"], "assignees": [who], "note": note}
             )
         return {"assignments": out, "fallthrough": "none"}
-
-    @staticmethod
-    def _approval_rates(ctx, key) -> dict:
-        """``{user_id: rate}`` from the dataset's ``info`` dict. Replace with
-        your own source (a metrics query, a spreadsheet, an HR system)."""
-        key = str(key or "labeler_approval_rates")
-        try:
-            info = getattr(ctx.dataset, "info", None) or {}
-            value = info.get(key) or {}
-            return {str(k): float(v) for k, v in value.items()}
-        except Exception:  # noqa: BLE001 - a bad table is "no history"
-            return {}
 
 
 def _int(value, default: int) -> int:

@@ -32,52 +32,57 @@ import fiftyone.management as fom
 fom.update_stage_assignment(
     "my-dataset", workflow_id, stage_id, "auto",
     policy="@voxel51/workflow-assignment-policy-examples/example_assign_by_approval_rate",
-    options={"max_open_tasks": 10, "high_priority_min": 7},
+    options={
+        "desired_approval_rate": 90,
+        "min_approval_rate": 30,
+        "max_open_tasks": 20,
+    },
 )
 ```
 
 ## The policy: by approval rate, capped
 
-A quality-aware rule, in `policies.py`: high-priority batches go to the
-labelers with the highest approval rate, the rest to the least loaded,
-and nobody holds more than 10 open batches. It shows bringing in a signal
-the request does not carry (the customer's own approval-rate table) and
-honoring a hard cap by leaving batches unassigned instead of overloading
-people. Batches it does not answer for are **not** handed to the default
-policy (`"fallthrough": "none"`), so the cap holds.
+A quality-aware rule, in `policies.py`: tasks go to labelers at the
+desired first-pass approval rate first; once they are all at the cap, to
+labelers at the minimum rate; and a task nobody qualifies for stays
+unassigned instead of overloading people or going to someone below the
+bar. Tasks it leaves unassigned are **not** handed to the default policy
+(`"fallthrough": "none"`), so the rule holds.
+
+Each stage sets its own numbers. Pick the policy in the stage's
+**Assignment policy** dropdown and its fields appear right under it,
+filled with the defaults:
+
+| Field | Default |
+|-------|---------|
+| Desired first-pass approval rate | 90 % |
+| Min first-pass approval rate | 30 % |
+| Max open tasks per person | 10 |
+
+So one policy covers, say, an Annotate stage at 75 % / 20 tasks and a
+second pass at 50 % / 30 tasks.
 
 ### In one picture
 
 ```text
-pending batches, highest priority first
-  for each batch:
-    eligible = people in the pool with open batches < max_open_tasks (10)
-    none eligible      -> leave unassigned (stays claimable)
-    priority >= 7      -> eligible person with the highest approval rate
-    otherwise          -> eligible person with the fewest open batches
+pending tasks, highest priority first
+  for each task:
+    free     = people in the pool with open tasks < max_open_tasks
+    desired  = free people with first-pass approval >= desired rate
+    minimum  = free people with first-pass approval >= min rate,
+               or no judged work yet
+    desired  -> the one with the fewest open tasks (then the higher rate)
+    else minimum -> same rule
+    else     -> leave unassigned (stays in the pool to claim)
     count the pick, so the cap and the spread hold within the wave
 ```
 
-Set it on a stage with:
-
-```python
-fom.update_stage_assignment(
-    "my-dataset", workflow_id, stage_id, "auto",
-    policy="@voxel51/workflow-assignment-policy-examples/example_assign_by_approval_rate",
-    options={"max_open_tasks": 10, "high_priority_min": 7},
-)
-```
-
-and keep the approval rates where the policy reads them, for example from
-a nightly job that folds reviewer accept / reject counts per annotator:
-
-```python
-import fiftyone as fo
-
-ds = fo.load_dataset("my-dataset")
-ds.info["labeler_approval_rates"] = {"<user id>": 0.96, "<user id>": 0.71}
-ds.save()
-```
+The rate comes from the runtime: the descriptor lists
+`"request_fields": ["first_pass_approval"]`, so each pool user arrives with
+`first_pass_approval` (0..1, from the Activity metrics: of their samples
+judged on the first pass, the share approved, across every workflow in the
+org) and `first_pass_judged`. Someone with nothing judged yet has `None`
+and counts as meeting the minimum, so new labelers can build a record.
 
 ## The contract
 
@@ -88,9 +93,20 @@ class MyPolicy(foo.Operator):
     assignment_policy_descriptor = {
         "label": "My policy",            # shown in the dropdown
         "description": "...",
-        "options": {                      # optional; stored on the stage,
-            "threshold": {"type": "float"}  # arrives as request.stage.options
+        # optional: number fields shown under the policy in the stage form;
+        # each stage stores its own values, which arrive (over the
+        # defaults) as request.stage.options
+        "options": {
+            "threshold": {
+                "type": "float",          # "int" or "float"
+                "label": "Threshold",
+                "unit": "%",              # optional
+                "default": 50,            # optional
+                "min": 0, "max": 100,     # optional; checked on save
+            },
         },
+        # optional: facts the request leaves out unless asked for
+        "request_fields": ["first_pass_approval"],
     }
 
     @property
@@ -110,7 +126,7 @@ class MyPolicy(foo.Operator):
 | `stage` | `workflow_id`, `stage_id`, `kind` (`annotate` / `review`), `name`, `pool` (principals as configured), `priority`, `batching`, `options` |
 | `tasks` | every open Task of the stage: `id`, `batch_index`, `sample_total`, `open_samples`, `priority`, `assigned_to`, `assigned_by`, `created_at`, `source_collection`, `sample_ids` |
 | `pending` | the Tasks that need an owner: `task_id`, `reason` (`opened`, `pool_changed`, `requested`) |
-| `assignee_pool` | `users` (id, name, `open_tasks`, `open_samples`, `last_submit_at`, `via_groups`; group members are listed here too) and `groups` (id, name, `member_ids`, `open_tasks`). An "anyone" pool arrives resolved to everyone with Can tag permission. |
+| `assignee_pool` | `users` (id, name, `open_tasks`, `open_samples`, `last_submit_at`, `via_groups`, plus `first_pass_approval` and `first_pass_judged` when requested; group members are listed here too) and `groups` (id, name, `member_ids`, `open_tasks`). An "anyone" pool arrives resolved to everyone with Can tag permission. |
 | `triggered_by` | `system` for a wave, or the user id behind **Auto-assign now** / a pool edit |
 
 **Result**:
