@@ -105,7 +105,8 @@ class MyPolicy(foo.Operator):
                 "min": 0, "max": 100,     # optional; checked on save
             },
         },
-        # optional: facts the request leaves out unless asked for
+        # optional: facts the request leaves out unless asked for,
+        # "sample_ids" (per task) and "first_pass_approval" (per user)
         "request_fields": ["first_pass_approval"],
     }
 
@@ -124,7 +125,7 @@ class MyPolicy(foo.Operator):
 | Key | Contents |
 |-----|----------|
 | `stage` | `workflow_id`, `stage_id`, `kind` (`annotate` / `review`), `name`, `pool` (principals as configured), `priority`, `batching`, `options` |
-| `tasks` | every open Task of the stage: `id`, `batch_index`, `sample_total`, `open_samples`, `priority`, `assigned_to`, `assigned_by`, `created_at`, `source_collection`, `sample_ids` |
+| `tasks` | every open Task of the stage: `id`, `batch_index`, `sample_total`, `open_samples`, `priority`, `assigned_to`, `assigned_by`, `created_at`, `source_collection`, plus `sample_ids` when `request_fields` lists `"sample_ids"` |
 | `pending` | the Tasks that need an owner: `task_id`, `reason` (`opened`, `pool_changed`, `requested`) |
 | `assignee_pool` | `users` (id, name, `open_tasks`, `open_samples`, `last_submit_at`, `via_groups`, plus `first_pass_approval` and `first_pass_judged` when requested; group members are listed here too) and `groups` (id, name, `member_ids`, `open_tasks`). An "anyone" pool arrives resolved to everyone with Can tag permission. |
 | `triggered_by` | `system` for a wave, or the user id behind **Auto-assign now** / a pool edit |
@@ -141,6 +142,9 @@ class MyPolicy(foo.Operator):
 closed Task, or a priority outside 0..10 is skipped and reported, never
 written. A Task someone claimed between the request and the write keeps its
 claimant. A policy that raises or exceeds its time budget leaves the Tasks
-unassigned and claimable, and emits `workflow.auto_assign_failed`. Manual
+unassigned and claimable, and emits `workflow.auto_assign_failed`; a
+policy that times out is skipped until its call returns and for a minute
+after. Only installed policies run: a stage cannot be set to an operator
+without `assignment_policy_descriptor`. Manual
 unassign and Unclaim never trigger a policy run; a manager's **Auto-assign
 now** does, even on a stage set to manual.

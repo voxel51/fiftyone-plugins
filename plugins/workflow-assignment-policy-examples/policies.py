@@ -24,7 +24,7 @@ The request arrives as ``ctx.params["request"]``::
                   "priority", "batching", "options"},
       "tasks":   [{"id", "batch_index", "sample_total", "open_samples",
                    "priority", "assigned_to", "assigned_by", "created_at",
-                   "source_collection", "sample_ids"}, ...],
+                   "source_collection", "sample_ids"?}, ...],
       "pending": [{"task_id", "reason"}, ...],
       "assignee_pool": {
         "users":  [{"id", "name", "open_tasks", "open_samples",
