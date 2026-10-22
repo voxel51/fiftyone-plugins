@@ -189,6 +189,11 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/tharanathrai/boxlint">@tharanathrai/boxlint</a></b></td>
+        <td><kbd>curation</kbd> <kbd>annotation</kbd></td>
+        <td>📐 Lint detection and polygon labels for structural problems (degenerate, out-of-bounds, tiny, and extreme aspect ratio boxes, same-class duplicates, invalid polygons, unknown classes) and tag them for review. Model-free and deterministic; never edits geometry.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/mgustineli/video-to-frames-plugin">@mgustineli/video-to-frames</a></b></td>
         <td><kbd>video</kbd> <kbd>utils</kbd></td>
         <td>🎞️ Convert a video dataset into a frames view with a custom frame rate and max size, saved on the same dataset using FiftyOne's native frames view.</td>
