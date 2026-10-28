@@ -32,6 +32,7 @@ class LoadZooDataset(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            tracked_params=["name"],
         )
 
     def resolve_input(self, ctx):
@@ -600,6 +601,7 @@ class ApplyZooModel(foo.Operator):
             default_choice_to_delegated=True,
             dynamic=True,
             allow_distributed_execution=True,
+            tracked_params=["model"],
         )
 
     def resolve_input(self, ctx):
