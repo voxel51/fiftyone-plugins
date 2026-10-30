@@ -37,6 +37,7 @@ class ImportSamples(foo.Operator):
             default_choice_to_delegated=True,
             dynamic=True,
             execute_as_generator=True,
+            mcp_enabled=True,
         )
 
     def __call__(
@@ -1532,6 +1533,7 @@ class ExportSamples(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def __call__(

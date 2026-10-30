@@ -28,6 +28,7 @@ class EvaluateModel(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -989,6 +990,7 @@ class GetEvaluationInfo(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -1126,6 +1128,7 @@ class LoadEvaluationView(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -1165,6 +1168,7 @@ class RenameEvaluation(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
