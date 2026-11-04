@@ -1,0 +1,18 @@
+name: "@voxel51/workflow-label-scorer-examples"
+description: |
+  An example label scorer for FiftyOne workflows: how a Python developer
+  scores benchmark attempts and consensus copies with their own formula.
+  Boxes score on overlap and on their attributes, conditional attributes
+  included; critical attributes zero a box.
+tags:
+  - workflows
+  - examples
+  - benchmark
+  - consensus
+version: 0.1.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/workflow-label-scorer-examples
+license: Apache 2.0
+operators:
+  - boxes_with_attributes
