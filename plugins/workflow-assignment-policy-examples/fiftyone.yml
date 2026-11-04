@@ -1,0 +1,18 @@
+name: "@voxel51/workflow-assignment-policy-examples"
+description: |
+  An example assignment policy for FiftyOne workflows: how a Python
+  developer decides who holds each batch of an Annotate or Review stage,
+  with the runtime doing the validation and the writes. Tasks go to
+  labelers at the desired first-pass approval rate, then the minimum,
+  capped per person; each stage sets its own numbers.
+tags:
+  - workflows
+  - examples
+  - assignment
+version: 0.1.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/workflow-assignment-policy-examples
+license: Apache 2.0
+operators:
+  - example_assign_by_approval_rate
