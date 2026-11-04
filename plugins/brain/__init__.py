@@ -48,6 +48,7 @@ class ComputeVisualization(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -310,6 +311,7 @@ class ComputeSimilarity(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -781,6 +783,7 @@ class SortBySimilarity(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            mcp_enabled=True,
         )
 
     """
@@ -1205,6 +1208,7 @@ class ComputeUniqueness(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -1306,6 +1310,7 @@ class ComputeMistakenness(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -1861,6 +1866,7 @@ class FindExactDuplicates(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -2032,6 +2038,7 @@ class FindNearDuplicates(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):

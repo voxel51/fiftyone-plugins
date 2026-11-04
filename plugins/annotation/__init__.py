@@ -32,6 +32,7 @@ class RequestAnnotations(foo.Operator):
             allow_immediate_execution=True,
             default_choice_to_delegated=True,
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):

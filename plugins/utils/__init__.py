@@ -34,6 +34,7 @@ class CreateDataset(foo.Operator):
             light_icon="/assets/icon-light.svg",
             dark_icon="/assets/icon-dark.svg",
             dynamic=True,
+            mcp_enabled=True,
         )
 
     def resolve_input(self, ctx):
@@ -1518,6 +1519,7 @@ class ComputeMetadata(foo.Operator):
             allow_distributed_execution=True,
             dynamic=True,
             execute_as_generator=True,
+            mcp_enabled=True,
         )
 
     def __call__(
