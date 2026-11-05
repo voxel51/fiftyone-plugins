@@ -1,0 +1,31 @@
+name: "@voxel51/workflow-stage-examples"
+description: |
+  Ten example workflow stages for the FiftyOne workflow canvas, from a
+  one-line "hello world" pass-through to a DO + human-in-the-loop
+  capstone. Shows how a Python developer adds custom, fully-usable stages
+  with the existing operator/plugin system.
+tags:
+  - workflows
+  - examples
+  - stages
+version: 0.1.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/workflow-stage-examples
+license: Apache 2.0
+operators:
+  - example_hello_world
+  - example_log_message
+  - example_tag_samples
+  - example_coin_flip
+  - example_delay
+  - example_compute_metadata
+  - example_score
+  - example_click_to_advance
+  - example_approve_reject
+  - example_score_then_review
+  - example_sleep_do
+  - example_compute_metadata_do
+  - example_score_do
+panels:
+  - example_release_panel
