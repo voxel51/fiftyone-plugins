@@ -2360,6 +2360,114 @@ class Delegate(foo.Operator):
             fcn(*args, **kwargs)
 
 
+# kind -> (method, required params, optional params)
+_GENERATE_VIEW_KINDS = {
+    "patches": (
+        "to_patches",
+        ("field",),
+        ("other_fields", "keep_label_lists"),
+    ),
+    "evaluation_patches": (
+        "to_evaluation_patches",
+        ("eval_key",),
+        ("other_fields",),
+    ),
+    "clips": (
+        "to_clips",
+        ("field_or_expr",),
+        ("other_fields", "tol", "min_len", "trajectories"),
+    ),
+    "frames": (
+        "to_frames",
+        (),
+        ("sample_frames", "fps", "max_fps", "support"),
+    ),
+}
+
+
+class GenerateView(foo.Operator):
+    """Builds a generated view (``to_patches()``, ``to_evaluation_patches()``,
+    ``to_clips()`` or ``to_frames()``) of the current view and returns the id
+    of the generated dataset that backs it.
+
+    This is how API clients that cannot run FiftyOne build these views: the
+    build runs FiftyOne's own code, and clients then read the generated
+    dataset by id. The generated dataset is made persistent so that it
+    outlives the worker; the caller deletes it when it expires.
+
+    Params:
+        kind: one of ``patches``, ``evaluation_patches``, ``clips``, ``frames``
+        params: the keyword arguments of the corresponding method
+        generated_view_id (None): the caller's id for the view, returned
+            in the result so that the task leads back to the view
+    """
+
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="generate_view",
+            label="Generate view",
+            unlisted=True,
+            allow_immediate_execution=True,
+            allow_delegated_execution=True,
+        )
+
+    def execute(self, ctx):
+        kind = ctx.params.get("kind", None)
+        if kind not in _GENERATE_VIEW_KINDS:
+            raise ValueError(
+                "kind must be one of %s, not %r"
+                % (", ".join(sorted(_GENERATE_VIEW_KINDS)), kind)
+            )
+
+        method, required, optional = _GENERATE_VIEW_KINDS[kind]
+        kwargs = dict(ctx.params.get("params", None) or {})
+
+        unknown = set(kwargs) - set(required) - set(optional)
+        if unknown:
+            raise ValueError(
+                "unsupported %s parameters: %s"
+                % (kind, ", ".join(sorted(unknown)))
+            )
+
+        missing = [k for k in required if kwargs.get(k, None) is None]
+        if missing:
+            raise ValueError(
+                "missing %s parameters: %s" % (kind, ", ".join(missing))
+            )
+
+        if kind == "frames":
+            # Sampling frames writes images to disk; generated views built
+            # through this operator only index existing frames
+            if kwargs.get("sample_frames", False):
+                raise ValueError("sample_frames=True is not supported")
+
+            kwargs["sample_frames"] = False
+
+        args = [kwargs.pop(k) for k in required]
+        generated = getattr(ctx.view, method)(*args, **kwargs)
+        dataset = generated._dataset
+
+        # FiftyOne deletes non-persistent datasets when a process that is
+        # the database's only client exits, which a worker often is. The
+        # caller owns the generated dataset's lifetime instead (as saving a
+        # view that contains one does)
+        dataset.persistent = True
+
+        result = {
+            "dataset_id": str(dataset._doc.id),
+            "dataset_name": dataset.name,
+            "sample_collection_name": dataset._sample_collection_name,
+            "sample_count": len(generated),
+        }
+
+        generated_view_id = ctx.params.get("generated_view_id", None)
+        if generated_view_id is not None:
+            result["generated_view_id"] = generated_view_id
+
+        return result
+
+
 def register(p):
     p.register(CreateDataset)
     p.register(LoadDataset)
@@ -2372,3 +2480,4 @@ def register(p):
     p.register(ComputeMetadata)
     p.register(GenerateThumbnails)
     p.register(Delegate)
+    p.register(GenerateView)

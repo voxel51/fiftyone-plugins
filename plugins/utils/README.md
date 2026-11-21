@@ -228,6 +228,28 @@ where the operator's form allows you to configure the `(width, height)` for the
 thumbnails, the field in which to store their paths, and the directory in which
 to store the thumbnail images.
 
+### generate_view (SDK-only)
+
+Builds a generated view of the current view: `to_patches()`,
+`to_evaluation_patches()`, `to_clips()` or `to_frames()` (without
+`sample_frames`). Returns the id of the generated dataset that backs it, so
+clients that cannot run FiftyOne (the `voxel51` SDK) can build these views as a
+delegated operation and then read the generated dataset by id. The generated
+dataset is persistent: whoever requested it deletes it when done. An optional
+`generated_view_id` param is echoed in the result, so a caller that keeps its
+own record of the view can find it again from the task.
+
+```py
+import fiftyone.operators as foo
+
+result = foo.execute_operator(
+    "@voxel51/utils/generate_view",
+    ctx=dict(view=view),
+    params=dict(kind="patches", params=dict(field="ground_truth")),
+)
+print(result.result["dataset_id"])
+```
+
 ### delegate (SDK-only)
 
 You can use this operator to programmatically
