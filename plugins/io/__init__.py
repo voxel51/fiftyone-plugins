@@ -358,7 +358,30 @@ def _get_dataset_type(dataset_type):
         if d["label"] == dataset_type:
             return d
 
+    # Programmatic callers may also name any `fiftyone.types` dataset type
+    # by its class name, e.g. `fiftyone.types.FiftyOneImageDetectionDataset`
+    cls = _get_fiftyone_dataset_type(dataset_type)
+    if cls is not None:
+        return {"label": dataset_type, "dataset_type": cls}
+
     return {}
+
+
+def _get_fiftyone_dataset_type(dataset_type):
+    if not isinstance(dataset_type, str) or not dataset_type.startswith(
+        "fiftyone.types."
+    ):
+        return None
+
+    try:
+        cls = etau.get_class(dataset_type)
+    except Exception:
+        return None
+
+    if isinstance(cls, type) and issubclass(cls, fot.Dataset):
+        return cls
+
+    return None
 
 
 def _get_dataset_type_label(dataset_type):
@@ -368,6 +391,11 @@ def _get_dataset_type_label(dataset_type):
     for d in _DATASET_TYPES:
         if d["dataset_type"] == dataset_type:
             return d["label"]
+
+    if isinstance(dataset_type, type) and issubclass(
+        dataset_type, fot.Dataset
+    ):
+        return "fiftyone.types." + dataset_type.__name__
 
     raise ValueError("Unsupported dataset type: %s" % dataset_type)
 
@@ -1728,7 +1756,12 @@ class ExportSamples(foo.Operator):
     def resolve_input(self, ctx):
         inputs = types.Object()
 
-        _export_samples_inputs(ctx, inputs)
+        # Programmatic calls (`__call__`, the voxel51 API) pass `export()`'s
+        # arguments directly, which `export()` itself validates. The form
+        # is for the App, and would reject `fiftyone.types` class names and
+        # lists/globs of label fields that `export()` accepts
+        if not ctx.params.get("manual", False):
+            _export_samples_inputs(ctx, inputs)
 
         return types.Property(inputs, view=types.View(label="Export samples"))
 
