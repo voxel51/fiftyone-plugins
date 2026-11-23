@@ -1,0 +1,15 @@
+name: "@voxel51/classification-attribute-scorer"
+description: |
+  A label scorer for FiftyOne workflows that scores classifications on
+  their attributes only: the class itself is not counted.
+tags:
+  - workflows
+  - benchmark
+  - consensus
+version: 0.1.0
+fiftyone:
+  version: "*"
+url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/classification-attribute-scorer
+license: Apache 2.0
+operators:
+  - classification_attributes
