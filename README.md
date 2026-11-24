@@ -189,6 +189,11 @@ Want to showcase your own plugin here? See the
         <th>Description</th>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/kartik-joshi/sardrone/tree/main/plugins/sim2real_gap">@kartik-joshi/sim2real-gap</a></b></td>
+        <td><kbd>embeddings</kbd> <kbd>synthetic-data</kbd> <kbd>evaluation</kbd></td>
+        <td>🚁 How different are your simulated and real images, and which images make the difference? A classifier two-sample test with a permutation p-value and a Fréchet gap above same-source baselines, per-sample and per-object realism scores, a view of what your simulation is missing, a breakdown by any field, recordings kept whole for video, and a detector false-alarm review.</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/mgustineli/video-to-frames-plugin">@mgustineli/video-to-frames</a></b></td>
         <td><kbd>video</kbd> <kbd>utils</kbd></td>
         <td>🎞️ Convert a video dataset into a frames view with a custom frame rate and max size, saved on the same dataset using FiftyOne's native frames view.</td>
