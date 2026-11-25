@@ -221,7 +221,13 @@ The splits are either sample tags (`split_tags`) or a field that encodes each
 sample's split (`split_field`). Optionally, the potential leaks are tagged
 `leak`. The operator's result holds `leak_ids` (the samples of
 `index.leaks_view()`, in order) plus the neighbors map and splits needed to
-rebuild `leaks_for_sample()`.
+rebuild `leaks_for_sample()`. The id lists are capped at 12 MB of JSON (a
+delegated operation's result is one MongoDB document); past that the operator
+fails with a message to run on smaller views.
+
+`compute_uniqueness`, `compute_mistakenness`, `compute_hardness` and
+`compute_representativeness` take `overwrite=True` to replace an existing run
+with the same key, as the `fiftyone.brain` functions do.
 
 ### find_exact_duplicates + deduplicate_exact_duplicates
 
@@ -246,7 +252,8 @@ Executing this operator will create two saved views on your dataset:
     representative sample from each group of exact duplicates
 
 Pass `save_views=False` to skip the saved views. The operator's result includes
-`neighbors_map`, the dictionary `compute_exact_duplicates()` returns.
+`neighbors_map`, the dictionary `compute_exact_duplicates()` returns, as
+ordered `[id, [duplicate_id, ...]]` pairs.
 
 Executing the `deduplicate_exact_duplicates` operator will delete all of the
 exact duplicate samples from the `exact duplicates` view **except** the one
@@ -280,8 +287,8 @@ Executing this operator will create two saved views on your dataset:
     representative sample from each group of near duplicates
 
 Pass `save_views=False` to skip the saved views. The operator's result includes
-the index's `thresh`, `duplicate_ids` and `neighbors_map`
-(`{id: [[duplicate_id, distance], ...]}`), so a client can rebuild
+the index's `thresh`, `duplicate_ids` and `neighbors_map` (ordered
+`[id, [[duplicate_id, distance], ...]]` pairs), so a client can rebuild
 `duplicates_view()`.
 
 Executing the `deduplicate_near_duplicates` operator will delete all of the

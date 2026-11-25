@@ -1266,6 +1266,7 @@ def compute_uniqueness(ctx, inputs):
         ctx,
         inputs,
         name="uniqueness_field",
+        allow_overwrite=True,
         label="Uniqueness field",
         description=(
             "The field name to use to store the uniqueness value for each "
@@ -1328,6 +1329,7 @@ class ComputeMistakenness(foo.Operator):
         pred_field = kwargs.pop("pred_field")
         label_field = kwargs.pop("label_field")
         mistakenness_field = kwargs.pop("mistakenness_field")
+        kwargs.pop("overwrite", None)
 
         target_view = _get_target_view(ctx, target)
 
@@ -1377,6 +1379,7 @@ def compute_mistakenness(ctx, inputs):
         ctx,
         inputs,
         name="mistakenness_field",
+        allow_overwrite=True,
         label="Mistakenness field",
         description=(
             "The field name to use to store the mistakenness value for each "
@@ -1549,6 +1552,7 @@ def compute_hardness(ctx, inputs):
         ctx,
         inputs,
         name="hardness_field",
+        allow_overwrite=True,
         label="Hardness field",
         description=(
             "The field name to use to store the hardness value for each "
@@ -1648,6 +1652,7 @@ def compute_representativeness(ctx, inputs):
         ctx,
         inputs,
         name="representativeness_field",
+        allow_overwrite=True,
         label="Representativeness field",
         description=(
             "The field name to use to store the representativeness value for "
@@ -1900,8 +1905,9 @@ def compute_leaky_splits(ctx):
     neighbors_map = _serialize_neighbors_map(
         index._similarity_index.neighbors_map
     )
-    split_ids = set(neighbors_map.keys())
-    for neighbors in neighbors_map.values():
+    split_ids = set()
+    for _id, neighbors in neighbors_map:
+        split_ids.add(_id)
         split_ids.update(n[0] for n in neighbors)
 
     id2split = index._id2split or {}
@@ -1912,7 +1918,7 @@ def compute_leaky_splits(ctx):
             target_view.get_field(split_field), fo.ListField
         )
 
-    return {
+    result = {
         "num_leaks": len(index.leak_ids),
         "thresh": index.thresh,
         "leak_ids": list(index.leak_ids),
@@ -1921,13 +1927,33 @@ def compute_leaky_splits(ctx):
         "split_names": list(index.split_views.keys()),
         "split_list_field": split_list_field,
     }
+    return _check_result_size(result, "leaks")
 
 
 def _serialize_neighbors_map(neighbors_map):
-    return {
-        str(_id): [[str(n[0]), float(n[1])] for n in neighbors]
+    # A list of [id, [[neighbor_id, distance], ...]] pairs, not a dict: the
+    # order is the index's (it decides duplicates_view() and leaks order)
+    # and JSON objects do not keep it through every hop to a client
+    return [
+        [str(_id), [[str(n[0]), float(n[1])] for n in neighbors]]
         for _id, neighbors in (neighbors_map or {}).items()
-    }
+    ]
+
+
+#: The largest operator result these operators return. Delegated operation
+#: results are stored in one MongoDB document (16 MB)
+_MAX_RESULT_BYTES = 12 * 1024 * 1024
+
+
+def _check_result_size(result, what):
+    size = len(json.dumps(result))
+    if size > _MAX_RESULT_BYTES:
+        raise ValueError(
+            f"The {what} found are too many to return in one operation result "
+            f"({size} bytes; the limit is {_MAX_RESULT_BYTES}). Run on smaller "
+            "views, or use a tighter threshold"
+        )
+    return result
 
 
 def brain_init(ctx, inputs):
@@ -2117,7 +2143,19 @@ def get_new_brain_key(
     name="brain_key",
     label="Brain key",
     description=None,
+    allow_overwrite=False,
 ):
+    if allow_overwrite:
+        inputs.bool(
+            "overwrite",
+            default=False,
+            label="Overwrite",
+            description=(
+                "Whether to overwrite an existing run with this key, as the "
+                "fiftyone.brain function does"
+            ),
+        )
+
     prop = inputs.str(
         name,
         required=True,
@@ -2127,7 +2165,11 @@ def get_new_brain_key(
 
     brain_key = ctx.params.get(name, None)
 
-    if brain_key is not None and brain_key in ctx.dataset.list_brain_runs():
+    if (
+        brain_key is not None
+        and brain_key in ctx.dataset.list_brain_runs()
+        and not (allow_overwrite and ctx.params.get("overwrite", False))
+    ):
         prop.invalid = True
         prop.error_message = "Brain key already exists"
         brain_key = None
@@ -2304,14 +2346,17 @@ def find_exact_duplicates(ctx):
             "representatives of exact duplicates", reps_view, overwrite=True
         )
 
-    return {
+    result = {
         "num_total_dups": len(dup_ids),
         "num_unique_dups": len(rep_ids),
-        # fob.compute_exact_duplicates()'s return value
-        "neighbors_map": {
-            str(k): [str(_id) for _id in v] for k, v in duplicates_dict.items()
-        },
+        # fob.compute_exact_duplicates()'s return value, as ordered
+        # [id, [duplicate_id, ...]] pairs
+        "neighbors_map": [
+            [str(k), [str(_id) for _id in v]]
+            for k, v in duplicates_dict.items()
+        ],
     }
+    return _check_result_size(result, "exact duplicates")
 
 
 class DeduplicateExactDuplicates(foo.Operator):
@@ -2556,18 +2601,21 @@ def find_near_duplicates(ctx):
         )
 
     neighbors_map = _serialize_neighbors_map(index.neighbors_map)
-    num_total_dups = len(neighbors_map) + sum(
-        len(v) for v in neighbors_map.values()
-    )
+    num_total_dups = len(neighbors_map) + sum(len(v) for _, v in neighbors_map)
 
     # Everything a client needs to rebuild the index's duplicate views
-    return {
+    result = {
         "num_total_dups": num_total_dups,
         "num_unique_dups": len(repr_ids),
         "thresh": index.thresh,
         "duplicate_ids": [str(_id) for _id in index.duplicate_ids],
         "neighbors_map": neighbors_map,
+        # duplicates_view() and unique_view() select from index.view, which
+        # is the whole dataset when FiftyOne indexed it (an embeddings field
+        # on a view), not the target view
+        "on_dataset": isinstance(index.view, fo.Dataset),
     }
+    return _check_result_size(result, "near duplicates")
 
 
 class DeduplicateNearDuplicates(foo.Operator):
