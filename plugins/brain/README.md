@@ -188,6 +188,41 @@ fob.compute_hardness(dataset_or_view, label_field, ...)
 
 where the operator's form allows you to configure all relevant parameters.
 
+### compute_representativeness
+
+You can use this operator to compute representativeness for your datasets.
+
+This operator is essentially a wrapper around
+[compute_representativeness()](https://docs.voxel51.com/brain.html#image-representativeness):
+
+```py
+import fiftyone.brain as fob
+
+fob.compute_representativeness(dataset_or_view, ...)
+```
+
+where the operator's form allows you to configure all relevant parameters.
+
+### compute_leaky_splits
+
+You can use this operator to find potential leaks between the splits of your
+dataset: near-duplicate samples that sit in different splits.
+
+This operator is essentially a wrapper around
+[compute_leaky_splits()](https://docs.voxel51.com/brain.html#leaky-splits):
+
+```py
+import fiftyone.brain as fob
+
+index = fob.compute_leaky_splits(dataset_or_view, splits, threshold=0.2, ...)
+```
+
+The splits are either sample tags (`split_tags`) or a field that encodes each
+sample's split (`split_field`). Optionally, the potential leaks are tagged
+`leak`. The operator's result holds `leak_ids` (the samples of
+`index.leaks_view()`, in order) plus the neighbors map and splits needed to
+rebuild `leaks_for_sample()`.
+
 ### find_exact_duplicates + deduplicate_exact_duplicates
 
 You can use these operators to detect and delete samples with exact duplicate
@@ -209,6 +244,9 @@ Executing this operator will create two saved views on your dataset:
     exact duplicate of one or more other samples
 -   `representatives of exact duplicates`: a view that contains one
     representative sample from each group of exact duplicates
+
+Pass `save_views=False` to skip the saved views. The operator's result includes
+`neighbors_map`, the dictionary `compute_exact_duplicates()` returns.
 
 Executing the `deduplicate_exact_duplicates` operator will delete all of the
 exact duplicate samples from the `exact duplicates` view **except** the one
@@ -240,6 +278,11 @@ Executing this operator will create two saved views on your dataset:
     duplicates of one or more other samples
 -   `representatives of near duplicates`: a view that contains one
     representative sample from each group of near duplicates
+
+Pass `save_views=False` to skip the saved views. The operator's result includes
+the index's `thresh`, `duplicate_ids` and `neighbors_map`
+(`{id: [[duplicate_id, distance], ...]}`), so a client can rebuild
+`duplicates_view()`.
 
 Executing the `deduplicate_near_duplicates` operator will delete all of the
 near duplicate samples from the `near duplicates` view **except** the one
