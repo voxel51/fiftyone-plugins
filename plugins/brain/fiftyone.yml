@@ -2,7 +2,7 @@ name: "@voxel51/brain"
 description: Utilities for working with the FiftyOne Brain
 tags:
   - curation
-version: 1.3.2
+version: 1.4.0
 fiftyone:
   version: ">=0.22"
 url: https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/brain
@@ -16,6 +16,8 @@ operators:
   - compute_uniqueness
   - compute_mistakenness
   - compute_hardness
+  - compute_representativeness
+  - compute_leaky_splits
   - find_exact_duplicates
   - deduplicate_exact_duplicates
   - find_near_duplicates

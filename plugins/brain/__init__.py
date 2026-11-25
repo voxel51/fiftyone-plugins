@@ -5,6 +5,7 @@ FiftyOne Brain operators.
 | `voxel51.com <https://voxel51.com/>`_
 |
 """
+
 import base64
 from collections import defaultdict
 from datetime import datetime
@@ -1265,6 +1266,7 @@ def compute_uniqueness(ctx, inputs):
         ctx,
         inputs,
         name="uniqueness_field",
+        allow_overwrite=True,
         label="Uniqueness field",
         description=(
             "The field name to use to store the uniqueness value for each "
@@ -1327,6 +1329,7 @@ class ComputeMistakenness(foo.Operator):
         pred_field = kwargs.pop("pred_field")
         label_field = kwargs.pop("label_field")
         mistakenness_field = kwargs.pop("mistakenness_field")
+        kwargs.pop("overwrite", None)
 
         target_view = _get_target_view(ctx, target)
 
@@ -1376,6 +1379,7 @@ def compute_mistakenness(ctx, inputs):
         ctx,
         inputs,
         name="mistakenness_field",
+        allow_overwrite=True,
         label="Mistakenness field",
         description=(
             "The field name to use to store the mistakenness value for each "
@@ -1548,6 +1552,7 @@ def compute_hardness(ctx, inputs):
         ctx,
         inputs,
         name="hardness_field",
+        allow_overwrite=True,
         label="Hardness field",
         description=(
             "The field name to use to store the hardness value for each "
@@ -1573,6 +1578,382 @@ def compute_hardness(ctx, inputs):
         return False
 
     return hardness_field is not None
+
+
+class ComputeRepresentativeness(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="compute_representativeness",
+            label="Compute representativeness",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        compute_representativeness(ctx, inputs)
+
+        view = types.View(label="Compute representativeness")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        target = ctx.params.get("target", None)
+        representativeness_field = ctx.params["representativeness_field"]
+        method = ctx.params.get("method", None) or "cluster-center"
+        roi_field = ctx.params.get("roi_field", None) or None
+        embeddings = ctx.params.get("embeddings", None) or None
+        similarity_index = ctx.params.get("similarity_index", None) or None
+        model = ctx.params.get("model", None) or None
+        batch_size = ctx.params.get("batch_size", None)
+        num_workers = ctx.params.get("num_workers", None)
+        skip_failures = ctx.params.get("skip_failures", True)
+
+        # No multiprocessing allowed when running synchronously
+        if not ctx.delegated:
+            num_workers = 0
+
+        target_view = _get_target_view(ctx, target)
+
+        kwargs = {}
+
+        # @todo can remove version check if we require `fiftyone>=1.6.0`
+        if ctx.delegated and Version(foc.VERSION) >= Version("1.6.0"):
+            progress = lambda pb: ctx.set_progress(progress=pb.progress)
+            kwargs["progress"] = fo.report_progress(progress, dt=10.0)
+
+        fob.compute_representativeness(
+            target_view,
+            representativeness_field=representativeness_field,
+            method=method,
+            roi_field=roi_field,
+            embeddings=embeddings,
+            similarity_index=similarity_index,
+            model=model,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            skip_failures=skip_failures,
+            **kwargs,
+        )
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+
+def compute_representativeness(ctx, inputs):
+    target_view = get_target_view(ctx, inputs)
+
+    representativeness_field = get_new_brain_key(
+        ctx,
+        inputs,
+        name="representativeness_field",
+        allow_overwrite=True,
+        label="Representativeness field",
+        description=(
+            "The field name to use to store the representativeness value for "
+            "each sample. This value serves as the brain key for "
+            "representativeness runs"
+        ),
+    )
+
+    method_choices = types.DropdownView()
+    method_choices.add_choice(
+        "cluster-center",
+        label="cluster-center",
+        description=(
+            "A sample's representativeness is its proximity to a cluster "
+            "center"
+        ),
+    )
+    method_choices.add_choice(
+        "cluster-center-downweight",
+        label="cluster-center-downweight",
+        description=(
+            "Like cluster-center, but downweights nearby samples so that the "
+            "most representative samples are diverse"
+        ),
+    )
+
+    inputs.enum(
+        "method",
+        method_choices.values(),
+        default="cluster-center",
+        label="Method",
+        description="The method to use to compute representativeness",
+        view=method_choices,
+    )
+
+    _get_similarity_index(ctx, inputs)
+
+    similarity_index = ctx.params.get("similarity_index", None)
+
+    if similarity_index is None:
+        roi_fields = _get_label_fields(
+            target_view,
+            (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines),
+        )
+
+        roi_field_choices = types.DropdownView()
+        for field_name in sorted(roi_fields):
+            roi_field_choices.add_choice(field_name, label=field_name)
+
+        inputs.str(
+            "roi_field",
+            label="ROI field",
+            description=(
+                "An optional sample field defining a region of interest "
+                "within each image to use to compute representativeness"
+            ),
+            view=roi_field_choices,
+        )
+
+        roi_field = ctx.params.get("roi_field", None)
+
+        get_embeddings(ctx, inputs, target_view, roi_field)
+
+    return representativeness_field is not None
+
+
+def _get_similarity_index(ctx, inputs):
+    similarity_runs = ctx.dataset.list_brain_runs(type="similarity")
+    if not similarity_runs:
+        return
+
+    sim_choices = types.Dropdown(label="Similarity index")
+    for sim_key in similarity_runs:
+        sim_choices.add_choice(sim_key, label=sim_key)
+
+    inputs.enum(
+        "similarity_index",
+        sim_choices.values(),
+        label="Similarity index",
+        description=(
+            "An optional existing similarity index from which to load "
+            "pre-computed embeddings"
+        ),
+        default=None,
+        required=False,
+        view=sim_choices,
+    )
+
+
+class ComputeLeakySplits(foo.Operator):
+    @property
+    def config(self):
+        return foo.OperatorConfig(
+            name="compute_leaky_splits",
+            label="Compute leaky splits",
+            description="Find near-duplicate samples in different splits",
+            light_icon="/assets/icon-light.svg",
+            dark_icon="/assets/icon-dark.svg",
+            allow_delegated_execution=True,
+            allow_immediate_execution=True,
+            default_choice_to_delegated=True,
+            dynamic=True,
+        )
+
+    def resolve_input(self, ctx):
+        inputs = types.Object()
+
+        compute_leaky_splits_inputs(ctx, inputs)
+
+        view = types.View(label="Compute leaky splits")
+        return types.Property(inputs, view=view)
+
+    def execute(self, ctx):
+        response = compute_leaky_splits(ctx)
+
+        if not ctx.delegated:
+            ctx.trigger("reload_dataset")
+
+        return response
+
+    def resolve_output(self, ctx):
+        outputs = types.Object()
+        outputs.int("num_leaks", label="Number of potential leaks")
+        view = types.View(label="Leaky splits results")
+        return types.Property(outputs, view=view)
+
+
+def compute_leaky_splits_inputs(ctx, inputs):
+    target_view = get_target_view(ctx, inputs)
+
+    split_fields = sorted(
+        _get_sample_fields(target_view, (fo.StringField, fo.ListField))
+    )
+
+    inputs.list(
+        "split_tags",
+        types.String(),
+        label="Split tags",
+        description=(
+            "The sample tags that define the splits, e.g. `train`, `val` and "
+            "`test`. Provide these or a split field"
+        ),
+    )
+
+    field_choices = types.DropdownView()
+    for field_name in split_fields:
+        field_choices.add_choice(field_name, label=field_name)
+
+    inputs.str(
+        "split_field",
+        label="Split field",
+        description=(
+            "A string or list field that encodes each sample's split. "
+            "Provide this or split tags"
+        ),
+        view=field_choices,
+    )
+
+    _get_similarity_index(ctx, inputs)
+
+    similarity_index = ctx.params.get("similarity_index", None)
+
+    if similarity_index is None:
+        roi_fields = _get_label_fields(
+            target_view,
+            (fo.Detection, fo.Detections, fo.Polyline, fo.Polylines),
+        )
+
+        roi_field_choices = types.DropdownView()
+        for field_name in sorted(roi_fields):
+            roi_field_choices.add_choice(field_name, label=field_name)
+
+        inputs.str(
+            "roi_field",
+            label="ROI field",
+            description=(
+                "An optional sample field defining a region of interest "
+                "within each image to use to compute leaks"
+            ),
+            view=roi_field_choices,
+        )
+
+        roi_field = ctx.params.get("roi_field", None)
+
+        get_embeddings(ctx, inputs, target_view, roi_field)
+
+    inputs.float(
+        "threshold",
+        default=0.2,
+        label="Distance threshold",
+        description=(
+            "The similarity distance threshold to use when detecting leaks. "
+            "Values in [0.1, 0.25] work well for the default setup"
+        ),
+    )
+
+    inputs.bool(
+        "tag_leaks",
+        default=False,
+        label="Tag leaks",
+        description="Whether to tag the potential leaks with `leak`",
+    )
+
+
+def compute_leaky_splits(ctx):
+    target = ctx.params.get("target", None)
+    split_tags = ctx.params.get("split_tags", None) or None
+    split_field = ctx.params.get("split_field", None) or None
+    threshold = ctx.params.get("threshold", None)
+    if threshold is None:
+        threshold = 0.2
+    similarity_index = ctx.params.get("similarity_index", None) or None
+    roi_field = ctx.params.get("roi_field", None) or None
+    embeddings = ctx.params.get("embeddings", None) or None
+    model = ctx.params.get("model", None) or None
+    batch_size = ctx.params.get("batch_size", None)
+    num_workers = ctx.params.get("num_workers", None)
+    skip_failures = ctx.params.get("skip_failures", True)
+    tag = ctx.params.get("tag_leaks", False)
+
+    if bool(split_tags) == bool(split_field):
+        raise ValueError(
+            "Provide exactly one of `split_tags` or `split_field`"
+        )
+
+    # No multiprocessing allowed when running synchronously
+    if not ctx.delegated:
+        num_workers = 0
+
+    target_view = _get_target_view(ctx, target)
+
+    index = fob.compute_leaky_splits(
+        target_view,
+        split_tags or split_field,
+        threshold=threshold,
+        roi_field=roi_field,
+        embeddings=embeddings,
+        similarity_index=similarity_index,
+        model=model,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        skip_failures=skip_failures,
+    )
+
+    if tag:
+        index.tag_leaks()
+
+    # Everything a client needs to rebuild the index's views
+    # (`leaks_view()`, `no_leaks_view()`, `leaks_for_sample()`)
+    neighbors_map = _serialize_neighbors_map(
+        index._similarity_index.neighbors_map
+    )
+    split_ids = set()
+    for _id, neighbors in neighbors_map:
+        split_ids.add(_id)
+        split_ids.update(n[0] for n in neighbors)
+
+    id2split = index._id2split or {}
+
+    split_list_field = False
+    if split_field:
+        split_list_field = isinstance(
+            target_view.get_field(split_field), fo.ListField
+        )
+
+    result = {
+        "num_leaks": len(index.leak_ids),
+        "thresh": index.thresh,
+        "leak_ids": list(index.leak_ids),
+        "neighbors_map": neighbors_map,
+        "splits": {_id: id2split[_id] for _id in split_ids if _id in id2split},
+        "split_names": list(index.split_views.keys()),
+        "split_list_field": split_list_field,
+    }
+    return _check_result_size(result, "leaks")
+
+
+def _serialize_neighbors_map(neighbors_map):
+    # A list of [id, [[neighbor_id, distance], ...]] pairs, not a dict: the
+    # order is the index's (it decides duplicates_view() and leaks order)
+    # and JSON objects do not keep it through every hop to a client
+    return [
+        [str(_id), [[str(n[0]), float(n[1])] for n in neighbors]]
+        for _id, neighbors in (neighbors_map or {}).items()
+    ]
+
+
+#: The largest operator result these operators return. Delegated operation
+#: results are stored in one MongoDB document (16 MB)
+_MAX_RESULT_BYTES = 12 * 1024 * 1024
+
+
+def _check_result_size(result, what):
+    size = len(json.dumps(result))
+    if size > _MAX_RESULT_BYTES:
+        raise ValueError(
+            f"The {what} found are too many to return in one operation result "
+            f"({size} bytes; the limit is {_MAX_RESULT_BYTES}). Run on smaller "
+            "views, or use a tighter threshold"
+        )
+    return result
 
 
 def brain_init(ctx, inputs):
@@ -1762,7 +2143,19 @@ def get_new_brain_key(
     name="brain_key",
     label="Brain key",
     description=None,
+    allow_overwrite=False,
 ):
+    if allow_overwrite:
+        inputs.bool(
+            "overwrite",
+            default=False,
+            label="Overwrite",
+            description=(
+                "Whether to overwrite an existing run with this key, as the "
+                "fiftyone.brain function does"
+            ),
+        )
+
     prop = inputs.str(
         name,
         required=True,
@@ -1772,7 +2165,11 @@ def get_new_brain_key(
 
     brain_key = ctx.params.get(name, None)
 
-    if brain_key is not None and brain_key in ctx.dataset.list_brain_runs():
+    if (
+        brain_key is not None
+        and brain_key in ctx.dataset.list_brain_runs()
+        and not (allow_overwrite and ctx.params.get("overwrite", False))
+    ):
         prop.invalid = True
         prop.error_message = "Brain key already exists"
         brain_key = None
@@ -1910,6 +2307,19 @@ class FindExactDuplicates(foo.Operator):
 
 def find_exact_duplicates_inputs(ctx, inputs):
     get_target_view(ctx, inputs)
+    _save_views_input(inputs, "exact")
+
+
+def _save_views_input(inputs, kind):
+    inputs.bool(
+        "save_views",
+        default=True,
+        label="Save views",
+        description=(
+            f"Whether to save the `{kind} duplicates` and `representatives of "
+            f"{kind} duplicates` views on the dataset"
+        ),
+    )
 
 
 def find_exact_duplicates(ctx):
@@ -1927,18 +2337,26 @@ def find_exact_duplicates(ctx):
         dup_ids.append(rep_id)
         dup_ids.extend(neighbor_ids)
 
-    dups_view = dataset.select(dup_ids, ordered=True)
-    reps_view = dataset.select(rep_ids)
+    if ctx.params.get("save_views", True) is not False:
+        dups_view = dataset.select(dup_ids, ordered=True)
+        reps_view = dataset.select(rep_ids)
 
-    dataset.save_view("exact duplicates", dups_view, overwrite=True)
-    dataset.save_view(
-        "representatives of exact duplicates", reps_view, overwrite=True
-    )
+        dataset.save_view("exact duplicates", dups_view, overwrite=True)
+        dataset.save_view(
+            "representatives of exact duplicates", reps_view, overwrite=True
+        )
 
-    return {
+    result = {
         "num_total_dups": len(dup_ids),
         "num_unique_dups": len(rep_ids),
+        # fob.compute_exact_duplicates()'s return value, as ordered
+        # [id, [duplicate_id, ...]] pairs
+        "neighbors_map": [
+            [str(k), [str(_id) for _id in v]]
+            for k, v in duplicates_dict.items()
+        ],
     }
+    return _check_result_size(result, "exact duplicates")
 
 
 class DeduplicateExactDuplicates(foo.Operator):
@@ -2138,6 +2556,8 @@ def find_near_duplicates_inputs(ctx, inputs):
         ),
     )
 
+    _save_views_input(inputs, "near")
+
 
 def find_near_duplicates(ctx):
     target = ctx.params.get("target", None)
@@ -2169,20 +2589,33 @@ def find_near_duplicates(ctx):
         skip_failures=skip_failures,
     )
 
-    dups_view = index.duplicates_view()
-
     repr_ids = list(index.neighbors_map.keys())
-    reps_view = dataset.select(repr_ids)
 
-    dataset.save_view("near duplicates", dups_view, overwrite=True)
-    dataset.save_view(
-        "representatives of near duplicates", reps_view, overwrite=True
-    )
+    if ctx.params.get("save_views", True) is not False:
+        dups_view = index.duplicates_view()
+        reps_view = dataset.select(repr_ids)
 
-    return {
-        "num_total_dups": len(dups_view),
+        dataset.save_view("near duplicates", dups_view, overwrite=True)
+        dataset.save_view(
+            "representatives of near duplicates", reps_view, overwrite=True
+        )
+
+    neighbors_map = _serialize_neighbors_map(index.neighbors_map)
+    num_total_dups = len(neighbors_map) + sum(len(v) for _, v in neighbors_map)
+
+    # Everything a client needs to rebuild the index's duplicate views
+    result = {
+        "num_total_dups": num_total_dups,
         "num_unique_dups": len(repr_ids),
+        "thresh": index.thresh,
+        "duplicate_ids": [str(_id) for _id in index.duplicate_ids],
+        "neighbors_map": neighbors_map,
+        # duplicates_view() and unique_view() select from index.view, which
+        # is the whole dataset when FiftyOne indexed it (an embeddings field
+        # on a view), not the target view
+        "on_dataset": isinstance(index.view, fo.Dataset),
     }
+    return _check_result_size(result, "near duplicates")
 
 
 class DeduplicateNearDuplicates(foo.Operator):
@@ -2716,6 +3149,8 @@ def register(p):
     p.register(ComputeUniqueness)
     p.register(ComputeMistakenness)
     p.register(ComputeHardness)
+    p.register(ComputeRepresentativeness)
+    p.register(ComputeLeakySplits)
     p.register(FindExactDuplicates)
     p.register(DeduplicateExactDuplicates)
     p.register(FindNearDuplicates)
