@@ -108,6 +108,11 @@ Want to showcase your own plugin here? See the
         <td>🏃 Utilities for managing your custom runs</td>
     </tr>
     <tr>
+        <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/management">@voxel51/management</a></b></td>
+        <td><kbd>management</kbd> <kbd>admin</kbd></td>
+        <td>🔧 Operators for managing FiftyOne Teams resources (service accounts, API keys, and more)</td>
+    </tr>
+    <tr>
         <td><b><a href="https://github.com/voxel51/fiftyone-plugins/tree/main/plugins/utils">@voxel51/utils</a></b></td>
         <td><kbd>utils</kbd></td>
         <td>⚒️ Call your favorite SDK utilities from the App</td>

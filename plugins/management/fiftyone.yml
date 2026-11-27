@@ -1,0 +1,16 @@
+name: "@voxel51/management"
+description: Suite of operators for FiftyOne Teams management commands
+tags:
+  - management
+  - admin
+version: 1.0.0
+fiftyone:
+  version: "*"
+operators:
+  - create_service_account
+  - list_service_accounts
+  - delete_service_account
+  - update_service_account
+  - generate_service_account_api_key
+  - delete_service_account_api_key
+  - list_service_account_api_keys
